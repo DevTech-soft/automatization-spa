@@ -8,6 +8,7 @@ import type { WebhookEventStatus } from "../integrations/payments/PaymentProvide
 import { NotFoundError, PaymentError, ValidationError, WebhookVerificationError } from "../errors/index.js";
 import { dateOnlyFromUTCDate } from "../utils/datetime.js";
 import { generateCode } from "../utils/code-generator.js";
+import { notifyAppointmentConfirmed } from "./notification.service.js";
 import { env } from "../config/env.js";
 import { logger } from "../utils/logger.js";
 
@@ -132,20 +133,20 @@ export async function processPaymentWebhook(rawPayload: unknown): Promise<void> 
 
   const event = provider.parseWebhook(rawPayload);
 
-  await prisma.$transaction(async (tx) => {
+  const confirmedAppointmentId = await prisma.$transaction(async (tx) => {
     // Serializa cualquier entrega concurrente/duplicada del mismo evento.
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${event.reference})::bigint)`;
 
     const payment = await paymentRepository.findByReference(event.reference, tx);
     if (!payment) {
       logger.warn({ reference: event.reference, provider: event.provider }, "payment_webhook_unknown_reference");
-      return;
+      return null;
     }
 
     if (payment.status === "PAID" || payment.status === "FAILED" || payment.status === "REFUNDED") {
       // Idempotencia: webhook duplicado o replay de un evento ya procesado.
       logger.info({ reference: event.reference, status: payment.status }, "payment_webhook_already_processed");
-      return;
+      return null;
     }
 
     const expectedCents = Math.round(Number(payment.amount) * 100);
@@ -165,7 +166,7 @@ export async function processPaymentWebhook(rawPayload: unknown): Promise<void> 
 
     const newStatus = mapEventStatusToPaymentStatus(event.status);
     if (newStatus === "PENDING") {
-      return;
+      return null;
     }
 
     await paymentRepository.updateStatus(
@@ -178,21 +179,34 @@ export async function processPaymentWebhook(rawPayload: unknown): Promise<void> 
     logger.info({ reference: event.reference, status: newStatus }, "payment_status_updated");
 
     if (newStatus !== "PAID") {
-      return; // FAILED: la reserva sigue PENDING, el cliente puede reintentar el pago.
+      return null; // FAILED: la reserva sigue PENDING, el cliente puede reintentar el pago.
     }
 
     if (payment.entityType === "APPOINTMENT") {
-      await confirmAppointmentAfterPayment(payment.entityId, tx);
+      const confirmed = await confirmAppointmentAfterPayment(payment.entityId, tx);
+      return confirmed ? payment.entityId : null;
     }
     // GIFT_CARD: se implementa en Fase 8.
+    return null;
   });
+
+  if (confirmedAppointmentId) {
+    // Fuera de la transacción a propósito: un fallo de WhatsApp nunca debe
+    // revertir la confirmación del pago ya comprometida (sección 22).
+    await notifyAppointmentConfirmed(confirmedAppointmentId).catch((error) => {
+      logger.error({ appointmentId: confirmedAppointmentId, error }, "appointment_confirmation_notification_failed");
+    });
+  }
 }
 
-async function confirmAppointmentAfterPayment(appointmentId: string, tx: Prisma.TransactionClient): Promise<void> {
+async function confirmAppointmentAfterPayment(
+  appointmentId: string,
+  tx: Prisma.TransactionClient,
+): Promise<boolean> {
   const appointment = await appointmentRepository.findById(appointmentId, tx);
   if (!appointment) {
     logger.error({ appointmentId }, "payment_confirmed_appointment_missing");
-    return;
+    return false;
   }
 
   // Mismo lock que usa la creación de reservas (sección 12): evita que la
@@ -210,11 +224,12 @@ async function confirmAppointmentAfterPayment(appointmentId: string, tx: Prisma.
     } else {
       logger.info({ appointmentId, status: appointment.status }, "appointment_confirm_skipped_not_pending");
     }
+    return confirmed;
   } catch (error) {
     if (isCapacityExceededError(error)) {
       await appointmentRepository.markPaymentConflict(appointmentId, appendConflictNote(appointment.notes), tx);
       logger.error({ appointmentId }, "appointment_payment_conflict_needs_manual_review");
-      return;
+      return false;
     }
     throw error;
   }

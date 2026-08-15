@@ -40,6 +40,14 @@ export const appointmentRepository = {
     return db.appointment.findUnique({ where: { id } });
   },
 
+  /** Usado por las notificaciones de confirmación (Fase 6) — necesita cliente, servicio y negocio. */
+  findByIdWithDetails(id: string, db: Db = prisma) {
+    return db.appointment.findUnique({
+      where: { id },
+      include: { customer: true, service: true, business: true },
+    });
+  },
+
   /** Usado por `/gracias` (Fase 5) para mostrar el estado tras volver del checkout. */
   findByPaymentReference(paymentReference: string, db: Db = prisma) {
     return db.appointment.findFirst({

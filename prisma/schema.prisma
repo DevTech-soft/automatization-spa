@@ -60,6 +60,21 @@ enum NotificationChannel {
   EMAIL
 }
 
+/// Estados del bot determinístico de WhatsApp (sección 18 del prompt maestro).
+/// COLLECTING_PHONE existe en la máquina de estados por completitud con la
+/// especificación, pero en el canal WhatsApp se resuelve automáticamente con
+/// el número remitente — no requiere un turno de conversación adicional.
+enum ConversationState {
+  SELECTING_SERVICE
+  SELECTING_DATE
+  SELECTING_TIME
+  COLLECTING_NAME
+  COLLECTING_PHONE
+  WAITING_PAYMENT
+  CONFIRMED
+  CANCELLED
+}
+
 model Business {
   id             String   @id @default(uuid())
   name           String
@@ -77,13 +92,14 @@ model Business {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  services         Service[]
-  businessHours    BusinessHour[]
-  customers        Customer[]
-  appointments     Appointment[]
-  payments         Payment[]
-  giftCards        GiftCard[]
-  notificationLogs NotificationLog[]
+  services              Service[]
+  businessHours         BusinessHour[]
+  customers             Customer[]
+  appointments          Appointment[]
+  payments              Payment[]
+  giftCards             GiftCard[]
+  notificationLogs      NotificationLog[]
+  whatsAppConversations WhatsAppConversation[]
 
   @@map("businesses")
 }
@@ -101,9 +117,10 @@ model Service {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  appointments Appointment[]
-  giftCards    GiftCard[]
+  business              Business               @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  appointments          Appointment[]
+  giftCards             GiftCard[]
+  whatsAppConversations WhatsAppConversation[]
 
   @@index([businessId])
   @@map("services")
@@ -243,4 +260,32 @@ model NotificationLog {
   @@unique([entityType, entityId, type])
   @@index([businessId])
   @@map("notification_log")
+}
+
+/// Estado de la conversación determinística del bot de WhatsApp (sección 18).
+/// Una fila por (business_id, phone) — cada cita nueva reinicia el flujo
+/// desde SELECTING_SERVICE una vez la conversación anterior llega a
+/// CONFIRMED/CANCELLED.
+model WhatsAppConversation {
+  id            String            @id @default(uuid())
+  businessId    String            @map("business_id")
+  /// Número normalizado del remitente (wa_id de Meta), no de la columna businesses.phone.
+  phone         String
+  state         ConversationState @default(SELECTING_SERVICE)
+  serviceId     String?           @map("service_id")
+  /// Fecha elegida, mismo formato/convención que appointments.appointment_date.
+  date          DateTime?         @db.Date
+  startTime     String?           @map("start_time")
+  customerName  String?           @map("customer_name")
+  /// Referencia suelta (sin FK) a la cita creada — solo para responder "estado".
+  appointmentId String?           @map("appointment_id")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  service  Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@unique([businessId, phone])
+  @@index([businessId])
+  @@map("whatsapp_conversations")
 }

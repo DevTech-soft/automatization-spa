@@ -57,6 +57,11 @@ Toda entidad de negocio lleva `business_id`. El backend siempre filtra por
 fase SaaS futura: en el MVP solo el backend (con `SUPABASE_SERVICE_ROLE_KEY`)
 toca la base de datos — el frontend y n8n nunca acceden a Supabase directamente.
 
+El canal WhatsApp (Fase 6) es el primero que resuelve el tenant sin ayuda de
+un query param: cada mensaje entrante trae el número de WhatsApp que lo
+recibió, que se compara contra `businesses.whatsapp_number`. Ver
+`docs/WHATSAPP.md`.
+
 ## Modelo de recursos (disponibilidad)
 
 El spa puede tener varias citas en paralelo (varias sillas/camillas), pero sin

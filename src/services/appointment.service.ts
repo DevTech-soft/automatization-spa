@@ -1,5 +1,5 @@
 import { DateTime } from "luxon";
-import { Prisma, type Appointment, type AppointmentSource, type Customer, type Service } from "@prisma/client";
+import type { Appointment, AppointmentSource, Customer, Service } from "@prisma/client";
 import { prisma } from "../db/prisma.js";
 import { businessRepository } from "../repositories/business.repository.js";
 import { serviceRepository } from "../repositories/service.repository.js";
@@ -20,6 +20,7 @@ import {
 } from "../utils/datetime.js";
 import { normalizePhone } from "../utils/phone.js";
 import { generateCode } from "../utils/code-generator.js";
+import { isUniqueConstraintViolation } from "../utils/prisma-errors.js";
 import { MAX_BOOKING_DAYS_AHEAD, PENDING_EXPIRATION_MINUTES } from "../config/constants.js";
 
 export interface CreateAppointmentInput {
@@ -38,10 +39,6 @@ export type AppointmentWithRelations = Appointment & { customer: Customer; servi
 
 const MAX_CODE_ATTEMPTS = 5;
 const NO_AVAILABILITY_MESSAGE = "Lo sentimos, no tenemos disponibilidad para ese horario.";
-
-function isUniqueConstraintViolation(error: unknown): boolean {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
-}
 
 /**
  * Crea una reserva PENDING. Reutilizable por el formulario web (Fase 5) y por

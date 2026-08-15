@@ -6,6 +6,11 @@
 export function normalizePhone(raw: string): string {
   const trimmed = raw.trim();
   const hasLeadingPlus = trimmed.startsWith("+");
-  const digits = trimmed.replace(/\D/g, "");
+  const digits = digitsOnly(trimmed);
   return hasLeadingPlus ? `+${digits}` : digits;
+}
+
+/** Solo dígitos, sin "+" — para comparar números que llegan en formatos distintos (ej. Meta vs. seed). */
+export function digitsOnly(raw: string): string {
+  return raw.replace(/\D/g, "");
 }

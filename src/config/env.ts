@@ -26,6 +26,9 @@ const envSchema = z.object({
   WHATSAPP_ACCESS_TOKEN: z.string().optional().or(z.literal("")),
   WHATSAPP_PHONE_NUMBER_ID: z.string().optional().or(z.literal("")),
   WHATSAPP_VERIFY_TOKEN: z.string().optional().or(z.literal("")),
+  /** Firma los webhooks de Meta. No está en la sección 38 del prompt maestro,
+   *  se agregó en Fase 6 para validación de firma — ver docs/WHATSAPP.md. */
+  WHATSAPP_APP_SECRET: z.string().optional().or(z.literal("")),
 
   PAYMENT_PROVIDER: z.enum(["wompi", "mercadopago"]).default("wompi"),
   PAYMENT_API_KEY: z.string().optional().or(z.literal("")),

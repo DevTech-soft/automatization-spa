@@ -27,12 +27,20 @@ vi.mock("../../src/services/payment.service.js", () => ({
   createPayment: vi.fn().mockResolvedValue({ paymentUrl: "https://checkout.wompi.co/p/xyz", reference: "PAY-1" }),
   processPaymentWebhook: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock("../../src/services/whatsapp-conversation.service.js", () => ({
+  handleIncomingWhatsAppMessage: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock("../../src/integrations/whatsapp/index.js", () => ({
+  getWhatsAppProvider: vi.fn(() => ({ validateWebhookSignature: vi.fn().mockReturnValue(true) })),
+}));
 vi.mock("../../src/db/prisma.js", () => ({
   prisma: { $queryRaw: vi.fn().mockResolvedValue([{ ok: 1 }]) },
 }));
 
 const { buildApp } = await import("../../src/app.js");
 const { createPayment, processPaymentWebhook } = await import("../../src/services/payment.service.js");
+const { handleIncomingWhatsAppMessage } = await import("../../src/services/whatsapp-conversation.service.js");
+const { getWhatsAppProvider } = await import("../../src/integrations/whatsapp/index.js");
 
 describe("rutas de Fase 2", () => {
   it("GET /api/business/:slug responde 200 con los datos del negocio", async () => {
@@ -183,6 +191,53 @@ describe("rutas de Fase 4 — Payments", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ received: true });
     expect(processPaymentWebhook).toHaveBeenCalledWith({ event: "transaction.updated" });
+    await app.close();
+  });
+});
+
+describe("rutas de Fase 6 — WhatsApp", () => {
+  it("GET /api/webhooks/whatsapp con verify_token correcto responde con el challenge", async () => {
+    const app = await buildApp();
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=test-whatsapp-verify-token&hub.challenge=abc123",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toBe("abc123");
+    await app.close();
+  });
+
+  it("GET /api/webhooks/whatsapp con verify_token incorrecto responde 403", async () => {
+    const app = await buildApp();
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=wrong&hub.challenge=abc123",
+    });
+
+    expect(response.statusCode).toBe(403);
+    await app.close();
+  });
+
+  it("POST /api/webhooks/whatsapp con firma inválida responde 401", async () => {
+    vi.mocked(getWhatsAppProvider).mockReturnValueOnce({
+      validateWebhookSignature: vi.fn().mockReturnValue(false),
+    } as never);
+    const app = await buildApp();
+    const response = await app.inject({ method: "POST", url: "/api/webhooks/whatsapp", payload: { entry: [] } });
+
+    expect(response.statusCode).toBe(401);
+    expect(handleIncomingWhatsAppMessage).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("POST /api/webhooks/whatsapp con firma válida responde 200 y procesa el mensaje", async () => {
+    const app = await buildApp();
+    const response = await app.inject({ method: "POST", url: "/api/webhooks/whatsapp", payload: { entry: [] } });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ received: true });
+    expect(handleIncomingWhatsAppMessage).toHaveBeenCalledWith({ entry: [] });
     await app.close();
   });
 });

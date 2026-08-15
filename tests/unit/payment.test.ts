@@ -17,6 +17,9 @@ vi.mock("../../src/repositories/payment.repository.js", () => ({
 vi.mock("../../src/integrations/payments/index.js", () => ({
   getPaymentProvider: vi.fn(),
 }));
+vi.mock("../../src/services/notification.service.js", () => ({
+  notifyAppointmentConfirmed: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("../../src/db/prisma.js", () => ({
   prisma: {
     $transaction: vi.fn(async (callback: (tx: { $executeRaw: () => Promise<void> }) => unknown) => {
@@ -30,6 +33,7 @@ const { appointmentRepository } = await import("../../src/repositories/appointme
 const { businessRepository } = await import("../../src/repositories/business.repository.js");
 const { paymentRepository } = await import("../../src/repositories/payment.repository.js");
 const { getPaymentProvider } = await import("../../src/integrations/payments/index.js");
+const { notifyAppointmentConfirmed } = await import("../../src/services/notification.service.js");
 const { createPayment, processPaymentWebhook } = await import("../../src/services/payment.service.js");
 const { NotFoundError, PaymentError, ValidationError, WebhookVerificationError } = await import(
   "../../src/errors/index.js"
@@ -282,6 +286,7 @@ describe("processPaymentWebhook", () => {
       expect.anything(),
     );
     expect(appointmentRepository.confirmIfPending).toHaveBeenCalledWith(APPOINTMENT_ID, expect.anything());
+    expect(notifyAppointmentConfirmed).toHaveBeenCalledWith(APPOINTMENT_ID);
   });
 
   it("marca FAILED sin confirmar la reserva cuando el pago es DECLINED", async () => {
@@ -316,6 +321,7 @@ describe("processPaymentWebhook", () => {
       expect.anything(),
     );
     expect(appointmentRepository.confirmIfPending).not.toHaveBeenCalled();
+    expect(notifyAppointmentConfirmed).not.toHaveBeenCalled();
   });
 
   it("marca la reserva para revisión manual si el pago llega pero la capacity ya se llenó", async () => {
@@ -350,5 +356,6 @@ describe("processPaymentWebhook", () => {
       expect.stringContaining("revisión manual"),
       expect.anything(),
     );
+    expect(notifyAppointmentConfirmed).not.toHaveBeenCalled();
   });
 });

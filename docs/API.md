@@ -200,3 +200,26 @@ igual que `appointment_code`.
 - `GET /gracias?ref=<payment.reference>` — sondea `GET
   /api/appointments/status` cada 3s (máx. 10 intentos) mientras el webhook de
   pago confirma la reserva de forma asíncrona.
+
+## Fase 6 — WhatsApp
+
+Ver `docs/WHATSAPP.md` para el detalle de la máquina de estados, cómo se
+resuelve el negocio por número de WhatsApp, y por qué la URL usa `/api/`
+(la sección 17 y la sección 23 del prompt maestro no coinciden entre sí).
+
+### `GET /api/webhooks/whatsapp`
+
+Handshake de verificación de Meta. Query params `hub.mode`, `hub.verify_token`,
+`hub.challenge`.
+
+- `200` con `hub.challenge` como texto plano si `hub.mode=subscribe` y
+  `hub.verify_token` coincide con `WHATSAPP_VERIFY_TOKEN`.
+- `403` en cualquier otro caso.
+
+### `POST /api/webhooks/whatsapp`
+
+Mensajes entrantes. Valida `X-Hub-Signature-256` antes de procesar; siempre
+responde `200` si la firma es válida, para que Meta no reintente.
+
+- `401 WEBHOOK_VERIFICATION_ERROR` si la firma no es válida (y hay
+  `WHATSAPP_APP_SECRET` configurado — ver docs/WHATSAPP.md).

@@ -10,3 +10,4 @@ process.env.SUPABASE_URL = "https://example.supabase.co";
 process.env.SUPABASE_ANON_KEY = "test-anon-key";
 process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
 process.env.INTERNAL_JOBS_TOKEN = "test-internal-jobs-token-0123456789";
+process.env.WHATSAPP_VERIFY_TOKEN = "test-whatsapp-verify-token";
