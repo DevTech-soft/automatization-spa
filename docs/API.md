@@ -126,3 +126,40 @@ cuyo `expires_at` ya venció. Pensado para que lo dispare el cron de n8n
 - Requiere header `Authorization: Bearer <INTERNAL_JOBS_TOKEN>`.
 - `401 UNAUTHORIZED` si falta o no coincide el token.
 - `200 { "data": { "expiredCount": number } }`.
+
+## Fase 4 — Payment Integration
+
+Ver `docs/PAYMENTS.md` para el detalle de la abstracción `PaymentProvider`, el
+adapter de Wompi y las reglas de idempotencia/validación del webhook.
+
+### `POST /api/payments/create`
+
+Genera (o reutiliza) el link de pago de una reserva `PENDING`.
+
+Body:
+
+```json
+{ "entityType": "APPOINTMENT", "entityId": "uuid" }
+```
+
+- `entityType: "GIFT_CARD"` no está soportado todavía (Fase 8).
+- `400 VALIDATION_ERROR` si el body es inválido, la reserva ya no está
+  `PENDING`, o ya expiró.
+- `404 NOT_FOUND` si la reserva o el negocio no existen.
+- `201`:
+
+```json
+{ "data": { "paymentUrl": "https://checkout.wompi.co/p/...", "reference": "PAY-XXXXXXXX" } }
+```
+
+### `POST /api/webhooks/payment`
+
+Único punto que puede confirmar un pago (sección 9 — nunca se confía en el
+frontend). Verifica la firma del proveedor, valida referencia/monto/moneda,
+actualiza el `payment` y confirma la reserva asociada de forma idempotente.
+
+- Siempre responde `200 { "received": true }` si el payload trae una firma
+  válida (incluso si la referencia no existe o el evento ya se procesó antes),
+  para que el proveedor no reintente innecesariamente.
+- `401 WEBHOOK_VERIFICATION_ERROR` si la firma no es válida.
+- `402 PAYMENT_ERROR` si el monto o la moneda no coinciden con lo esperado.

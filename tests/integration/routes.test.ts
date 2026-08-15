@@ -13,11 +13,16 @@ vi.mock("../../src/services/appointment.service.js", () => ({
   createAppointment: vi.fn().mockResolvedValue({ id: "appt-1", appointmentCode: "APT-ABC12345" }),
   expireStalePendingAppointments: vi.fn().mockResolvedValue(2),
 }));
+vi.mock("../../src/services/payment.service.js", () => ({
+  createPayment: vi.fn().mockResolvedValue({ paymentUrl: "https://checkout.wompi.co/p/xyz", reference: "PAY-1" }),
+  processPaymentWebhook: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("../../src/db/prisma.js", () => ({
   prisma: { $queryRaw: vi.fn().mockResolvedValue([{ ok: 1 }]) },
 }));
 
 const { buildApp } = await import("../../src/app.js");
+const { createPayment, processPaymentWebhook } = await import("../../src/services/payment.service.js");
 
 describe("rutas de Fase 2", () => {
   it("GET /api/business/:slug responde 200 con los datos del negocio", async () => {
@@ -107,6 +112,50 @@ describe("rutas de Fase 2", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ data: { expiredCount: 2 } });
+    await app.close();
+  });
+});
+
+describe("rutas de Fase 4 — Payments", () => {
+  it("POST /api/payments/create con body inválido responde 400", async () => {
+    const app = await buildApp();
+    const response = await app.inject({ method: "POST", url: "/api/payments/create", payload: {} });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe("VALIDATION_ERROR");
+    await app.close();
+  });
+
+  it("POST /api/payments/create con body válido responde 201 con el link de pago", async () => {
+    const app = await buildApp();
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/payments/create",
+      payload: { entityType: "APPOINTMENT", entityId: "44444444-4444-4444-4444-444444444444" },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toEqual({
+      data: { paymentUrl: "https://checkout.wompi.co/p/xyz", reference: "PAY-1" },
+    });
+    expect(createPayment).toHaveBeenCalledWith({
+      entityType: "APPOINTMENT",
+      entityId: "44444444-4444-4444-4444-444444444444",
+    });
+    await app.close();
+  });
+
+  it("POST /api/webhooks/payment siempre responde 200 (el proveedor reintenta si no)", async () => {
+    const app = await buildApp();
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/webhooks/payment",
+      payload: { event: "transaction.updated" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ received: true });
+    expect(processPaymentWebhook).toHaveBeenCalledWith({ event: "transaction.updated" });
     await app.close();
   });
 });

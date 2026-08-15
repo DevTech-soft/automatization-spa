@@ -29,6 +29,8 @@ const envSchema = z.object({
 
   PAYMENT_PROVIDER: z.enum(["wompi", "mercadopago"]).default("wompi"),
   PAYMENT_API_KEY: z.string().optional().or(z.literal("")),
+  PAYMENT_PUBLIC_KEY: z.string().optional().or(z.literal("")),
+  PAYMENT_INTEGRITY_SECRET: z.string().optional().or(z.literal("")),
   PAYMENT_WEBHOOK_SECRET: z.string().optional().or(z.literal("")),
 
   GOOGLE_CLIENT_ID: z.string().optional().or(z.literal("")),

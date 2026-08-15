@@ -11,6 +11,7 @@ import { businessRoutes } from "./routes/business.route.js";
 import { serviceRoutes } from "./routes/service.route.js";
 import { appointmentRoutes } from "./routes/appointment.route.js";
 import { internalRoutes } from "./routes/internal.route.js";
+import { paymentRoutes } from "./routes/payment.route.js";
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -34,6 +35,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(serviceRoutes);
   await app.register(appointmentRoutes);
   await app.register(internalRoutes);
+  await app.register(paymentRoutes);
 
   return app;
 }

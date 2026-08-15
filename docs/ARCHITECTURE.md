@@ -86,11 +86,18 @@ la migración y no se toca al correr `prisma migrate dev` en el futuro.
 
 ## Pagos
 
-Interfaz `PaymentProvider` (`createPayment`, `verifyPayment`, `parseWebhook`,
-`validateWebhook`) con un primer adapter `WompiPaymentProvider` (default:
-Colombia / COP / `America/Bogota`, decisión de Fase 0 — pendiente de confirmar
-con el primer cliente real). Cambiar de proveedor implica escribir un nuevo
-adapter, no tocar el resto de la aplicación.
+Interfaz `PaymentProvider` (`createPayment`, `validateWebhook`, `parseWebhook`)
+con un primer adapter `WompiPaymentProvider` (default: Colombia / COP /
+`America/Bogota`, decisión de Fase 0 — pendiente de confirmar con el primer
+cliente real). Cambiar de proveedor implica escribir un nuevo adapter, no
+tocar el resto de la aplicación. Detalle completo del flujo, la verificación
+de firma y las reglas de idempotencia en `docs/PAYMENTS.md`.
+
+El webhook (`POST /api/webhooks/payment`, Fase 4) es la única fuente que puede
+confirmar un pago (sección 9). Usa `pg_advisory_xact_lock(hashtext(reference))`
+para serializar entregas duplicadas del mismo evento, y reutiliza el
+`pg_advisory_xact_lock(business_id, service_id, appointment_date)` de la Fase 3
+al confirmar la reserva, para no violar `capacity` bajo concurrencia real.
 
 ## Protección de canje de Gift Cards
 
