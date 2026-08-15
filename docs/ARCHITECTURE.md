@@ -68,10 +68,21 @@ calcula como:
 citas CONFIRMED + PENDING-no-expiradas de ese service_id que solapan el slot < capacity
 ```
 
-El control de concurrencia (Fase 3) usa `pg_advisory_xact_lock` con clave
-`(business_id, service_id, appointment_date)` envolviendo el chequeo de solape +
-insert en una misma transacción, más una constraint `EXCLUDE` (extensión
-`btree_gist`) como red de seguridad a nivel de base de datos.
+El control de concurrencia (Fase 3, sección 12) usa `pg_advisory_xact_lock` con
+clave `(business_id, service_id, appointment_date)` envolviendo el recuento de
+solapes + insert en una misma transacción — así dos requests simultáneas al
+mismo slot no pueden pasar ambas el chequeo. Verificado end-to-end contra
+Supabase: de dos reservas concurrentes al mismo slot con `capacity=1`, una
+recibe `201` y la otra `409 AVAILABILITY_ERROR`.
+
+Como red de seguridad a nivel de base de datos se agregó un **trigger**
+(`prisma/migrations/..._appointment_capacity_trigger`), no una constraint
+`EXCLUDE`: un `EXCLUDE` clásico impide que dos filas se solapen (pairwise), pero
+`services.capacity` permite varias citas `CONFIRMED` en paralelo para el mismo
+servicio — se necesita contar solapes contra la capacidad, no solo detectarlos.
+El trigger corre `BEFORE INSERT OR UPDATE` y solo actúa cuando `status =
+'CONFIRMED'`. Prisma no gestiona triggers, así que este SQL vive únicamente en
+la migración y no se toca al correr `prisma migrate dev` en el futuro.
 
 ## Pagos
 

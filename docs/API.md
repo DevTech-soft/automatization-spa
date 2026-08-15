@@ -72,3 +72,57 @@ Respuesta:
 - `400 VALIDATION_ERROR` si los parámetros son inválidos, la fecha está en el
   pasado o excede el máximo de anticipación.
 - `404 NOT_FOUND` si el negocio o el servicio no existen.
+
+## Fase 3 — Customers & Appointments
+
+### `POST /api/appointments`
+
+Crea una reserva `PENDING` (fuente `WEB`). Reutiliza la misma lógica de
+disponibilidad y concurrencia que WhatsApp usará en Fase 6
+(`src/services/appointment.service.ts`).
+
+Body:
+
+```json
+{
+  "businessId": "uuid",
+  "serviceId": "uuid",
+  "date": "2026-01-05",
+  "startTime": "10:00",
+  "customerName": "María Pérez",
+  "customerPhone": "+573001112233",
+  "customerEmail": "maria@example.com",
+  "notes": "opcional"
+}
+```
+
+Comportamiento:
+
+- Hace *upsert* del cliente por `(business_id, phone normalizado)` — evita
+  duplicar clientes (sección 6).
+- Verifica el slot dentro de una transacción con `pg_advisory_xact_lock`
+  (`business_id, service_id, date`) para que dos requests concurrentes al
+  mismo horario no puedan reservar ambas (sección 12, verificado end-to-end).
+- `status: PENDING`, `payment_status: PENDING`, `expires_at: now + 15 min`
+  (sección 10). El pago y la confirmación llegan en Fase 4.
+- `appointment_code` único por negocio (formato `APT-XXXXXXXX`), con
+  reintento automático ante colisión.
+
+Respuestas:
+
+- `201` con la reserva creada (incluye `customer` y `service`).
+- `400 VALIDATION_ERROR` si el body es inválido.
+- `404 NOT_FOUND` si el negocio o el servicio no existen.
+- `409 AVAILABILITY_ERROR` — "Lo sentimos, no tenemos disponibilidad para ese
+  horario." — si el horario está fuera de `business_hours`, ya pasó, o ya
+  alcanzó la `capacity` del servicio.
+
+### `POST /internal/jobs/expire-appointments`
+
+Endpoint interno (no público) que marca como `EXPIRED` las reservas `PENDING`
+cuyo `expires_at` ya venció. Pensado para que lo dispare el cron de n8n
+(workflow `11_cleanup_expired_appointments`, Fase 9).
+
+- Requiere header `Authorization: Bearer <INTERNAL_JOBS_TOKEN>`.
+- `401 UNAUTHORIZED` si falta o no coincide el token.
+- `200 { "data": { "expiredCount": number } }`.

@@ -9,6 +9,10 @@ vi.mock("../../src/services/service.service.js", () => ({
 vi.mock("../../src/services/availability.service.js", () => ({
   getAvailability: vi.fn().mockResolvedValue({ slots: [] }),
 }));
+vi.mock("../../src/services/appointment.service.js", () => ({
+  createAppointment: vi.fn().mockResolvedValue({ id: "appt-1", appointmentCode: "APT-ABC12345" }),
+  expireStalePendingAppointments: vi.fn().mockResolvedValue(2),
+}));
 vi.mock("../../src/db/prisma.js", () => ({
   prisma: { $queryRaw: vi.fn().mockResolvedValue([{ ok: 1 }]) },
 }));
@@ -54,6 +58,55 @@ describe("rutas de Fase 2", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ data: { slots: [] } });
+    await app.close();
+  });
+
+  it("POST /api/appointments con body inválido responde 400", async () => {
+    const app = await buildApp();
+    const response = await app.inject({ method: "POST", url: "/api/appointments", payload: {} });
+
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("POST /api/appointments con body válido responde 201", async () => {
+    const app = await buildApp();
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/appointments",
+      payload: {
+        businessId: "11111111-1111-1111-1111-111111111111",
+        serviceId: "22222222-2222-2222-2222-222222222222",
+        date: "2026-01-05",
+        startTime: "10:00",
+        customerName: "Cliente de Prueba",
+        customerPhone: "+573001112233",
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toEqual({ data: { id: "appt-1", appointmentCode: "APT-ABC12345" } });
+    await app.close();
+  });
+
+  it("POST /internal/jobs/expire-appointments sin token responde 401", async () => {
+    const app = await buildApp();
+    const response = await app.inject({ method: "POST", url: "/internal/jobs/expire-appointments" });
+
+    expect(response.statusCode).toBe(401);
+    await app.close();
+  });
+
+  it("POST /internal/jobs/expire-appointments con token válido responde 200", async () => {
+    const app = await buildApp();
+    const response = await app.inject({
+      method: "POST",
+      url: "/internal/jobs/expire-appointments",
+      headers: { authorization: `Bearer ${process.env.INTERNAL_JOBS_TOKEN}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ data: { expiredCount: 2 } });
     await app.close();
   });
 });

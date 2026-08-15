@@ -38,6 +38,9 @@ const envSchema = z.object({
   STORAGE_BUCKET: z.string().default("gift-cards"),
 
   STAFF_PIN: z.string().optional().or(z.literal("")),
+
+  /** Protege los endpoints /internal/* (cron de n8n). Ver Fase 3. */
+  INTERNAL_JOBS_TOKEN: z.string().min(16, "INTERNAL_JOBS_TOKEN debe tener al menos 16 caracteres."),
 });
 
 export type Env = z.infer<typeof envSchema>;
