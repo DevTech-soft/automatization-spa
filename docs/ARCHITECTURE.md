@@ -34,21 +34,29 @@ Payment gateway = fuente de verdad del estado del pago
 
 ## Rol de n8n
 
-n8n recibe los webhooks públicos de WhatsApp (Meta) y del proveedor de pago en
-sus propias URLs, y los reenvía de inmediato al endpoint interno correspondiente
-del backend (`POST /webhooks/whatsapp`, `POST /api/webhooks/payment`), que hace
-toda la validación, seguridad e idempotencia. n8n nunca decide disponibilidad,
-precio, estado de pago ni validez de una Gift Card (sección 18).
+**Actualización de Fase 4/6/7** (corrige el plan original de Fase 0 de abajo):
+en la práctica, WhatsApp (Meta) y el proveedor de pago (Wompi) le hablan
+**directamente** al backend — `POST /api/webhooks/whatsapp` y
+`POST /api/webhooks/payment` son endpoints públicos reales, verificados
+end-to-end contra ambos proveedores (ver `docs/WHATSAPP.md` y
+`docs/PAYMENTS.md`) — y la sincronización a Google Sheets (Fase 7) también
+llama a la API de Google directamente desde el backend (ver
+`docs/GOOGLE-SHEETS.md`). No hay una instancia de n8n desplegada todavía en
+este MVP. Esto simplifica el despliegue (un servicio menos que mantener vivo)
+sin romper el principio de la sección 18: el backend sigue siendo la única
+fuente de verdad, nada de esto le da a un tercero poder de decisión sobre
+disponibilidad, precio o estado de pago.
 
-El resto del rol de n8n:
+Plan original de Fase 0 (para cuando se introduzca n8n, ej. en Fase 9):
 
 - `10_appointment_reminders`: cron que llama a un endpoint interno del backend.
 - `11_cleanup_expired_appointments`: cron que llama a un endpoint interno del backend.
-- `06_google_sheets_sync`: disparado por el backend tras cada cambio de estado
-  relevante (reserva confirmada, gift card creada, etc.).
 
-Así el backend sigue siendo la única fuente de verdad de la lógica de negocio y
-n8n queda como pieza reemplazable, sin lógica crítica propia.
+Si más adelante conviene meter n8n en el medio (para los cron jobs de Fase 9,
+o para desacoplar reintentos de webhooks), el cambio es aislado: los
+providers (`WhatsAppProvider`, `PaymentProvider`, `GoogleSheetsProvider`) ya
+son la capa de abstracción correcta para hacerlo sin tocar la lógica de
+negocio.
 
 ## Multi-tenancy
 

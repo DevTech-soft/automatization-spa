@@ -9,6 +9,7 @@ import { NotFoundError, PaymentError, ValidationError, WebhookVerificationError 
 import { dateOnlyFromUTCDate } from "../utils/datetime.js";
 import { generateCode } from "../utils/code-generator.js";
 import { notifyAppointmentConfirmed } from "./notification.service.js";
+import { syncAppointmentToSheet } from "./google-sheets-sync.service.js";
 import { env } from "../config/env.js";
 import { logger } from "../utils/logger.js";
 
@@ -191,11 +192,12 @@ export async function processPaymentWebhook(rawPayload: unknown): Promise<void> 
   });
 
   if (confirmedAppointmentId) {
-    // Fuera de la transacción a propósito: un fallo de WhatsApp nunca debe
-    // revertir la confirmación del pago ya comprometida (sección 22).
+    // Fuera de la transacción a propósito: un fallo de WhatsApp o de Sheets
+    // nunca debe revertir la confirmación del pago ya comprometida (sección 22).
     await notifyAppointmentConfirmed(confirmedAppointmentId).catch((error) => {
       logger.error({ appointmentId: confirmedAppointmentId, error }, "appointment_confirmation_notification_failed");
     });
+    void syncAppointmentToSheet(confirmedAppointmentId);
   }
 }
 

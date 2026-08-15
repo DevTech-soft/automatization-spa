@@ -20,6 +20,9 @@ vi.mock("../../src/integrations/payments/index.js", () => ({
 vi.mock("../../src/services/notification.service.js", () => ({
   notifyAppointmentConfirmed: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock("../../src/services/google-sheets-sync.service.js", () => ({
+  syncAppointmentToSheet: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("../../src/db/prisma.js", () => ({
   prisma: {
     $transaction: vi.fn(async (callback: (tx: { $executeRaw: () => Promise<void> }) => unknown) => {
@@ -34,6 +37,7 @@ const { businessRepository } = await import("../../src/repositories/business.rep
 const { paymentRepository } = await import("../../src/repositories/payment.repository.js");
 const { getPaymentProvider } = await import("../../src/integrations/payments/index.js");
 const { notifyAppointmentConfirmed } = await import("../../src/services/notification.service.js");
+const { syncAppointmentToSheet } = await import("../../src/services/google-sheets-sync.service.js");
 const { createPayment, processPaymentWebhook } = await import("../../src/services/payment.service.js");
 const { NotFoundError, PaymentError, ValidationError, WebhookVerificationError } = await import(
   "../../src/errors/index.js"
@@ -287,6 +291,7 @@ describe("processPaymentWebhook", () => {
     );
     expect(appointmentRepository.confirmIfPending).toHaveBeenCalledWith(APPOINTMENT_ID, expect.anything());
     expect(notifyAppointmentConfirmed).toHaveBeenCalledWith(APPOINTMENT_ID);
+    expect(syncAppointmentToSheet).toHaveBeenCalledWith(APPOINTMENT_ID);
   });
 
   it("marca FAILED sin confirmar la reserva cuando el pago es DECLINED", async () => {
@@ -322,6 +327,7 @@ describe("processPaymentWebhook", () => {
     );
     expect(appointmentRepository.confirmIfPending).not.toHaveBeenCalled();
     expect(notifyAppointmentConfirmed).not.toHaveBeenCalled();
+    expect(syncAppointmentToSheet).not.toHaveBeenCalled();
   });
 
   it("marca la reserva para revisión manual si el pago llega pero la capacity ya se llenó", async () => {
@@ -357,5 +363,6 @@ describe("processPaymentWebhook", () => {
       expect.anything(),
     );
     expect(notifyAppointmentConfirmed).not.toHaveBeenCalled();
+    expect(syncAppointmentToSheet).not.toHaveBeenCalled();
   });
 });

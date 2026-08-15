@@ -36,8 +36,14 @@ const envSchema = z.object({
   PAYMENT_INTEGRITY_SECRET: z.string().optional().or(z.literal("")),
   PAYMENT_WEBHOOK_SECRET: z.string().optional().or(z.literal("")),
 
-  GOOGLE_CLIENT_ID: z.string().optional().or(z.literal("")),
-  GOOGLE_CLIENT_SECRET: z.string().optional().or(z.literal("")),
+  /**
+   * La sección 38 del prompt maestro pide GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET
+   * (OAuth), pero eso requiere un login manual para obtener un refresh token —
+   * no encaja con un backend desatendido sin dashboard (sección 42). Se usa en
+   * su lugar una Service Account (decisión de Fase 7, ver docs/GOOGLE-SHEETS.md).
+   */
+  GOOGLE_SERVICE_ACCOUNT_EMAIL: z.string().optional().or(z.literal("")),
+  GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: z.string().optional().or(z.literal("")),
   GOOGLE_SHEET_ID: z.string().optional().or(z.literal("")),
 
   STORAGE_BUCKET: z.string().default("gift-cards"),

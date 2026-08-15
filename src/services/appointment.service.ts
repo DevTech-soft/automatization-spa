@@ -21,6 +21,7 @@ import {
 import { normalizePhone } from "../utils/phone.js";
 import { generateCode } from "../utils/code-generator.js";
 import { isUniqueConstraintViolation } from "../utils/prisma-errors.js";
+import { syncAppointmentToSheet, syncCustomerToSheet } from "./google-sheets-sync.service.js";
 import { MAX_BOOKING_DAYS_AHEAD, PENDING_EXPIRATION_MINUTES } from "../config/constants.js";
 
 export interface CreateAppointmentInput {
@@ -99,7 +100,7 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
   const expiresAt = DateTime.now().plus({ minutes: PENDING_EXPIRATION_MINUTES }).toJSDate();
   const appointmentDate = dateOnlyToUTCDate(date);
 
-  return prisma.$transaction(async (tx) => {
+  const appointment = await prisma.$transaction(async (tx) => {
     // Serializa los intentos de reserva de este servicio/día: evita que dos
     // requests concurrentes pasen el chequeo de disponibilidad a la vez.
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey})::bigint)`;
@@ -152,6 +153,13 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
 
     throw new Error("No se pudo generar un código de cita único tras varios intentos.");
   });
+
+  // Fuera de la transacción a propósito, sin esperar: un fallo o una demora de
+  // Google Sheets nunca debe afectar la respuesta al cliente (sección 2/19).
+  void syncAppointmentToSheet(appointment.id);
+  void syncCustomerToSheet(appointment.customerId);
+
+  return appointment;
 }
 
 /** Marca como EXPIRED las reservas PENDING vencidas (sección 10). Llamado por el cron de n8n (Fase 9). */

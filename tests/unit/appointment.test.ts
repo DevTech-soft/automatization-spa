@@ -21,6 +21,10 @@ vi.mock("../../src/repositories/appointment.repository.js", () => ({
 vi.mock("../../src/repositories/customer.repository.js", () => ({
   customerRepository: { upsertByPhone: vi.fn() },
 }));
+vi.mock("../../src/services/google-sheets-sync.service.js", () => ({
+  syncAppointmentToSheet: vi.fn().mockResolvedValue(undefined),
+  syncCustomerToSheet: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("../../src/db/prisma.js", () => ({
   prisma: {
     $transaction: vi.fn(async (callback: (tx: { $executeRaw: () => Promise<void> }) => unknown) => {
@@ -35,6 +39,9 @@ const { serviceRepository } = await import("../../src/repositories/service.repos
 const { businessHourRepository } = await import("../../src/repositories/businessHour.repository.js");
 const { appointmentRepository } = await import("../../src/repositories/appointment.repository.js");
 const { customerRepository } = await import("../../src/repositories/customer.repository.js");
+const { syncAppointmentToSheet, syncCustomerToSheet } = await import(
+  "../../src/services/google-sheets-sync.service.js"
+);
 const { createAppointment, expireStalePendingAppointments, getAppointmentStatusByReference } = await import(
   "../../src/services/appointment.service.js"
 );
@@ -80,6 +87,7 @@ function mockHappyPath() {
   } as never);
   vi.mocked(appointmentRepository.create).mockResolvedValue({
     id: "appt-1",
+    customerId: CUSTOMER_ID,
     status: "PENDING",
     paymentStatus: "PENDING",
   } as never);
@@ -111,6 +119,9 @@ describe("createAppointment", () => {
 
     const expiresAt = data.expiresAt as Date;
     expect(expiresAt.getTime() - FIXED_NOW.getTime()).toBe(15 * 60 * 1000);
+
+    expect(syncAppointmentToSheet).toHaveBeenCalledWith("appt-1");
+    expect(syncCustomerToSheet).toHaveBeenCalledWith(CUSTOMER_ID);
   });
 
   it("normaliza el teléfono antes de buscar/crear el cliente (dedup)", async () => {

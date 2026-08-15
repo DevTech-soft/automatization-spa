@@ -17,4 +17,24 @@ export const customerRepository = {
       update: { name: data.name, email: data.email },
     });
   },
+
+  findById(id: string, db: Db = prisma) {
+    return db.customer.findUnique({ where: { id } });
+  },
+
+  /** Usado por la sincronización a Google Sheets (Fase 7) — columnas "Última reserva"/"Número de reservas". */
+  async getAppointmentStats(
+    customerId: string,
+    db: Db = prisma,
+  ): Promise<{ totalAppointments: number; lastAppointmentDate: Date | null }> {
+    const [totalAppointments, lastAppointment] = await Promise.all([
+      db.appointment.count({ where: { customerId } }),
+      db.appointment.findFirst({
+        where: { customerId },
+        orderBy: { appointmentDate: "desc" },
+        select: { appointmentDate: true },
+      }),
+    ]);
+    return { totalAppointments, lastAppointmentDate: lastAppointment?.appointmentDate ?? null };
+  },
 };
