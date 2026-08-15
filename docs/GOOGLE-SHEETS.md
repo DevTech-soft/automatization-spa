@@ -78,6 +78,18 @@ ID coincide, y si existe hace `values.update` sobre esa fila exacta; si no,
 todavía, y cachea en memoria cuáles ya confirmó — para no repetir esa consulta
 en cada sincronización.
 
+## Probado contra una Service Account y un Sheet reales
+
+Verificado end-to-end: con una Service Account creada en Google Cloud Console
+(API de Sheets habilitada, sin rol de proyecto necesario) y el Sheet
+compartido con su email como Editor, `ensureSheet` creó las hojas `RESERVAS`
+y `CLIENTES` con encabezados automáticamente en el primer sync — no hace
+falta crearlas a mano. Se probó también el caso de upsert real: dos reservas
+del mismo cliente generaron dos filas en `RESERVAS` (una por cita) pero una
+sola fila en `CLIENTES`, actualizada en el segundo sync (`Última reserva` y
+`Número de reservas` correctos) — confirma que `upsertRow` actualiza en vez
+de duplicar.
+
 ## Nota sobre n8n (sección 20)
 
 `docs/ARCHITECTURE.md` describe originalmente que n8n dispara
