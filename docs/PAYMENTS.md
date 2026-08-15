@@ -114,6 +114,24 @@ por sí solo no serializa transacciones concurrentes bajo `READ COMMITTED`:
   pago del cliente. No hay reembolso automático en el MVP — es un caso para
   atender manualmente por el negocio.
 
+## Probar contra el sandbox real de Wompi
+
+Verificado end-to-end contra el sandbox de Wompi (llaves de prueba reales):
+`POST /api/payments/create` genera un link de checkout válido —
+`https://checkout.wompi.co/p/` lo acepta y muestra el monto/comercio
+correctos en "modo de pruebas".
+
+**Con `APP_URL=http://localhost:3000` el checkout no carga**: el CDN de
+Wompi (CloudFront) devuelve `403 Request blocked` en cuanto `redirect-url`
+apunta a `localhost` — es una protección anti-SSRF/open-redirect de su WAF,
+no un bug de esta app ni de la firma. Confirmado aislando el parámetro: la
+misma URL con `redirect-url=https://ejemplo.com/...` carga sin problema.
+
+Para probar el flujo completo (pagar → volver a `/gracias` → webhook) en
+local, expón el backend con un túnel público (ej. `ngrok http 3000`) y usa
+esa URL pública como `APP_URL` mientras pruebas — no hace falta para el
+resto del desarrollo, solo para ejercitar el checkout real de Wompi.
+
 ## Qué falta (fuera de Fase 4)
 
 - `MercadoPagoPaymentProvider` — no implementado (Fase 0: Wompi es el default).
