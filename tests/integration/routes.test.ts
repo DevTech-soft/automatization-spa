@@ -1,0 +1,59 @@
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("../../src/services/business.service.js", () => ({
+  getBusinessBySlug: vi.fn().mockResolvedValue({ id: "biz-1", slug: "demo-spa", name: "Demo Spa" }),
+}));
+vi.mock("../../src/services/service.service.js", () => ({
+  listServices: vi.fn().mockResolvedValue([]),
+}));
+vi.mock("../../src/services/availability.service.js", () => ({
+  getAvailability: vi.fn().mockResolvedValue({ slots: [] }),
+}));
+vi.mock("../../src/db/prisma.js", () => ({
+  prisma: { $queryRaw: vi.fn().mockResolvedValue([{ ok: 1 }]) },
+}));
+
+const { buildApp } = await import("../../src/app.js");
+
+describe("rutas de Fase 2", () => {
+  it("GET /api/business/:slug responde 200 con los datos del negocio", async () => {
+    const app = await buildApp();
+    const response = await app.inject({ method: "GET", url: "/api/business/demo-spa" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ data: { id: "biz-1", slug: "demo-spa", name: "Demo Spa" } });
+    await app.close();
+  });
+
+  it("GET /api/services sin businessId responde 400", async () => {
+    const app = await buildApp();
+    const response = await app.inject({ method: "GET", url: "/api/services" });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe("VALIDATION_ERROR");
+    await app.close();
+  });
+
+  it("GET /api/appointments/availability con fecha inválida responde 400", async () => {
+    const app = await buildApp();
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/appointments/availability?businessId=11111111-1111-1111-1111-111111111111&serviceId=22222222-2222-2222-2222-222222222222&date=05-01-2026",
+    });
+
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("GET /api/appointments/availability con parámetros válidos responde 200", async () => {
+    const app = await buildApp();
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/appointments/availability?businessId=11111111-1111-1111-1111-111111111111&serviceId=22222222-2222-2222-2222-222222222222&date=2026-01-05",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ data: { slots: [] } });
+    await app.close();
+  });
+});

@@ -7,6 +7,9 @@ import { env } from "./config/env.js";
 import { loggerOptions } from "./utils/logger.js";
 import { errorHandler } from "./middlewares/error-handler.js";
 import { healthRoutes } from "./routes/health.route.js";
+import { businessRoutes } from "./routes/business.route.js";
+import { serviceRoutes } from "./routes/service.route.js";
+import { appointmentRoutes } from "./routes/appointment.route.js";
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -26,6 +29,9 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.setErrorHandler(errorHandler);
 
   await app.register(healthRoutes);
+  await app.register(businessRoutes);
+  await app.register(serviceRoutes);
+  await app.register(appointmentRoutes);
 
   return app;
 }
