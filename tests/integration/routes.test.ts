@@ -240,4 +240,13 @@ describe("rutas de Fase 6 — WhatsApp", () => {
     expect(handleIncomingWhatsAppMessage).toHaveBeenCalledWith({ entry: [] });
     await app.close();
   });
+
+  it("POST /api/webhooks/whatsapp responde 200 aunque falle el procesamiento (Meta no debe reintentar)", async () => {
+    vi.mocked(handleIncomingWhatsAppMessage).mockRejectedValueOnce(new Error("boom"));
+    const app = await buildApp();
+    const response = await app.inject({ method: "POST", url: "/api/webhooks/whatsapp", payload: { entry: [] } });
+
+    expect(response.statusCode).toBe(200);
+    await app.close();
+  });
 });

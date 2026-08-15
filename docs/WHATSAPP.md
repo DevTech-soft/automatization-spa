@@ -16,6 +16,17 @@ SELECTING_SERVICE → SELECTING_DATE → SELECTING_TIME → COLLECTING_NAME
 ```
 
 `CANCELLED` es alcanzable desde cualquier estado escribiendo "cancelar".
+
+La transición a `CONFIRMED` es **perezosa**, no proactiva: el webhook de pago
+(`payment.service.ts`) confirma la cita y dispara las notificaciones sin
+tocar `whatsapp_conversations` — la fila de la conversación se queda en
+`WAITING_PAYMENT` hasta que el cliente vuelve a escribir, momento en el que
+`handleWaitingPayment` relee el estado real de `appointments` (fuente de
+verdad) y recién ahí actualiza `state` a `CONFIRMED`. Es una simplificación
+deliberada: la columna `state` nunca se usa como fuente de verdad por sí
+sola, así que no hay riesgo de mostrarle al cliente información desactualizada
+— solo un campo de bookkeeping interno que converge en el siguiente mensaje.
+
 Al llegar a `CONFIRMED`/`CANCELLED`, el siguiente mensaje del cliente reinicia
 la conversación desde `SELECTING_SERVICE` (Fase 6 no soporta "editar" una
 reserva en curso — solo cancelar y empezar de nuevo).
@@ -101,11 +112,48 @@ llamada encuentra el registro ya creado y no reenvía. Envía dos mensajes
 independientes (cliente y negocio); si `business.whatsapp_number` no está
 configurado, solo se envía al cliente.
 
+## Probar contra el sandbox real de Meta
+
+Verificado end-to-end con un número de prueba real y un cliente real por
+WhatsApp: `hola` → lista de servicios → fecha → hora → nombre → link de pago
+de Wompi → pago → mensaje de confirmación, con `appointments.status` en
+`CONFIRMED`, `payment_status` en `PAID`, y ambas filas de `notification_log`
+(`APPOINTMENT_CONFIRMATION`, `BUSINESS_NEW_APPOINTMENT`) creadas.
+
+**Gotcha real encontrado**: configurar la Callback URL + Verify Token en
+*WhatsApp > Configuration* del dashboard de Meta **no alcanza**. La cuenta de
+WhatsApp Business (WABA) tiene que estar además explícitamente suscrita a esa
+misma app — si la WABA quedó suscrita a otra app (común si el número de
+prueba se generó antes desde otra app, o si hay varias apps en la misma
+cuenta de Meta), los mensajes entrantes nunca llegan al webhook aunque el
+handshake `GET` verifique correctamente y el panel de Meta muestre el
+payload en "Comprobar webhooks de prueba" (ese panel no confirma entrega real).
+Se diagnostica y corrige así:
+
+```bash
+# Diagnóstico: qué apps están suscritas a la WABA
+curl "https://graph.facebook.com/v21.0/<waba-id>/subscribed_apps" \
+  -H "Authorization: Bearer <WHATSAPP_ACCESS_TOKEN>"
+
+# Corrección: suscribe la app dueña de este WHATSAPP_ACCESS_TOKEN
+curl -X POST "https://graph.facebook.com/v21.0/<waba-id>/subscribed_apps" \
+  -H "Authorization: Bearer <WHATSAPP_ACCESS_TOKEN>"
+```
+
+El `<waba-id>` es el "Identificador de la cuenta de WhatsApp Business" que
+aparece en Meta > WhatsApp > API Setup, junto al número de prueba.
+
+También se encontró y corrigió un bug real durante esta prueba: si el envío
+de la respuesta a Meta fallaba (ej. `(#131030) Recipient phone number not in
+allowed list` al probar con un número que no estaba en la lista de
+destinatarios), la excepción no se capturaba y el webhook respondía `500` en
+vez de `200` — provocando reintentos agresivos de Meta sin motivo. Corregido
+en `whatsapp.controller.ts`: cualquier error al procesar el mensaje se
+loggea, pero el webhook siempre hace `ack 200`.
+
 ## Qué falta (fuera de Fase 6)
 
 - Plantillas aprobadas por Meta para mensajes fuera de la ventana de 24h
   (recordatorios, Fase 9).
 - Envío de Gift Cards por WhatsApp (`sendDocument`, Fase 8).
 - Editar una reserva en curso sin cancelar y empezar de nuevo.
-- No se probó todavía contra un número de WhatsApp Business real en producción
-  (sandbox de Meta sí, ver sección de pruebas más abajo si aplica).

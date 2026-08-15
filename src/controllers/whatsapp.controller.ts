@@ -4,6 +4,7 @@ import { handleIncomingWhatsAppMessage } from "../services/whatsapp-conversation
 import { getWhatsAppProvider } from "../integrations/whatsapp/index.js";
 import { env } from "../config/env.js";
 import { WebhookVerificationError } from "../errors/index.js";
+import { logger } from "../utils/logger.js";
 
 /** Handshake GET que Meta dispara al configurar la URL del webhook. */
 export async function verifyWhatsAppWebhookHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -26,7 +27,13 @@ export async function receiveWhatsAppMessageHandler(request: FastifyRequest, rep
     throw new WebhookVerificationError("Firma de webhook de WhatsApp inválida.");
   }
 
-  await handleIncomingWhatsAppMessage(request.body);
-  // Meta reintenta si no responde 200 rápido — ack siempre, los errores ya quedan loggeados adentro.
+  try {
+    await handleIncomingWhatsAppMessage(request.body);
+  } catch (error) {
+    // Un fallo procesando el mensaje (ej. Meta rechaza el envío de la respuesta,
+    // como "recipient not in allowed list" en sandbox) nunca debe convertirse en
+    // un 5xx: Meta reintenta agresivamente el mismo evento y no arregla nada.
+    logger.error({ error }, "whatsapp_message_processing_failed");
+  }
   reply.status(200).send({ received: true });
 }
