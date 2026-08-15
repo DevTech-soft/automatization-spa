@@ -1,5 +1,6 @@
 import { appointmentRepository } from "../repositories/appointment.repository.js";
 import { customerRepository } from "../repositories/customer.repository.js";
+import { giftCardRepository } from "../repositories/giftCard.repository.js";
 import { getGoogleSheetsProvider } from "../integrations/google-sheets/index.js";
 import { dateOnlyFromUTCDate } from "../utils/datetime.js";
 import { logger } from "../utils/logger.js";
@@ -29,6 +30,20 @@ const RESERVAS_HEADERS = [
 
 const CLIENTES_SHEET = "CLIENTES";
 const CLIENTES_HEADERS = ["ID", "Nombre", "Teléfono", "Email", "Última reserva", "Número de reservas"];
+
+const GIFT_CARDS_SHEET = "GIFT CARDS";
+const GIFT_CARDS_HEADERS = [
+  "ID",
+  "Código",
+  "Comprador",
+  "Teléfono comprador",
+  "Destinatario",
+  "Servicio",
+  "Valor",
+  "Fecha compra",
+  "Fecha uso",
+  "Estado",
+];
 
 export async function syncAppointmentToSheet(appointmentId: string): Promise<void> {
   try {
@@ -82,5 +97,33 @@ export async function syncCustomerToSheet(customerId: string): Promise<void> {
     logger.info({ customerId }, "google_sheet_synced");
   } catch (error) {
     logger.error({ customerId, error }, "google_sheets_sync_customer_failed");
+  }
+}
+
+export async function syncGiftCardToSheet(giftCardId: string): Promise<void> {
+  try {
+    const giftCard = await giftCardRepository.findById(giftCardId);
+    if (!giftCard) {
+      logger.warn({ giftCardId }, "google_sheets_sync_gift_card_missing");
+      return;
+    }
+
+    const provider = getGoogleSheetsProvider();
+    await provider.ensureSheet(GIFT_CARDS_SHEET, GIFT_CARDS_HEADERS);
+    await provider.upsertRow(GIFT_CARDS_SHEET, giftCard.id, [
+      giftCard.id,
+      giftCard.code,
+      giftCard.buyerName,
+      giftCard.buyerPhone,
+      giftCard.recipientName,
+      giftCard.service?.name ?? "",
+      giftCard.amount.toString(),
+      giftCard.createdAt.toISOString(),
+      giftCard.redeemedAt ? giftCard.redeemedAt.toISOString() : "",
+      giftCard.status,
+    ]);
+    logger.info({ giftCardId }, "google_sheet_synced");
+  } catch (error) {
+    logger.error({ giftCardId, error }, "google_sheets_sync_gift_card_failed");
   }
 }

@@ -26,8 +26,8 @@ Payment gateway = fuente de verdad del estado del pago
   centralizar la conversión.
 - **Frontend vanilla** sin build step, servido como estáticos por el propio
   backend: un solo contenedor desplegable, sin CORS entre `/reservar` y la API.
-- **Puppeteer** (a introducir en Fase 8) para generar Gift Cards en PDF/PNG a
-  partir de un template HTML/CSS.
+- **Puppeteer** (Fase 8) para generar Gift Cards en PNG a partir de un
+  template HTML/CSS — ver "Gift Cards: imagen + almacenamiento" más abajo.
 - Estructura de carpetas "plana" (`src/config`, `src/services`, etc., sección 24
   del prompt maestro) en vez del monorepo completo: no hay beneficio de
   workspaces cuando solo existe un backend real y un frontend sin build step.
@@ -125,6 +125,22 @@ TypeScript (`eslint.config.js`) por ser JS de navegador con globals propios
 `/reservar` no tiene selector de negocio en la UI: usa `?negocio=<slug>` (por
 defecto `demo-spa`) para resolver qué negocio reservar — suficiente para el
 MVP de un solo cliente activo, sin bloquear el modelo multi-tenant subyacente.
+
+## Gift Cards: imagen + almacenamiento
+
+La imagen de la Gift Card se genera renderizando HTML+CSS a PNG con
+Puppeteer (`gift-card-image.service.ts`) — reusa el mismo lenguaje visual
+del sitio en vez de dibujar con un API de bajo nivel. Se sube a Supabase
+Storage vía la interfaz `StorageProvider` (mismo patrón adapter que
+`PaymentProvider`/`WhatsAppProvider`/`GoogleSheetsProvider`: `upload`,
+`getPublicUrl`, `delete`), con `SupabaseStorageProvider` como único adapter
+por ahora. El bucket público se crea automáticamente en el primer upload si
+no existe. Todo el pipeline (imagen → Storage → WhatsApp → Sheets) corre
+fuera de la transacción del webhook de pago, después de confirmarlo — un
+fallo ahí nunca revierte el pago ya confirmado (mismo principio que
+`notifyAppointmentConfirmed`, Fase 6). Detalle completo, incluyendo dos bugs
+reales encontrados en la prueba en vivo (una trampa de la API de Supabase
+Storage y una restricción de CSP), en `docs/GIFT-CARDS.md`.
 
 ## Protección de canje de Gift Cards
 

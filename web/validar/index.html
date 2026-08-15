@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Validar Gift Card</title>
+    <meta name="description" content="Herramienta interna para validar y canjear Gift Cards." />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <div class="shell" style="max-width: 480px;">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand__mark">Spa</span>
+          <span class="brand__tag">Validar Gift Card</span>
+        </div>
+      </header>
+
+      <main>
+        <section class="panel">
+          <p class="panel__eyebrow">Uso interno</p>
+          <h1 class="panel__title">Consultar código</h1>
+          <p class="panel__hint">Pide el código al cliente y tu PIN de staff para canjear.</p>
+
+          <form id="lookupForm" novalidate>
+            <div class="field" data-field="code">
+              <label for="code">Código de la Gift Card</label>
+              <input type="text" id="code" name="code" autocomplete="off" placeholder="GIFT-XXXXXXXX" required />
+              <p class="field__error">Escribe el código.</p>
+            </div>
+            <div class="actions">
+              <button type="submit" class="btn btn-primary btn-block">Consultar</button>
+            </div>
+          </form>
+
+          <div id="lookupError"></div>
+        </section>
+
+        <section class="panel" id="resultPanel" hidden style="margin-top: 1.5rem;">
+          <p class="panel__eyebrow" id="resultEyebrow">Resultado</p>
+          <h2 class="panel__title" id="resultTitle"></h2>
+          <div class="receipt" id="resultDetails"></div>
+
+          <form id="redeemForm" novalidate>
+            <div class="field" data-field="staffPin">
+              <label for="staffPin">Tu PIN de staff</label>
+              <input type="password" id="staffPin" name="staffPin" inputmode="numeric" autocomplete="off" required />
+              <p class="field__error">Escribe tu PIN.</p>
+            </div>
+            <div id="redeemError"></div>
+            <div class="actions">
+              <button type="submit" class="btn btn-primary btn-block" id="redeemButton">Canjear</button>
+            </div>
+          </form>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="/js/validar.js"></script>
+  </body>
+</html>

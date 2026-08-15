@@ -39,6 +39,7 @@
     "nanoid": "^5.0.7",
     "pino": "^9.4.0",
     "pino-pretty": "^11.2.2",
+    "puppeteer": "^25.7.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

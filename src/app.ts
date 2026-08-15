@@ -15,6 +15,7 @@ import { serviceRoutes } from "./routes/service.route.js";
 import { appointmentRoutes } from "./routes/appointment.route.js";
 import { internalRoutes } from "./routes/internal.route.js";
 import { paymentRoutes } from "./routes/payment.route.js";
+import { giftCardRoutes } from "./routes/giftCard.route.js";
 import { webRoutes } from "./routes/web.route.js";
 import { whatsappRoutes } from "./routes/whatsapp.route.js";
 
@@ -28,7 +29,15 @@ export async function buildApp(): Promise<FastifyInstance> {
     genReqId: () => randomUUID(),
   });
 
-  await app.register(helmet);
+  await app.register(helmet, {
+    contentSecurityPolicy: {
+      // useDefaults (true por defecto) mezcla esto con las directivas por defecto de helmet.
+      directives: {
+        // Las imágenes de Gift Cards se sirven desde Supabase Storage (sección 27), no desde "self".
+        "img-src": ["'self'", "data:", new URL(env.SUPABASE_URL).origin],
+      },
+    },
+  });
   await app.register(cors, {
     origin: env.NODE_ENV === "production" ? [env.APP_URL] : true,
   });
@@ -63,6 +72,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(appointmentRoutes);
   await app.register(internalRoutes);
   await app.register(paymentRoutes);
+  await app.register(giftCardRoutes);
   await app.register(whatsappRoutes);
   await app.register(webRoutes);
 

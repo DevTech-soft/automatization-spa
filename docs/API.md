@@ -142,10 +142,11 @@ Body:
 { "entityType": "APPOINTMENT", "entityId": "uuid" }
 ```
 
-- `entityType: "GIFT_CARD"` no está soportado todavía (Fase 8).
-- `400 VALIDATION_ERROR` si el body es inválido, la reserva ya no está
-  `PENDING`, o ya expiró.
-- `404 NOT_FOUND` si la reserva o el negocio no existen.
+- `entityType: "GIFT_CARD"` también soportado desde Fase 8 — mismo endpoint,
+  `entityId` es el `id` de la Gift Card.
+- `400 VALIDATION_ERROR` si el body es inválido, la reserva/Gift Card ya no
+  está `PENDING`, o ya expiró.
+- `404 NOT_FOUND` si la reserva/Gift Card o el negocio no existen.
 - `201`:
 
 ```json
@@ -223,3 +224,94 @@ responde `200` si la firma es válida, para que Meta no reintente.
 
 - `401 WEBHOOK_VERIFICATION_ERROR` si la firma no es válida (y hay
   `WHATSAPP_APP_SECRET` configurado — ver docs/WHATSAPP.md).
+
+## Fase 8 — Gift Cards
+
+Ver `docs/GIFT-CARDS.md` para el detalle del flujo completo (creación → pago
+→ imagen con Puppeteer → Storage → WhatsApp), la decisión de generar el
+código al crear (no al pagar), y por qué `redeemGiftCard` falla cerrado sin
+`STAFF_PIN`.
+
+### `POST /api/gift-cards`
+
+Crea una Gift Card `PENDING`, con su código único ya asignado. El pago se
+inicia después con `POST /api/payments/create` (`entityType: "GIFT_CARD"`,
+ver Fase 4 arriba).
+
+Body:
+
+```json
+{
+  "businessId": "uuid",
+  "serviceId": "uuid",
+  "design": "clasico | floral | elegante",
+  "buyerName": "Laura Gómez",
+  "buyerPhone": "+573001112233",
+  "buyerEmail": "opcional@example.com",
+  "recipientName": "Marcela Ruiz",
+  "recipientPhone": "opcional",
+  "message": "opcional, máx 500 caracteres",
+  "scheduledDate": "opcional, YYYY-MM-DD"
+}
+```
+
+- `400 VALIDATION_ERROR` si el body es inválido.
+- `404 NOT_FOUND` si el negocio o el servicio no existen.
+- `201` con la Gift Card creada.
+
+### `GET /api/gift-cards/status?reference=PAY-XXXXXXXX`
+
+Usado por `/gracias?type=gift` para hacer polling tras volver del checkout —
+mismo patrón que `GET /api/appointments/status` (Fase 5).
+
+- `404 NOT_FOUND` si no existe una Gift Card con esa referencia de pago.
+- `200`:
+
+```json
+{
+  "data": {
+    "code": "GIFT-XXXXXXXX",
+    "status": "PAID",
+    "paymentStatus": "PAID",
+    "serviceName": "Manicure",
+    "recipientName": "Marcela Ruiz",
+    "amount": "35000",
+    "pdfUrl": "https://.../storage/v1/object/public/gift-cards/.../GIFT-XXXXXXXX.png"
+  }
+}
+```
+
+`pdfUrl` puede ser `null` incluso con `status: PAID` — la imagen se genera
+después de confirmar el pago, no en el mismo instante (ver "Timing conocido"
+en `docs/GIFT-CARDS.md`).
+
+### `POST /api/gift-cards/validate`
+
+Consulta pública (usado por `/validar`), no requiere `STAFF_PIN`.
+
+Body: `{ "code": "GIFT-XXXXXXXX" }`
+
+- `404 NOT_FOUND` si no existe una Gift Card con ese código.
+- `200` con `valid: boolean` — `false` si está `PENDING`, `REDEEMED`,
+  cancelada o expirada.
+
+### `POST /api/gift-cards/redeem`
+
+Canje atómico, protegido por `STAFF_PIN` (uso interno vía `/validar`).
+
+Body: `{ "code": "GIFT-XXXXXXXX", "staffPin": "1234" }`
+
+- `401 UNAUTHORIZED` si `STAFF_PIN` no está configurado en el entorno, o si
+  `staffPin` no coincide.
+- `404 NOT_FOUND` si no existe una Gift Card con ese código.
+- `409` (`GIFT_CARD_ALREADY_REDEEMED`) si ya fue canjeada.
+- `400 VALIDATION_ERROR` si expiró o todavía no está pagada.
+- `200 { "data": { "redeemed": true } }` si el canje fue exitoso.
+
+### Páginas
+
+- `GET /regalar[?negocio=<slug>]` — formulario de compra en 5 pasos
+  (experiencia → diseño → comprador → destinatario → resumen/pago).
+- `GET /gracias?type=gift&ref=<payment.reference>` — variante de `/gracias`
+  para Gift Cards (mismo componente, rama distinta en `web/js/gracias.js`).
+- `GET /validar` — uso interno: consultar código → canjear con `STAFF_PIN`.

@@ -6,19 +6,24 @@ vi.mock("../../src/repositories/appointment.repository.js", () => ({
 vi.mock("../../src/repositories/customer.repository.js", () => ({
   customerRepository: { findById: vi.fn(), getAppointmentStats: vi.fn() },
 }));
+vi.mock("../../src/repositories/giftCard.repository.js", () => ({
+  giftCardRepository: { findById: vi.fn() },
+}));
 vi.mock("../../src/integrations/google-sheets/index.js", () => ({
   getGoogleSheetsProvider: vi.fn(),
 }));
 
 const { appointmentRepository } = await import("../../src/repositories/appointment.repository.js");
 const { customerRepository } = await import("../../src/repositories/customer.repository.js");
+const { giftCardRepository } = await import("../../src/repositories/giftCard.repository.js");
 const { getGoogleSheetsProvider } = await import("../../src/integrations/google-sheets/index.js");
-const { syncAppointmentToSheet, syncCustomerToSheet } = await import(
+const { syncAppointmentToSheet, syncCustomerToSheet, syncGiftCardToSheet } = await import(
   "../../src/services/google-sheets-sync.service.js"
 );
 
 const APPOINTMENT_ID = "44444444-4444-4444-4444-444444444444";
 const CUSTOMER_ID = "33333333-3333-3333-3333-333333333333";
+const GIFT_CARD_ID = "55555555-5555-5555-5555-555555555555";
 
 function fakeProvider() {
   return { name: "google-sheets", ensureSheet: vi.fn().mockResolvedValue(undefined), upsertRow: vi.fn().mockResolvedValue(undefined) };
@@ -150,5 +155,73 @@ describe("syncCustomerToSheet", () => {
     vi.mocked(customerRepository.findById).mockResolvedValue(null);
 
     await expect(syncCustomerToSheet(CUSTOMER_ID)).resolves.toBeUndefined();
+  });
+});
+
+describe("syncGiftCardToSheet", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("arma la fila de GIFT CARDS en el orden de la sección 19", async () => {
+    const provider = fakeProvider();
+    vi.mocked(getGoogleSheetsProvider).mockReturnValue(provider as never);
+    vi.mocked(giftCardRepository.findById).mockResolvedValue({
+      id: GIFT_CARD_ID,
+      code: "GIFT-ABC12345",
+      buyerName: "Ana",
+      buyerPhone: "+573001112233",
+      recipientName: "Luis",
+      service: { name: "Masaje relajante" },
+      amount: { toString: () => "90000" },
+      createdAt: new Date("2026-01-04T12:00:00.000Z"),
+      redeemedAt: null,
+      status: "SENT",
+    } as never);
+
+    await syncGiftCardToSheet(GIFT_CARD_ID);
+
+    expect(provider.ensureSheet).toHaveBeenCalledWith("GIFT CARDS", expect.arrayContaining(["ID", "Código"]));
+    expect(provider.upsertRow).toHaveBeenCalledWith("GIFT CARDS", GIFT_CARD_ID, [
+      GIFT_CARD_ID,
+      "GIFT-ABC12345",
+      "Ana",
+      "+573001112233",
+      "Luis",
+      "Masaje relajante",
+      "90000",
+      "2026-01-04T12:00:00.000Z",
+      "",
+      "SENT",
+    ]);
+  });
+
+  it("incluye la fecha de uso cuando ya fue canjeada", async () => {
+    const provider = fakeProvider();
+    vi.mocked(getGoogleSheetsProvider).mockReturnValue(provider as never);
+    vi.mocked(giftCardRepository.findById).mockResolvedValue({
+      id: GIFT_CARD_ID,
+      code: "GIFT-ABC12345",
+      buyerName: "Ana",
+      buyerPhone: "+573001112233",
+      recipientName: "Luis",
+      service: { name: "Masaje relajante" },
+      amount: { toString: () => "90000" },
+      createdAt: new Date("2026-01-04T12:00:00.000Z"),
+      redeemedAt: new Date("2026-02-01T15:00:00.000Z"),
+      status: "REDEEMED",
+    } as never);
+
+    await syncGiftCardToSheet(GIFT_CARD_ID);
+
+    const [, , row] = provider.upsertRow.mock.calls[0]!;
+    expect(row[8]).toBe("2026-02-01T15:00:00.000Z");
+    expect(row[9]).toBe("REDEEMED");
+  });
+
+  it("no lanza si la Gift Card no existe", async () => {
+    vi.mocked(giftCardRepository.findById).mockResolvedValue(null);
+
+    await expect(syncGiftCardToSheet(GIFT_CARD_ID)).resolves.toBeUndefined();
   });
 });

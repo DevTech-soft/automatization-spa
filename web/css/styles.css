@@ -309,6 +309,69 @@ button {
   white-space: nowrap;
 }
 
+/* ---------- selector de diseño (Gift Card, Fase 8) ---------- */
+
+.design-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.9rem;
+}
+
+.design-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1rem;
+  background: var(--color-paper);
+  border: 1.5px solid var(--color-line);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease-out), transform 0.15s var(--ease-out);
+  animation: rise 0.4s var(--ease-out) both;
+}
+
+.design-card:hover {
+  border-color: var(--color-line-strong);
+  transform: translateY(-1px);
+}
+
+.design-card.is-selected {
+  border-color: var(--color-primary);
+  background: var(--color-primary-tint);
+}
+
+.design-card__swatch {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-sm);
+  background-image: radial-gradient(65% 65% at 100% 0%, rgba(0, 0, 0, 0.08), transparent 60%);
+}
+
+.design-card__swatch--clasico {
+  background-color: #f7f2ea;
+  border: 1px solid #3f5a44;
+  box-shadow: inset 0 0 0 6px #e7ede4;
+}
+
+.design-card__swatch--floral {
+  background-color: #fbeee6;
+  border: 1px solid #c1633d;
+  box-shadow: inset 0 0 0 6px #f5d9c8;
+}
+
+.design-card__swatch--elegante {
+  background-color: #1b1f1c;
+  border: 1px solid #c9a24b;
+  box-shadow: inset 0 0 0 6px #262b26;
+}
+
+.design-card__label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-ink-soft);
+}
+
 /* ---------- date ---------- */
 
 .date-field {

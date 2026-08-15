@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Regalar una experiencia</title>
+    <meta name="description" content="Regala una experiencia de spa: elige el servicio, el diseño de la tarjeta y para quién es." />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand__mark" id="brandName">Spa</span>
+          <span class="brand__tag">Gift Card</span>
+        </div>
+      </header>
+
+      <nav class="steps" id="steps" aria-label="Progreso de la compra">
+        <div class="steps__item" data-step="service">
+          <div class="steps__bar"></div>
+          <span class="steps__label">Experiencia</span>
+        </div>
+        <div class="steps__item" data-step="design">
+          <div class="steps__bar"></div>
+          <span class="steps__label">Diseño</span>
+        </div>
+        <div class="steps__item" data-step="buyer">
+          <div class="steps__bar"></div>
+          <span class="steps__label">Comprador</span>
+        </div>
+        <div class="steps__item" data-step="recipient">
+          <div class="steps__bar"></div>
+          <span class="steps__label">Destinatario</span>
+        </div>
+        <div class="steps__item" data-step="summary">
+          <div class="steps__bar"></div>
+          <span class="steps__label">Pago</span>
+        </div>
+      </nav>
+
+      <div class="summary-strip" id="summaryStrip" aria-live="polite"></div>
+
+      <main id="stepContainer">
+        <!-- Paso 1: experiencia -->
+        <section class="panel" data-panel="service" hidden>
+          <p class="panel__eyebrow">Paso 1 de 5</p>
+          <h1 class="panel__title">¿Qué experiencia quieres regalar?</h1>
+          <p class="panel__hint">Elige el servicio que recibirá la persona.</p>
+          <div id="serviceError"></div>
+          <div class="option-list" id="serviceList">
+            <div class="skeleton"></div>
+            <div class="skeleton"></div>
+            <div class="skeleton"></div>
+          </div>
+        </section>
+
+        <!-- Paso 2: diseño -->
+        <section class="panel" data-panel="design" hidden>
+          <button type="button" class="link-back" data-back>‹ Cambiar experiencia</button>
+          <p class="panel__eyebrow">Paso 2 de 5</p>
+          <h2 class="panel__title">Elige un diseño</h2>
+          <p class="panel__hint">Así se verá la tarjeta que recibe la persona.</p>
+          <div class="design-grid" id="designGrid">
+            <button type="button" class="design-card" data-design="clasico">
+              <span class="design-card__swatch design-card__swatch--clasico"></span>
+              <span class="design-card__label">Clásico</span>
+            </button>
+            <button type="button" class="design-card" data-design="floral">
+              <span class="design-card__swatch design-card__swatch--floral"></span>
+              <span class="design-card__label">Floral</span>
+            </button>
+            <button type="button" class="design-card" data-design="elegante">
+              <span class="design-card__swatch design-card__swatch--elegante"></span>
+              <span class="design-card__label">Elegante</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- Paso 3: comprador -->
+        <section class="panel" data-panel="buyer" hidden>
+          <button type="button" class="link-back" data-back>‹ Cambiar diseño</button>
+          <p class="panel__eyebrow">Paso 3 de 5</p>
+          <h2 class="panel__title">Tus datos</h2>
+          <p class="panel__hint">Como comprador, para confirmarte la compra.</p>
+          <form id="buyerForm" novalidate>
+            <div class="field" data-field="buyerName">
+              <label for="buyerName">Tu nombre completo</label>
+              <input type="text" id="buyerName" name="buyerName" autocomplete="name" required />
+              <p class="field__error">Escribe tu nombre completo.</p>
+            </div>
+            <div class="field" data-field="buyerPhone">
+              <label for="buyerPhone">Tu teléfono (WhatsApp)</label>
+              <input type="tel" id="buyerPhone" name="buyerPhone" autocomplete="tel" placeholder="+57 300 000 0000" required />
+              <p class="field__error">Escribe un número de teléfono válido.</p>
+            </div>
+            <div class="field" data-field="buyerEmail">
+              <label for="buyerEmail">Correo electrónico (opcional)</label>
+              <input type="email" id="buyerEmail" name="buyerEmail" autocomplete="email" />
+              <p class="field__error">Escribe un correo válido.</p>
+            </div>
+            <div class="actions">
+              <button type="submit" class="btn btn-primary btn-block">Continuar</button>
+            </div>
+          </form>
+        </section>
+
+        <!-- Paso 4: destinatario -->
+        <section class="panel" data-panel="recipient" hidden>
+          <button type="button" class="link-back" data-back>‹ Editar mis datos</button>
+          <p class="panel__eyebrow">Paso 4 de 5</p>
+          <h2 class="panel__title">¿Para quién es?</h2>
+          <p class="panel__hint">Cuéntanos sobre la persona que recibe el regalo.</p>
+          <form id="recipientForm" novalidate>
+            <div class="field" data-field="recipientName">
+              <label for="recipientName">Nombre del destinatario</label>
+              <input type="text" id="recipientName" name="recipientName" required />
+              <p class="field__error">Escribe el nombre del destinatario.</p>
+            </div>
+            <div class="field" data-field="recipientPhone">
+              <label for="recipientPhone">Teléfono del destinatario (opcional)</label>
+              <input type="tel" id="recipientPhone" name="recipientPhone" placeholder="+57 300 000 0000" />
+              <p class="field__error">Escribe un número de teléfono válido.</p>
+            </div>
+            <div class="field" data-field="message">
+              <label for="message">Mensaje (opcional)</label>
+              <textarea id="message" name="message" maxlength="500"></textarea>
+            </div>
+            <div class="field" data-field="scheduledDate">
+              <label for="scheduledDate">Fecha deseada para usarla (opcional)</label>
+              <input type="date" id="scheduledDate" name="scheduledDate" />
+            </div>
+            <div class="actions">
+              <button type="submit" class="btn btn-primary btn-block">Continuar al resumen</button>
+            </div>
+          </form>
+        </section>
+
+        <!-- Paso 5: resumen y pago -->
+        <section class="panel" data-panel="summary" hidden>
+          <button type="button" class="link-back" data-back>‹ Editar destinatario</button>
+          <p class="panel__eyebrow">Paso 5 de 5</p>
+          <h2 class="panel__title">Confirma y paga</h2>
+          <p class="panel__hint">Al pagar, generamos la Gift Card y se la enviamos por WhatsApp.</p>
+          <div class="receipt" id="receipt"></div>
+          <div id="summaryError"></div>
+          <div class="actions">
+            <button type="button" class="btn btn-primary btn-block" id="payButton">Pagar con Wompi</button>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="/js/regalar.js"></script>
+  </body>
+</html>

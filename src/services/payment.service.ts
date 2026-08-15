@@ -3,6 +3,7 @@ import { prisma } from "../db/prisma.js";
 import { appointmentRepository } from "../repositories/appointment.repository.js";
 import { businessRepository } from "../repositories/business.repository.js";
 import { paymentRepository } from "../repositories/payment.repository.js";
+import { giftCardRepository } from "../repositories/giftCard.repository.js";
 import { getPaymentProvider } from "../integrations/payments/index.js";
 import type { WebhookEventStatus } from "../integrations/payments/PaymentProvider.js";
 import { NotFoundError, PaymentError, ValidationError, WebhookVerificationError } from "../errors/index.js";
@@ -10,6 +11,7 @@ import { dateOnlyFromUTCDate } from "../utils/datetime.js";
 import { generateCode } from "../utils/code-generator.js";
 import { notifyAppointmentConfirmed } from "./notification.service.js";
 import { syncAppointmentToSheet } from "./google-sheets-sync.service.js";
+import { confirmGiftCardPayment, finalizeGiftCardAfterPayment } from "./gift-card.service.js";
 import { env } from "../config/env.js";
 import { logger } from "../utils/logger.js";
 
@@ -23,13 +25,10 @@ export interface CreatePaymentOutput {
   reference: string;
 }
 
-/**
- * Punto de entrada de `POST /api/payments/create`. Gift Cards se implementan
- * en Fase 8 — hoy solo soporta reservas.
- */
+/** Punto de entrada de `POST /api/payments/create` — soporta reservas y Gift Cards. */
 export async function createPayment(input: CreatePaymentForEntityInput): Promise<CreatePaymentOutput> {
   if (input.entityType === "GIFT_CARD") {
-    throw new ValidationError("La compra de Gift Cards aún no está disponible.");
+    return createPaymentForGiftCard(input.entityId);
   }
   return createPaymentForAppointment(input.entityId);
 }
@@ -97,6 +96,65 @@ async function createPaymentForAppointment(appointmentId: string): Promise<Creat
   return { paymentUrl: result.paymentUrl, reference };
 }
 
+async function createPaymentForGiftCard(giftCardId: string): Promise<CreatePaymentOutput> {
+  const giftCard = await giftCardRepository.findById(giftCardId);
+  if (!giftCard) {
+    throw new NotFoundError("Gift Card no encontrada.");
+  }
+  if (giftCard.status !== "PENDING") {
+    throw new ValidationError("Esta Gift Card ya no está pendiente de pago.");
+  }
+
+  const provider = getPaymentProvider();
+  // `type=gift` le indica a /gracias qué endpoint de estado consultar (ver docs/GIFT-CARDS.md).
+  const redirectUrl = `${env.APP_URL}/gracias?type=gift`;
+
+  if (giftCard.paymentReference) {
+    const existingPayment = await paymentRepository.findByReference(giftCard.paymentReference);
+    if (existingPayment && existingPayment.status === "PENDING") {
+      const result = await provider.createPayment({
+        reference: existingPayment.reference,
+        amount: Number(existingPayment.amount),
+        currency: existingPayment.currency,
+        redirectUrl: `${redirectUrl}&ref=${existingPayment.reference}`,
+      });
+      return { paymentUrl: result.paymentUrl, reference: existingPayment.reference };
+    }
+  }
+
+  const business = await businessRepository.findById(giftCard.businessId);
+  if (!business) {
+    throw new NotFoundError("Negocio no encontrado.");
+  }
+
+  const reference = generateCode("PAY");
+  const result = await provider.createPayment({
+    reference,
+    amount: Number(giftCard.amount),
+    currency: business.currency,
+    redirectUrl: `${redirectUrl}&ref=${reference}`,
+  });
+
+  await prisma.$transaction(async (tx) => {
+    await paymentRepository.create(
+      {
+        businessId: giftCard.businessId,
+        reference,
+        provider: result.provider,
+        amount: giftCard.amount,
+        currency: business.currency,
+        status: "PENDING",
+        entityType: "GIFT_CARD",
+        entityId: giftCard.id,
+      },
+      tx,
+    );
+    await giftCardRepository.setPaymentReference(giftCard.id, reference, tx);
+  });
+
+  return { paymentUrl: result.paymentUrl, reference };
+}
+
 function mapEventStatusToPaymentStatus(status: WebhookEventStatus): "PAID" | "FAILED" | "PENDING" {
   switch (status) {
     case "APPROVED":
@@ -134,7 +192,7 @@ export async function processPaymentWebhook(rawPayload: unknown): Promise<void> 
 
   const event = provider.parseWebhook(rawPayload);
 
-  const confirmedAppointmentId = await prisma.$transaction(async (tx) => {
+  const confirmed = await prisma.$transaction(async (tx) => {
     // Serializa cualquier entrega concurrente/duplicada del mismo evento.
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${event.reference})::bigint)`;
 
@@ -184,20 +242,30 @@ export async function processPaymentWebhook(rawPayload: unknown): Promise<void> 
     }
 
     if (payment.entityType === "APPOINTMENT") {
-      const confirmed = await confirmAppointmentAfterPayment(payment.entityId, tx);
-      return confirmed ? payment.entityId : null;
+      const wasConfirmed = await confirmAppointmentAfterPayment(payment.entityId, tx);
+      return wasConfirmed ? ({ kind: "APPOINTMENT", id: payment.entityId } as const) : null;
     }
-    // GIFT_CARD: se implementa en Fase 8.
-    return null;
+
+    const wasConfirmed = await confirmGiftCardPayment(payment.entityId, tx);
+    return wasConfirmed ? ({ kind: "GIFT_CARD", id: payment.entityId } as const) : null;
   });
 
-  if (confirmedAppointmentId) {
-    // Fuera de la transacción a propósito: un fallo de WhatsApp o de Sheets
-    // nunca debe revertir la confirmación del pago ya comprometida (sección 22).
-    await notifyAppointmentConfirmed(confirmedAppointmentId).catch((error) => {
-      logger.error({ appointmentId: confirmedAppointmentId, error }, "appointment_confirmation_notification_failed");
+  if (!confirmed) {
+    return;
+  }
+
+  // Fuera de la transacción a propósito: un fallo de WhatsApp, Sheets o de la
+  // generación de la Gift Card nunca debe revertir la confirmación del pago
+  // ya comprometida (sección 22).
+  if (confirmed.kind === "APPOINTMENT") {
+    await notifyAppointmentConfirmed(confirmed.id).catch((error) => {
+      logger.error({ appointmentId: confirmed.id, error }, "appointment_confirmation_notification_failed");
     });
-    void syncAppointmentToSheet(confirmedAppointmentId);
+    void syncAppointmentToSheet(confirmed.id);
+  } else {
+    await finalizeGiftCardAfterPayment(confirmed.id).catch((error) => {
+      logger.error({ giftCardId: confirmed.id, error }, "gift_card_finalization_failed");
+    });
   }
 }
 

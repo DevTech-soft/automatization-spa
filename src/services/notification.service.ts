@@ -1,4 +1,6 @@
+import type { NotificationType } from "@prisma/client";
 import { appointmentRepository } from "../repositories/appointment.repository.js";
+import { giftCardRepository } from "../repositories/giftCard.repository.js";
 import { notificationLogRepository } from "../repositories/notificationLog.repository.js";
 import { getWhatsAppProvider } from "../integrations/whatsapp/index.js";
 import { dateOnlyFromUTCDate } from "../utils/datetime.js";
@@ -22,13 +24,14 @@ function formatMoney(amount: number | string, currency: string): string {
  */
 async function claimNotification(
   businessId: string,
+  entityType: "APPOINTMENT" | "GIFT_CARD",
   entityId: string,
-  type: "APPOINTMENT_CONFIRMATION" | "BUSINESS_NEW_APPOINTMENT",
+  type: NotificationType,
 ): Promise<boolean> {
   try {
     await notificationLogRepository.create({
       businessId,
-      entityType: "APPOINTMENT",
+      entityType,
       entityId,
       type,
       channel: "WHATSAPP",
@@ -60,7 +63,7 @@ export async function notifyAppointmentConfirmed(appointmentId: string): Promise
   const price = formatMoney(appointment.price.toString(), business.currency);
 
   try {
-    if (await claimNotification(business.id, appointment.id, "APPOINTMENT_CONFIRMATION")) {
+    if (await claimNotification(business.id, "APPOINTMENT", appointment.id, "APPOINTMENT_CONFIRMATION")) {
       const provider = getWhatsAppProvider();
       await provider.sendText(
         customer.phone,
@@ -79,7 +82,7 @@ export async function notifyAppointmentConfirmed(appointmentId: string): Promise
   }
 
   try {
-    if (await claimNotification(business.id, appointment.id, "BUSINESS_NEW_APPOINTMENT")) {
+    if (await claimNotification(business.id, "APPOINTMENT", appointment.id, "BUSINESS_NEW_APPOINTMENT")) {
       const provider = getWhatsAppProvider();
       await provider.sendText(
         business.whatsappNumber,
@@ -92,5 +95,65 @@ export async function notifyAppointmentConfirmed(appointmentId: string): Promise
     }
   } catch (error) {
     logger.error({ appointmentId, error }, "whatsapp_business_notification_failed");
+  }
+}
+
+/**
+ * Envía la Gift Card al comprador y notifica al negocio (sección 15, pasos
+ * 7-8 y sección 22). `pdfUrl` puede ser `null` si la generación de la imagen
+ * falló — en ese caso se envía un texto sin adjunto en vez de bloquear el
+ * flujo (el comprador ya pagó, debe enterarse igual).
+ */
+export async function notifyGiftCardCreated(giftCardId: string, pdfUrl: string | null): Promise<void> {
+  const giftCard = await giftCardRepository.findByIdWithDetails(giftCardId);
+  if (!giftCard) {
+    logger.error({ giftCardId }, "notify_gift_card_created_missing");
+    return;
+  }
+
+  const { business } = giftCard;
+  const serviceName = giftCard.service?.name ?? "";
+  const summary =
+    `${serviceName}\nPara: ${giftCard.recipientName}\nCódigo: ${giftCard.code}` +
+    (giftCard.message ? `\n\n"${giftCard.message}"` : "");
+
+  try {
+    if (await claimNotification(business.id, "GIFT_CARD", giftCard.id, "GIFT_CARD_DELIVERY")) {
+      const provider = getWhatsAppProvider();
+      if (pdfUrl) {
+        await provider.sendDocument(
+          giftCard.buyerPhone,
+          pdfUrl,
+          `¡Gracias por tu compra en ${business.name}! Aquí está tu Gift Card:\n\n${summary}`,
+        );
+      } else {
+        await provider.sendText(
+          giftCard.buyerPhone,
+          `¡Gracias por tu compra en ${business.name}! Tu Gift Card ya está lista:\n\n${summary}`,
+        );
+      }
+      await giftCardRepository.markSent(giftCard.id);
+      logger.info({ giftCardId }, "whatsapp_gift_card_sent");
+    }
+  } catch (error) {
+    logger.error({ giftCardId, error }, "whatsapp_gift_card_send_failed");
+  }
+
+  if (!business.whatsappNumber) {
+    return;
+  }
+
+  try {
+    if (await claimNotification(business.id, "GIFT_CARD", giftCard.id, "BUSINESS_NEW_GIFT_CARD")) {
+      const provider = getWhatsAppProvider();
+      await provider.sendText(
+        business.whatsappNumber,
+        `Nueva Gift Card comprada 🎁\n\nComprador: ${giftCard.buyerName} (${giftCard.buyerPhone})\n` +
+          `Destinatario: ${giftCard.recipientName}\n${summary}`,
+      );
+      logger.info({ giftCardId }, "whatsapp_business_gift_card_notification_sent");
+    }
+  } catch (error) {
+    logger.error({ giftCardId, error }, "whatsapp_business_gift_card_notification_failed");
   }
 }

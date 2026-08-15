@@ -30,6 +30,29 @@ vi.mock("../../src/services/payment.service.js", () => ({
 vi.mock("../../src/services/whatsapp-conversation.service.js", () => ({
   handleIncomingWhatsAppMessage: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock("../../src/services/gift-card.service.js", () => ({
+  createGiftCard: vi.fn().mockResolvedValue({ id: "gift-1", code: "GIFT-ABC12345" }),
+  getGiftCardStatusByReference: vi.fn().mockResolvedValue({
+    code: "GIFT-ABC12345",
+    status: "SENT",
+    paymentStatus: "PAID",
+    serviceName: "Masaje relajante",
+    recipientName: "Luis",
+    amount: "90000",
+    pdfUrl: "https://storage.example/gift.png",
+  }),
+  validateGiftCard: vi.fn().mockResolvedValue({
+    valid: true,
+    status: "SENT",
+    serviceName: "Masaje relajante",
+    recipientName: "Luis",
+    buyerName: "Ana",
+    amount: "90000",
+    purchasedAt: "2026-01-04T12:00:00.000Z",
+    expiresAt: null,
+  }),
+  redeemGiftCard: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("../../src/integrations/whatsapp/index.js", () => ({
   getWhatsAppProvider: vi.fn(() => ({ validateWebhookSignature: vi.fn().mockReturnValue(true) })),
 }));
@@ -41,6 +64,7 @@ const { buildApp } = await import("../../src/app.js");
 const { createPayment, processPaymentWebhook } = await import("../../src/services/payment.service.js");
 const { handleIncomingWhatsAppMessage } = await import("../../src/services/whatsapp-conversation.service.js");
 const { getWhatsAppProvider } = await import("../../src/integrations/whatsapp/index.js");
+const { createGiftCard, redeemGiftCard } = await import("../../src/services/gift-card.service.js");
 
 describe("rutas de Fase 2", () => {
   it("GET /api/business/:slug responde 200 con los datos del negocio", async () => {
@@ -247,6 +271,101 @@ describe("rutas de Fase 6 — WhatsApp", () => {
     const response = await app.inject({ method: "POST", url: "/api/webhooks/whatsapp", payload: { entry: [] } });
 
     expect(response.statusCode).toBe(200);
+    await app.close();
+  });
+});
+
+describe("rutas de Fase 8 — Gift Cards", () => {
+  it("POST /api/gift-cards con body inválido responde 400", async () => {
+    const app = await buildApp();
+    const response = await app.inject({ method: "POST", url: "/api/gift-cards", payload: {} });
+
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("POST /api/gift-cards con body válido responde 201", async () => {
+    const app = await buildApp();
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/gift-cards",
+      payload: {
+        businessId: "11111111-1111-1111-1111-111111111111",
+        serviceId: "22222222-2222-2222-2222-222222222222",
+        design: "clasico",
+        buyerName: "Ana",
+        buyerPhone: "+573001112233",
+        recipientName: "Luis",
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toEqual({ data: { id: "gift-1", code: "GIFT-ABC12345" } });
+    expect(createGiftCard).toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("GET /api/gift-cards/status sin reference responde 400", async () => {
+    const app = await buildApp();
+    const response = await app.inject({ method: "GET", url: "/api/gift-cards/status" });
+
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("GET /api/gift-cards/status con reference responde 200", async () => {
+    const app = await buildApp();
+    const response = await app.inject({ method: "GET", url: "/api/gift-cards/status?reference=PAY-ABC12345" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data.code).toBe("GIFT-ABC12345");
+    await app.close();
+  });
+
+  it("POST /api/gift-cards/validate con body inválido responde 400", async () => {
+    const app = await buildApp();
+    const response = await app.inject({ method: "POST", url: "/api/gift-cards/validate", payload: {} });
+
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("POST /api/gift-cards/validate con código responde 200", async () => {
+    const app = await buildApp();
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/gift-cards/validate",
+      payload: { code: "GIFT-ABC12345" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data.valid).toBe(true);
+    await app.close();
+  });
+
+  it("POST /api/gift-cards/redeem sin staffPin responde 400", async () => {
+    const app = await buildApp();
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/gift-cards/redeem",
+      payload: { code: "GIFT-ABC12345" },
+    });
+
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("POST /api/gift-cards/redeem con datos válidos responde 200", async () => {
+    const app = await buildApp();
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/gift-cards/redeem",
+      payload: { code: "GIFT-ABC12345", staffPin: "1234" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ data: { redeemed: true } });
+    expect(redeemGiftCard).toHaveBeenCalledWith("GIFT-ABC12345", "1234");
     await app.close();
   });
 });

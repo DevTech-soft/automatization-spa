@@ -9,4 +9,6 @@ import type { FastifyInstance } from "fastify";
 export async function webRoutes(app: FastifyInstance): Promise<void> {
   app.get("/reservar", (_request, reply) => reply.sendFile("reservar/index.html"));
   app.get("/gracias", (_request, reply) => reply.sendFile("gracias/index.html"));
+  app.get("/regalar", (_request, reply) => reply.sendFile("regalar/index.html"));
+  app.get("/validar", (_request, reply) => reply.sendFile("validar/index.html"));
 }

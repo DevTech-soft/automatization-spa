@@ -32,7 +32,24 @@ function renderPendingDots(message) {
   return `<p>${message}</p><p class="confirm-dots" aria-hidden="true"><span></span><span></span><span></span></p>`;
 }
 
-function renderConfirmed(details) {
+function escapeHtml(value) {
+  const div = document.createElement("div");
+  div.textContent = value;
+  return div.innerHTML;
+}
+
+function renderNotFound(backHref, backLabel) {
+  render({
+    mode: "error",
+    status: "No encontrada",
+    title: "No encontramos esa referencia",
+    bodyHtml: `<p>Verifica el enlace o <a href="${backHref}">${backLabel}</a>.</p>`,
+  });
+}
+
+// ---------- Reserva (por defecto) ----------
+
+function renderAppointmentConfirmed(details) {
   render({
     mode: "success",
     status: "Reserva confirmada",
@@ -48,7 +65,7 @@ function renderConfirmed(details) {
   });
 }
 
-function renderExpiredOrCancelled(details) {
+function renderAppointmentExpiredOrCancelled(details) {
   const isExpired = details.status === "EXPIRED";
   render({
     mode: "error",
@@ -65,7 +82,7 @@ function renderExpiredOrCancelled(details) {
   });
 }
 
-function renderStillProcessing(details) {
+function renderAppointmentStillProcessing(details) {
   render({
     mode: "pending",
     status: "Procesando pago",
@@ -77,16 +94,7 @@ function renderStillProcessing(details) {
   });
 }
 
-function renderNotFound() {
-  render({
-    mode: "error",
-    status: "No encontrada",
-    title: "No encontramos esa reserva",
-    bodyHtml: '<p>Verifica el enlace o <a href="/reservar">haz una nueva reserva</a>.</p>',
-  });
-}
-
-function renderNoReference() {
+function renderNoAppointmentReference() {
   render({
     mode: "success",
     status: "Gracias",
@@ -95,13 +103,7 @@ function renderNoReference() {
   });
 }
 
-function escapeHtml(value) {
-  const div = document.createElement("div");
-  div.textContent = value;
-  return div.innerHTML;
-}
-
-async function poll(reference, attempt) {
+async function pollAppointment(reference, attempt) {
   render({
     mode: "pending",
     status: "Confirmando",
@@ -114,38 +116,116 @@ async function poll(reference, attempt) {
     details = await apiRequest(`/api/appointments/status?reference=${encodeURIComponent(reference)}`);
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
-      renderNotFound();
+      renderNotFound("/reservar", "haz una nueva reserva");
       return;
     }
     if (attempt >= MAX_ATTEMPTS) {
-      renderStillProcessing({ appointmentCode: reference });
+      renderAppointmentStillProcessing({ appointmentCode: reference });
       return;
     }
-    setTimeout(() => poll(reference, attempt + 1), POLL_INTERVAL_MS);
+    setTimeout(() => pollAppointment(reference, attempt + 1), POLL_INTERVAL_MS);
     return;
   }
 
   if (details.status === "CONFIRMED" || details.status === "COMPLETED") {
-    renderConfirmed(details);
+    renderAppointmentConfirmed(details);
     return;
   }
-
   if (details.status === "EXPIRED" || details.status === "CANCELLED") {
-    renderExpiredOrCancelled(details);
+    renderAppointmentExpiredOrCancelled(details);
     return;
   }
-
   if (attempt >= MAX_ATTEMPTS) {
-    renderStillProcessing(details);
+    renderAppointmentStillProcessing(details);
     return;
   }
-
-  setTimeout(() => poll(reference, attempt + 1), POLL_INTERVAL_MS);
+  setTimeout(() => pollAppointment(reference, attempt + 1), POLL_INTERVAL_MS);
 }
 
-const reference = new URLSearchParams(location.search).get("ref");
-if (reference) {
-  poll(reference, 1);
+// ---------- Gift Card (?type=gift) ----------
+
+function renderGiftCardConfirmed(details) {
+  render({
+    mode: "success",
+    status: "Gift Card lista",
+    title: "¡Todo listo!",
+    bodyHtml: `
+      <p>Tu pago fue recibido. Te enviamos la Gift Card por WhatsApp.</p>
+      <p><strong>${escapeHtml(details.serviceName)}</strong><br />
+      Para: ${escapeHtml(details.recipientName)}<br />
+      ${formatCurrency(details.amount, "COP")}</p>
+      ${details.pdfUrl ? `<p><img src="${details.pdfUrl}" alt="Gift Card" style="max-width:100%;border-radius:12px;" /></p>` : ""}
+      <p class="confirm-code">${escapeHtml(details.code)}</p>
+    `,
+  });
+}
+
+function renderGiftCardStillProcessing(code) {
+  render({
+    mode: "pending",
+    status: "Procesando pago",
+    title: "Estamos confirmando tu pago",
+    bodyHtml:
+      renderPendingDots("Esto puede tardar unos minutos. No cierres esta página si acabas de pagar.") +
+      `<p class="confirm-code">${escapeHtml(code)}</p>
+       <p><a href="/regalar">Volver al inicio</a></p>`,
+  });
+}
+
+async function pollGiftCard(reference, attempt) {
+  render({
+    mode: "pending",
+    status: "Confirmando",
+    title: "Un momento…",
+    bodyHtml: renderPendingDots("Estamos verificando el estado de tu Gift Card."),
+  });
+
+  let details;
+  try {
+    details = await apiRequest(`/api/gift-cards/status?reference=${encodeURIComponent(reference)}`);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      renderNotFound("/regalar", "compra una nueva Gift Card");
+      return;
+    }
+    if (attempt >= MAX_ATTEMPTS) {
+      renderGiftCardStillProcessing(reference);
+      return;
+    }
+    setTimeout(() => pollGiftCard(reference, attempt + 1), POLL_INTERVAL_MS);
+    return;
+  }
+
+  if (details.status === "PAID" || details.status === "SENT" || details.status === "REDEEMED") {
+    renderGiftCardConfirmed(details);
+    return;
+  }
+  if (attempt >= MAX_ATTEMPTS) {
+    renderGiftCardStillProcessing(details.code);
+    return;
+  }
+  setTimeout(() => pollGiftCard(reference, attempt + 1), POLL_INTERVAL_MS);
+}
+
+function renderNoGiftCardReference() {
+  render({
+    mode: "success",
+    status: "Gracias",
+    title: "¡Gracias!",
+    bodyHtml: '<p><a href="/regalar">Regalar una experiencia</a></p>',
+  });
+}
+
+// ---------- entrada ----------
+
+const params = new URLSearchParams(location.search);
+const reference = params.get("ref");
+const isGiftCard = params.get("type") === "gift";
+
+if (!reference) {
+  isGiftCard ? renderNoGiftCardReference() : renderNoAppointmentReference();
+} else if (isGiftCard) {
+  pollGiftCard(reference, 1);
 } else {
-  renderNoReference();
+  pollAppointment(reference, 1);
 }
