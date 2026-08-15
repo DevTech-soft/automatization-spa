@@ -12,6 +12,16 @@ vi.mock("../../src/services/availability.service.js", () => ({
 vi.mock("../../src/services/appointment.service.js", () => ({
   createAppointment: vi.fn().mockResolvedValue({ id: "appt-1", appointmentCode: "APT-ABC12345" }),
   expireStalePendingAppointments: vi.fn().mockResolvedValue(2),
+  getAppointmentStatusByReference: vi.fn().mockResolvedValue({
+    appointmentCode: "APT-ABC12345",
+    status: "CONFIRMED",
+    paymentStatus: "PAID",
+    serviceName: "Masaje relajante",
+    date: "2026-01-05",
+    startTime: "10:00",
+    endTime: "11:00",
+    price: "90000",
+  }),
 }));
 vi.mock("../../src/services/payment.service.js", () => ({
   createPayment: vi.fn().mockResolvedValue({ paymentUrl: "https://checkout.wompi.co/p/xyz", reference: "PAY-1" }),
@@ -91,6 +101,23 @@ describe("rutas de Fase 2", () => {
 
     expect(response.statusCode).toBe(201);
     expect(response.json()).toEqual({ data: { id: "appt-1", appointmentCode: "APT-ABC12345" } });
+    await app.close();
+  });
+
+  it("GET /api/appointments/status sin reference responde 400", async () => {
+    const app = await buildApp();
+    const response = await app.inject({ method: "GET", url: "/api/appointments/status" });
+
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("GET /api/appointments/status con reference responde 200", async () => {
+    const app = await buildApp();
+    const response = await app.inject({ method: "GET", url: "/api/appointments/status?reference=PAY-ABC12345" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data.appointmentCode).toBe("APT-ABC12345");
     await app.close();
   });
 

@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { createAppointmentSchema } from "../validators/appointment.validator.js";
-import { createAppointment } from "../services/appointment.service.js";
+import { appointmentStatusQuerySchema, createAppointmentSchema } from "../validators/appointment.validator.js";
+import { createAppointment, getAppointmentStatusByReference } from "../services/appointment.service.js";
 
 export async function createAppointmentHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const body = createAppointmentSchema.parse(request.body);
@@ -8,4 +8,10 @@ export async function createAppointmentHandler(request: FastifyRequest, reply: F
   // a createAppointment() directamente con source="WHATSAPP".
   const appointment = await createAppointment({ ...body, source: "WEB" });
   reply.status(201).send({ data: appointment });
+}
+
+export async function getAppointmentStatusHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const { reference } = appointmentStatusQuerySchema.parse(request.query);
+  const status = await getAppointmentStatusByReference(reference);
+  reply.send({ data: status });
 }

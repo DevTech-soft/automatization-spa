@@ -163,3 +163,40 @@ actualiza el `payment` y confirma la reserva asociada de forma idempotente.
   para que el proveedor no reintente innecesariamente.
 - `401 WEBHOOK_VERIFICATION_ERROR` si la firma no es válida.
 - `402 PAYMENT_ERROR` si el monto o la moneda no coinciden con lo esperado.
+
+## Fase 5 — Web Booking
+
+### `GET /api/appointments/status?reference=PAY-XXXXXXXX`
+
+Usado por `/gracias` para mostrar el resultado tras volver del checkout. No
+requiere login (sección 13) — la referencia es un código corto no adivinable,
+igual que `appointment_code`.
+
+- `404 NOT_FOUND` si no existe una reserva con esa referencia de pago.
+- `200`:
+
+```json
+{
+  "data": {
+    "appointmentCode": "APT-XXXXXXXX",
+    "status": "CONFIRMED",
+    "paymentStatus": "PAID",
+    "serviceName": "Masaje relajante",
+    "date": "2026-01-05",
+    "startTime": "10:00",
+    "endTime": "11:00",
+    "price": "90000"
+  }
+}
+```
+
+### Páginas
+
+- `GET /reservar[?negocio=<slug>]` — formulario de reserva en 5 pasos
+  (servicio → fecha → hora → datos → pago). `negocio` por defecto es
+  `demo-spa`; en un negocio real se fija por dominio/enlace, no hay selector
+  de negocio en la UI (MVP de un solo tenant activo, arquitectura ya
+  multi-tenant — sección 5).
+- `GET /gracias?ref=<payment.reference>` — sondea `GET
+  /api/appointments/status` cada 3s (máx. 10 intentos) mientras el webhook de
+  pago confirma la reserva de forma asíncrona.

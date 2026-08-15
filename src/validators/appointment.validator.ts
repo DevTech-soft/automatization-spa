@@ -15,3 +15,7 @@ export const createAppointmentSchema = z.object({
 });
 
 export type CreateAppointmentBody = z.infer<typeof createAppointmentSchema>;
+
+export const appointmentStatusQuerySchema = z.object({
+  reference: z.string().trim().min(1, "reference es requerida."),
+});

@@ -99,6 +99,20 @@ para serializar entregas duplicadas del mismo evento, y reutiliza el
 `pg_advisory_xact_lock(business_id, service_id, appointment_date)` de la Fase 3
 al confirmar la reserva, para no violar `capacity` bajo concurrencia real.
 
+## Frontend (`web/`)
+
+HTML/CSS/JS vanilla sin build step (sección 3), servido como estáticos por el
+propio backend vía `@fastify/static` (`src/app.ts`), montado en la raíz junto
+con las rutas de API — un solo contenedor desplegable, sin CORS entre
+`/reservar` y `/api/*`. `web/reservar/` y `web/gracias/` son páginas; `web/css`
+y `web/js` son los assets compartidos. `web/**` está excluido del lint de
+TypeScript (`eslint.config.js`) por ser JS de navegador con globals propios
+(`fetch`, `document`), no Node.
+
+`/reservar` no tiene selector de negocio en la UI: usa `?negocio=<slug>` (por
+defecto `demo-spa`) para resolver qué negocio reservar — suficiente para el
+MVP de un solo cliente activo, sin bloquear el modelo multi-tenant subyacente.
+
 ## Protección de canje de Gift Cards
 
 `/validar` (consulta) es pública. `POST /api/gift-cards/redeem` (destructivo, un

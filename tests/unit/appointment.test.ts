@@ -11,7 +11,12 @@ vi.mock("../../src/repositories/businessHour.repository.js", () => ({
   businessHourRepository: { findForDay: vi.fn() },
 }));
 vi.mock("../../src/repositories/appointment.repository.js", () => ({
-  appointmentRepository: { findBlocking: vi.fn(), create: vi.fn(), expireStalePending: vi.fn() },
+  appointmentRepository: {
+    findBlocking: vi.fn(),
+    create: vi.fn(),
+    expireStalePending: vi.fn(),
+    findByPaymentReference: vi.fn(),
+  },
 }));
 vi.mock("../../src/repositories/customer.repository.js", () => ({
   customerRepository: { upsertByPhone: vi.fn() },
@@ -30,10 +35,10 @@ const { serviceRepository } = await import("../../src/repositories/service.repos
 const { businessHourRepository } = await import("../../src/repositories/businessHour.repository.js");
 const { appointmentRepository } = await import("../../src/repositories/appointment.repository.js");
 const { customerRepository } = await import("../../src/repositories/customer.repository.js");
-const { createAppointment, expireStalePendingAppointments } = await import(
+const { createAppointment, expireStalePendingAppointments, getAppointmentStatusByReference } = await import(
   "../../src/services/appointment.service.js"
 );
-const { AvailabilityError } = await import("../../src/errors/index.js");
+const { AvailabilityError, NotFoundError } = await import("../../src/errors/index.js");
 
 const BUSINESS_ID = "11111111-1111-1111-1111-111111111111";
 const SERVICE_ID = "22222222-2222-2222-2222-222222222222";
@@ -171,5 +176,43 @@ describe("expireStalePendingAppointments", () => {
 
     expect(count).toBe(3);
     expect(appointmentRepository.expireStalePending).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("getAppointmentStatusByReference", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("lanza NotFoundError si no existe una reserva con esa referencia", async () => {
+    vi.mocked(appointmentRepository.findByPaymentReference).mockResolvedValue(null);
+
+    await expect(getAppointmentStatusByReference("PAY-DOESNOTEXIST")).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("devuelve el estado resumido de la reserva", async () => {
+    vi.mocked(appointmentRepository.findByPaymentReference).mockResolvedValue({
+      appointmentCode: "APT-ABC12345",
+      status: "CONFIRMED",
+      paymentStatus: "PAID",
+      appointmentDate: new Date("2026-01-05T00:00:00.000Z"),
+      startTime: "10:00",
+      endTime: "11:00",
+      price: { toString: () => "90000" },
+      service: { name: "Masaje relajante" },
+    } as never);
+
+    const result = await getAppointmentStatusByReference("PAY-ABC12345");
+
+    expect(result).toEqual({
+      appointmentCode: "APT-ABC12345",
+      status: "CONFIRMED",
+      paymentStatus: "PAID",
+      serviceName: "Masaje relajante",
+      date: "2026-01-05",
+      startTime: "10:00",
+      endTime: "11:00",
+      price: "90000",
+    });
   });
 });

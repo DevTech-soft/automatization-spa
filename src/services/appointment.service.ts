@@ -11,6 +11,7 @@ import {
   businessToday,
   calendarDayOfWeek,
   currentMinutesInBusinessDay,
+  dateOnlyFromUTCDate,
   dateOnlyToUTCDate,
   daysBetween,
   isValidCalendarDate,
@@ -159,4 +160,38 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
 /** Marca como EXPIRED las reservas PENDING vencidas (sección 10). Llamado por el cron de n8n (Fase 9). */
 export async function expireStalePendingAppointments(): Promise<number> {
   return appointmentRepository.expireStalePending(new Date());
+}
+
+export interface AppointmentStatusResult {
+  appointmentCode: string;
+  status: string;
+  paymentStatus: string;
+  serviceName: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  price: string;
+}
+
+/**
+ * Usado por `/gracias` (Fase 5) tras volver del checkout del proveedor de
+ * pago. La referencia no requiere login (sección 13) — es el mismo código
+ * corto no adivinable que ya usa `payment.reference`.
+ */
+export async function getAppointmentStatusByReference(reference: string): Promise<AppointmentStatusResult> {
+  const appointment = await appointmentRepository.findByPaymentReference(reference);
+  if (!appointment) {
+    throw new NotFoundError("No se encontró una reserva con esa referencia de pago.");
+  }
+
+  return {
+    appointmentCode: appointment.appointmentCode,
+    status: appointment.status,
+    paymentStatus: appointment.paymentStatus,
+    serviceName: appointment.service.name,
+    date: dateOnlyFromUTCDate(appointment.appointmentDate),
+    startTime: appointment.startTime,
+    endTime: appointment.endTime,
+    price: appointment.price.toString(),
+  };
 }
