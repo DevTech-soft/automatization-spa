@@ -1,0 +1,17 @@
+# Desarrollo local: la API se conecta a un proyecto Supabase (dev/staging),
+# no a un Postgres local, para no mantener dos configuraciones de base de
+# datos distintas (ver docs/ARCHITECTURE.md).
+services:
+  api:
+    build:
+      context: .
+      target: build
+    command: npm run dev
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      - ./src:/app/src
+      - ./prisma:/app/prisma
+      - ./web:/app/web

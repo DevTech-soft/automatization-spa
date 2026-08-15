@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+coverage/
+.DS_Store
+Thumbs.db
+
+# Documento interno de especificación, no debe subirse al repositorio.
+Prompt maestro — MVP de reservas, WhatsApp, pagos y Gift Cards para spas.md
