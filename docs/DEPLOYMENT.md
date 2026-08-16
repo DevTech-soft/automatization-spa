@@ -33,9 +33,9 @@ Ya desplegado y verificado en vivo:
   push`. Para forzar un redeploy manual sin push nuevo: `railway redeploy
   --from-source`.
 
-**Pendiente** (necesita acción tuya en paneles externos, sección 4): registrar
-los webhooks de WhatsApp y Wompi con la URL real de arriba, y probar un pago y
-un mensaje de WhatsApp reales end-to-end.
+- **Webhooks registrados y probados** (sección 4): WhatsApp y Wompi apuntan a
+  la URL real de arriba — confirmado con un pago y un mensaje de WhatsApp
+  reales, extremo a extremo. MVP completo y en producción.
 
 ## 0. Verificado en Fase 11 (antes de desplegar)
 
@@ -170,11 +170,6 @@ dashboard admin todavía, la configuración inicial es manual).
 
 ## Qué falta / fuera de este documento
 
-- Webhooks de WhatsApp y Wompi todavía no registrados contra la URL real
-  (sección 4) — sin esto, los mensajes de WhatsApp y las confirmaciones de
-  pago no le llegan a la app todavía, aunque la API ya esté viva.
-- No se probó un pago real ni un mensaje de WhatsApp real end-to-end contra
-  este deploy (necesita los webhooks registrados primero).
 - Sin dashboard administrativo (sección 4/42 del prompt maestro): cambios de
   configuración del negocio (precios, horarios, diseños) siguen siendo
   manuales en Supabase.
