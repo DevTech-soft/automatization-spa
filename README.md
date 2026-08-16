@@ -4,15 +4,19 @@ MVP de reservas para spas/centros de belleza: reservas por web y WhatsApp, pagos
 webhook verificado, Gift Cards digitales y sincronización a Google Sheets como vista
 administrativa. Ver `docs/ARCHITECTURE.md` para las decisiones de diseño.
 
-Estado actual: **Fase 1 — Foundation** (backend base + Prisma + seed + health check).
-Las demás fases (disponibilidad, reservas, pagos, WhatsApp, Sheets, Gift Cards,
-recordatorios, deployment) se van documentando en `docs/` a medida que se implementan.
+Estado actual: **Fase 9 — Reminders** completada (Foundation, disponibilidad,
+reservas, pagos, WhatsApp, Google Sheets, Gift Cards y recordatorios). Quedan
+Fase 10 (testing/hardening) y Fase 11 (deployment) — se van documentando en
+`docs/` a medida que se implementan.
 
 ## Stack
 
 - Node.js 20+, TypeScript estricto, Fastify
 - PostgreSQL vía Supabase, Prisma ORM
-- n8n como orquestador de automatizaciones (cron, Sheets, WhatsApp)
+- Backend como único orquestador: webhooks de WhatsApp/pagos y sincronización
+  con Google Sheets se llaman directo desde el backend, sin n8n (ver "Rol de
+  n8n" en `docs/ARCHITECTURE.md`); los jobs periódicos (recordatorios,
+  limpieza de reservas vencidas) corren con `node-cron` in-process
 - Frontend estático (HTML/CSS/JS vanilla, sin build step)
 
 ## Requisitos previos
@@ -105,11 +109,11 @@ src/
   middlewares/     error handler, auth de staff, rate limit
   validators/     schemas zod de entrada
   integrations/    whatsapp/, payments/, google-sheets/, storage/
+  jobs/            scheduler in-process (node-cron: recordatorios, limpieza)
   errors/          errores tipados
   db/              cliente Prisma
 prisma/            schema, migraciones, seed
 web/                frontend estático (/reservar, /regalar, /gracias, /validar)
-n8n/workflows/       workflows de automatización
 docs/                documentación del proyecto
 tests/               unit/ e integration/
 ```

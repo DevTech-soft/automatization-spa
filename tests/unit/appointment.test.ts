@@ -16,7 +16,11 @@ vi.mock("../../src/repositories/appointment.repository.js", () => ({
     create: vi.fn(),
     expireStalePending: vi.fn(),
     findByPaymentReference: vi.fn(),
+    findConfirmedForReminders: vi.fn(),
   },
+}));
+vi.mock("../../src/services/notification.service.js", () => ({
+  notifyAppointmentReminder: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("../../src/repositories/customer.repository.js", () => ({
   customerRepository: { upsertByPhone: vi.fn() },
@@ -42,9 +46,13 @@ const { customerRepository } = await import("../../src/repositories/customer.rep
 const { syncAppointmentToSheet, syncCustomerToSheet } = await import(
   "../../src/services/google-sheets-sync.service.js"
 );
-const { createAppointment, expireStalePendingAppointments, getAppointmentStatusByReference } = await import(
-  "../../src/services/appointment.service.js"
-);
+const { notifyAppointmentReminder } = await import("../../src/services/notification.service.js");
+const {
+  createAppointment,
+  expireStalePendingAppointments,
+  getAppointmentStatusByReference,
+  sendUpcomingAppointmentReminders,
+} = await import("../../src/services/appointment.service.js");
 const { AvailabilityError, NotFoundError } = await import("../../src/errors/index.js");
 
 const BUSINESS_ID = "11111111-1111-1111-1111-111111111111";
@@ -225,5 +233,54 @@ describe("getAppointmentStatusByReference", () => {
       endTime: "11:00",
       price: "90000",
     });
+  });
+});
+
+describe("sendUpcomingAppointmentReminders", () => {
+  // 2026-01-05, 12:00 UTC. Ventana de recordatorio: [2026-01-06T10:30Z, 2026-01-06T12:00Z).
+  const REMINDER_NOW = new Date("2026-01-05T12:00:00.000Z");
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(REMINDER_NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.clearAllMocks();
+  });
+
+  it("notifica solo las citas cuyo inicio real cae dentro de la ventana de ~24h", async () => {
+    vi.mocked(appointmentRepository.findConfirmedForReminders).mockResolvedValue([
+      {
+        // 06:59 America/Bogota (UTC-5) == 11:59 UTC del 06/01, dentro de la ventana.
+        id: "appt-in-window",
+        appointmentDate: new Date("2026-01-06T00:00:00.000Z"),
+        startTime: "06:59",
+        business: { timezone: "America/Bogota" },
+      },
+      {
+        // 20:00 America/Bogota == 01:00 UTC del 07/01, fuera de la ventana.
+        id: "appt-out-of-window",
+        appointmentDate: new Date("2026-01-06T00:00:00.000Z"),
+        startTime: "20:00",
+        business: { timezone: "America/Bogota" },
+      },
+    ] as never);
+
+    const count = await sendUpcomingAppointmentReminders();
+
+    expect(count).toBe(1);
+    expect(notifyAppointmentReminder).toHaveBeenCalledTimes(1);
+    expect(notifyAppointmentReminder).toHaveBeenCalledWith("appt-in-window");
+  });
+
+  it("devuelve 0 sin llamar al servicio de notificación si no hay candidatas", async () => {
+    vi.mocked(appointmentRepository.findConfirmedForReminders).mockResolvedValue([]);
+
+    const count = await sendUpcomingAppointmentReminders();
+
+    expect(count).toBe(0);
+    expect(notifyAppointmentReminder).not.toHaveBeenCalled();
   });
 });

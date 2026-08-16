@@ -18,7 +18,9 @@ const { appointmentRepository } = await import("../../src/repositories/appointme
 const { giftCardRepository } = await import("../../src/repositories/giftCard.repository.js");
 const { notificationLogRepository } = await import("../../src/repositories/notificationLog.repository.js");
 const { getWhatsAppProvider } = await import("../../src/integrations/whatsapp/index.js");
-const { notifyAppointmentConfirmed, notifyGiftCardCreated } = await import("../../src/services/notification.service.js");
+const { notifyAppointmentConfirmed, notifyAppointmentReminder, notifyGiftCardCreated } = await import(
+  "../../src/services/notification.service.js"
+);
 
 const APPOINTMENT_ID = "44444444-4444-4444-4444-444444444444";
 const GIFT_CARD_ID = "55555555-5555-5555-5555-555555555555";
@@ -102,6 +104,54 @@ describe("notifyAppointmentConfirmed", () => {
     vi.mocked(getWhatsAppProvider).mockReturnValue({ sendText } as never);
 
     await expect(notifyAppointmentConfirmed(APPOINTMENT_ID)).resolves.toBeUndefined();
+  });
+});
+
+describe("notifyAppointmentReminder", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("no hace nada si la reserva ya no existe", async () => {
+    vi.mocked(appointmentRepository.findByIdWithDetails).mockResolvedValue(null);
+
+    await expect(notifyAppointmentReminder(APPOINTMENT_ID)).resolves.toBeUndefined();
+    expect(notificationLogRepository.create).not.toHaveBeenCalled();
+  });
+
+  it("envía el recordatorio por WhatsApp al cliente", async () => {
+    vi.mocked(appointmentRepository.findByIdWithDetails).mockResolvedValue(fakeAppointment() as never);
+    vi.mocked(notificationLogRepository.create).mockResolvedValue({} as never);
+    const sendText = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(getWhatsAppProvider).mockReturnValue({ sendText } as never);
+
+    await notifyAppointmentReminder(APPOINTMENT_ID);
+
+    expect(sendText).toHaveBeenCalledTimes(1);
+    expect(sendText).toHaveBeenCalledWith("+573001112233", expect.stringContaining("Masaje relajante"));
+    expect(notificationLogRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "APPOINTMENT_REMINDER" }),
+    );
+  });
+
+  it("es idempotente: si ya se registró el recordatorio, no reenvía", async () => {
+    vi.mocked(appointmentRepository.findByIdWithDetails).mockResolvedValue(fakeAppointment() as never);
+    vi.mocked(notificationLogRepository.create).mockRejectedValue(duplicateError());
+    const sendText = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(getWhatsAppProvider).mockReturnValue({ sendText } as never);
+
+    await notifyAppointmentReminder(APPOINTMENT_ID);
+
+    expect(sendText).not.toHaveBeenCalled();
+  });
+
+  it("no propaga el error si falla el envío por WhatsApp", async () => {
+    vi.mocked(appointmentRepository.findByIdWithDetails).mockResolvedValue(fakeAppointment() as never);
+    vi.mocked(notificationLogRepository.create).mockResolvedValue({} as never);
+    const sendText = vi.fn().mockRejectedValue(new Error("network error"));
+    vi.mocked(getWhatsAppProvider).mockReturnValue({ sendText } as never);
+
+    await expect(notifyAppointmentReminder(APPOINTMENT_ID)).resolves.toBeUndefined();
   });
 });
 

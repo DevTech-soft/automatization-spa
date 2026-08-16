@@ -8,6 +8,7 @@ import { appointmentRepository } from "../repositories/appointment.repository.js
 import { customerRepository } from "../repositories/customer.repository.js";
 import { AvailabilityError, NotFoundError, ValidationError } from "../errors/index.js";
 import {
+  businessDateTimeToInstant,
   businessToday,
   calendarDayOfWeek,
   currentMinutesInBusinessDay,
@@ -22,7 +23,13 @@ import { normalizePhone } from "../utils/phone.js";
 import { generateCode } from "../utils/code-generator.js";
 import { isUniqueConstraintViolation } from "../utils/prisma-errors.js";
 import { syncAppointmentToSheet, syncCustomerToSheet } from "./google-sheets-sync.service.js";
-import { MAX_BOOKING_DAYS_AHEAD, PENDING_EXPIRATION_MINUTES } from "../config/constants.js";
+import { notifyAppointmentReminder } from "./notification.service.js";
+import {
+  MAX_BOOKING_DAYS_AHEAD,
+  PENDING_EXPIRATION_MINUTES,
+  REMINDER_HOURS_BEFORE,
+  REMINDER_WINDOW_MINUTES,
+} from "../config/constants.js";
 
 export interface CreateAppointmentInput {
   businessId: string;
@@ -162,9 +169,42 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
   return appointment;
 }
 
-/** Marca como EXPIRED las reservas PENDING vencidas (sección 10). Llamado por el cron de n8n (Fase 9). */
+/** Marca como EXPIRED las reservas PENDING vencidas (sección 10). Llamado por el scheduler (Fase 9). */
 export async function expireStalePendingAppointments(): Promise<number> {
   return appointmentRepository.expireStalePending(new Date());
+}
+
+/**
+ * Envía el recordatorio de las citas CONFIRMED que están a ~24h de su
+ * inicio (sección 21). Llamado por el scheduler (src/jobs/scheduler.ts, cada
+ * hora) — trae candidatas en un rango amplio de `appointment_date` (para no
+ * perder ninguna por el timezone del negocio) y filtra por instante real
+ * antes de notificar. La idempotencia real vive en `notifyAppointmentReminder`
+ * (notification_log), así que solapar la ventana entre corridas es seguro.
+ */
+export async function sendUpcomingAppointmentReminders(): Promise<number> {
+  const now = DateTime.utc();
+  const fromDate = now.startOf("day").toJSDate();
+  const toDate = now.plus({ days: 2 }).endOf("day").toJSDate();
+  const candidates = await appointmentRepository.findConfirmedForReminders(fromDate, toDate);
+
+  const windowStart = now.plus({ hours: REMINDER_HOURS_BEFORE, minutes: -REMINDER_WINDOW_MINUTES }).toMillis();
+  const windowEnd = now.plus({ hours: REMINDER_HOURS_BEFORE }).toMillis();
+
+  let sent = 0;
+  for (const appointment of candidates) {
+    const instant = businessDateTimeToInstant(
+      dateOnlyFromUTCDate(appointment.appointmentDate),
+      appointment.startTime,
+      appointment.business.timezone,
+    ).toMillis();
+    if (instant >= windowStart && instant < windowEnd) {
+      await notifyAppointmentReminder(appointment.id);
+      sent++;
+    }
+  }
+
+  return sent;
 }
 
 export interface AppointmentStatusResult {

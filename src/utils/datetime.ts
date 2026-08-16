@@ -65,6 +65,17 @@ export function dateOnlyFromUTCDate(date: Date): string {
   return isoDate;
 }
 
+/**
+ * Combina una fecha de calendario ("YYYY-MM-DD") y una hora de pared ("HH:mm")
+ * como wall-clock en `timezone`, y devuelve el instante UTC real. Usado por los
+ * recordatorios (Fase 9) para saber cuánto falta para el inicio real de una
+ * cita, sin importar el timezone del negocio.
+ */
+export function businessDateTimeToInstant(date: string, time: string, timezone: string): DateTime {
+  const [hour, minute] = time.split(":").map(Number);
+  return DateTime.fromISO(date, { zone: timezone }).set({ hour, minute, second: 0, millisecond: 0 });
+}
+
 export function parseTimeToMinutes(time: string): number {
   const [hours, minutes] = time.split(":").map(Number);
   return (hours ?? 0) * 60 + (minutes ?? 0);

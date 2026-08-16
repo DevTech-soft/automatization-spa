@@ -120,8 +120,9 @@ Respuestas:
 ### `POST /internal/jobs/expire-appointments`
 
 Endpoint interno (no público) que marca como `EXPIRED` las reservas `PENDING`
-cuyo `expires_at` ya venció. Pensado para que lo dispare el cron de n8n
-(workflow `11_cleanup_expired_appointments`, Fase 9).
+cuyo `expires_at` ya venció. Lo dispara el scheduler in-process cada 5 minutos
+(`src/jobs/scheduler.ts`, Fase 9 — ver "Rol de n8n" en `docs/ARCHITECTURE.md`
+para por qué no hay un cron externo).
 
 - Requiere header `Authorization: Bearer <INTERNAL_JOBS_TOKEN>`.
 - `401 UNAUTHORIZED` si falta o no coincide el token.
@@ -315,3 +316,22 @@ Body: `{ "code": "GIFT-XXXXXXXX", "staffPin": "1234" }`
 - `GET /gracias?type=gift&ref=<payment.reference>` — variante de `/gracias`
   para Gift Cards (mismo componente, rama distinta en `web/js/gracias.js`).
 - `GET /validar` — uso interno: consultar código → canjear con `STAFF_PIN`.
+
+## Fase 9 — Reminders
+
+Ver "Rol de n8n" en `docs/ARCHITECTURE.md` para la decisión de no usar un
+orquestador externo: `src/jobs/scheduler.ts` corre ambos jobs in-process con
+`node-cron`, llamando a estos mismos endpoints internos.
+
+### `POST /internal/jobs/send-reminders`
+
+Endpoint interno (no público). Busca citas `CONFIRMED` cuyo inicio real cae
+dentro de la ventana de ~24h antes (`REMINDER_HOURS_BEFORE` /
+`REMINDER_WINDOW_MINUTES`, sección 21) y envía el recordatorio por WhatsApp a
+cada cliente. Lo dispara el scheduler cada hora; la idempotencia (no
+duplicar recordatorios entre corridas con ventanas solapadas) la da
+`notification_log` (tipo `APPOINTMENT_REMINDER`), no la ventana de tiempo.
+
+- Requiere header `Authorization: Bearer <INTERNAL_JOBS_TOKEN>`.
+- `401 UNAUTHORIZED` si falta o no coincide el token.
+- `200 { "data": { "remindersSent": number } }`.

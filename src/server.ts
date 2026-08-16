@@ -2,6 +2,7 @@ import { buildApp } from "./app.js";
 import { env } from "./config/env.js";
 import { logger } from "./utils/logger.js";
 import { prisma } from "./db/prisma.js";
+import { startScheduledJobs } from "./jobs/scheduler.js";
 
 async function main(): Promise<void> {
   const app = await buildApp();
@@ -9,6 +10,7 @@ async function main(): Promise<void> {
   try {
     await app.listen({ port: env.PORT, host: "0.0.0.0" });
     logger.info({ port: env.PORT, env: env.NODE_ENV }, "server_started");
+    startScheduledJobs();
   } catch (error) {
     logger.error({ err: error }, "server_start_failed");
     process.exit(1);

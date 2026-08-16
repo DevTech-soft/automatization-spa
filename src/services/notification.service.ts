@@ -99,6 +99,37 @@ export async function notifyAppointmentConfirmed(appointmentId: string): Promise
 }
 
 /**
+ * Recordatorio ~24h antes de una cita CONFIRMED (sección 21). Llamado por el
+ * scheduler (src/jobs/scheduler.ts, Fase 9) para cada cita candidata; la
+ * idempotencia la da `claimNotification` (tipo APPOINTMENT_REMINDER), así que
+ * es seguro llamarlo más de una vez para la misma cita.
+ */
+export async function notifyAppointmentReminder(appointmentId: string): Promise<void> {
+  const appointment = await appointmentRepository.findByIdWithDetails(appointmentId);
+  if (!appointment) {
+    logger.error({ appointmentId }, "notify_appointment_reminder_appointment_missing");
+    return;
+  }
+
+  const { customer, service, business } = appointment;
+  const dateLabel = dateOnlyFromUTCDate(appointment.appointmentDate);
+
+  try {
+    if (await claimNotification(business.id, "APPOINTMENT", appointment.id, "APPOINTMENT_REMINDER")) {
+      const provider = getWhatsAppProvider();
+      await provider.sendText(
+        customer.phone,
+        `Hola ${customer.name} ❤️ Te recordamos que el ${dateLabel} tienes tu cita de ${service.name} ` +
+          `a las ${appointment.startTime} en ${business.name}.`,
+      );
+      logger.info({ appointmentId }, "whatsapp_appointment_reminder_sent");
+    }
+  } catch (error) {
+    logger.error({ appointmentId, error }, "whatsapp_appointment_reminder_failed");
+  }
+}
+
+/**
  * Envía la Gift Card al comprador y notifica al negocio (sección 15, pasos
  * 7-8 y sección 22). `pdfUrl` puede ser `null` si la generación de la imagen
  * falló — en ese caso se envía un texto sin adjunto en vez de bloquear el

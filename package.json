@@ -37,6 +37,7 @@
     "google-auth-library": "^11.0.2",
     "luxon": "^3.5.0",
     "nanoid": "^5.0.7",
+    "node-cron": "^4.6.0",
     "pino": "^9.4.0",
     "pino-pretty": "^11.2.2",
     "puppeteer": "^25.7.0",

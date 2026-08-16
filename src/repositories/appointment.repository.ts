@@ -90,4 +90,19 @@ export const appointmentRepository = {
     });
     return result.count;
   },
+
+  /**
+   * Candidatas a recordatorio (sección 21/Fase 9): CONFIRMED con
+   * `appointment_date` dentro de `[fromDate, toDate]` (rango amplio en UTC
+   * para no perder citas por el desfase de timezone del negocio — el filtro
+   * preciso por instante real se hace en el service con
+   * `businessDateTimeToInstant`). Trae solo lo necesario para ese filtro;
+   * `notifyAppointmentReminder` vuelve a consultar el detalle completo.
+   */
+  findConfirmedForReminders(fromDate: Date, toDate: Date, db: Db = prisma) {
+    return db.appointment.findMany({
+      where: { status: "CONFIRMED", appointmentDate: { gte: fromDate, lte: toDate } },
+      select: { id: true, appointmentDate: true, startTime: true, business: { select: { timezone: true } } },
+    });
+  },
 };

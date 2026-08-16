@@ -12,6 +12,7 @@ vi.mock("../../src/services/availability.service.js", () => ({
 vi.mock("../../src/services/appointment.service.js", () => ({
   createAppointment: vi.fn().mockResolvedValue({ id: "appt-1", appointmentCode: "APT-ABC12345" }),
   expireStalePendingAppointments: vi.fn().mockResolvedValue(2),
+  sendUpcomingAppointmentReminders: vi.fn().mockResolvedValue(3),
   getAppointmentStatusByReference: vi.fn().mockResolvedValue({
     appointmentCode: "APT-ABC12345",
     status: "CONFIRMED",
@@ -171,6 +172,27 @@ describe("rutas de Fase 2", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ data: { expiredCount: 2 } });
+    await app.close();
+  });
+
+  it("POST /internal/jobs/send-reminders sin token responde 401", async () => {
+    const app = await buildApp();
+    const response = await app.inject({ method: "POST", url: "/internal/jobs/send-reminders" });
+
+    expect(response.statusCode).toBe(401);
+    await app.close();
+  });
+
+  it("POST /internal/jobs/send-reminders con token válido responde 200", async () => {
+    const app = await buildApp();
+    const response = await app.inject({
+      method: "POST",
+      url: "/internal/jobs/send-reminders",
+      headers: { authorization: `Bearer ${process.env.INTERNAL_JOBS_TOKEN}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ data: { remindersSent: 3 } });
     await app.close();
   });
 });

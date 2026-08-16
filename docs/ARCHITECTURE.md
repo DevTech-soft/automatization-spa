@@ -47,16 +47,34 @@ sin romper el principio de la sección 18: el backend sigue siendo la única
 fuente de verdad, nada de esto le da a un tercero poder de decisión sobre
 disponibilidad, precio o estado de pago.
 
-Plan original de Fase 0 (para cuando se introduzca n8n, ej. en Fase 9):
+**Decisión de Fase 9**: los dos cron jobs pendientes (`10_appointment_reminders`,
+`11_cleanup_expired_appointments`) tampoco necesitan n8n. Son llamadas
+periódicas a lógica que ya vive en el backend — meter un orquestador externo
+solo para eso sería la sobreingeniería que prohíbe la sección 46 (20 líneas y
+una dependencia vs. un servicio adicional que mantener vivo, con un trial de
+14 días de por medio). En su lugar, `src/jobs/scheduler.ts` usa `node-cron`
+in-process, arrancado únicamente desde `server.ts` (nunca desde `app.ts`, para
+que los tests que usan `buildApp()` no disparen jobs de fondo):
 
-- `10_appointment_reminders`: cron que llama a un endpoint interno del backend.
-- `11_cleanup_expired_appointments`: cron que llama a un endpoint interno del backend.
+- cada 5 min, `expireStalePendingAppointments()` — libera el horario de
+  reservas `PENDING` vencidas (sección 10).
+- cada hora, `sendUpcomingAppointmentReminders()` — recordatorio ~24h antes de
+  cada cita `CONFIRMED` (sección 21), con `REMINDER_WINDOW_MINUTES` (90 min)
+  mayor a la frecuencia del cron para no dejar huecos entre corridas; la
+  idempotencia real la da `notification_log` (tipo `APPOINTMENT_REMINDER`), no
+  la ventana.
 
-Si más adelante conviene meter n8n en el medio (para los cron jobs de Fase 9,
-o para desacoplar reintentos de webhooks), el cambio es aislado: los
-providers (`WhatsAppProvider`, `PaymentProvider`, `GoogleSheetsProvider`) ya
-son la capa de abstracción correcta para hacerlo sin tocar la lógica de
-negocio.
+Los mismos endpoints internos que llama el scheduler (`POST
+/internal/jobs/expire-appointments`, `POST /internal/jobs/send-reminders`,
+protegidos con `INTERNAL_JOBS_TOKEN`) siguen expuestos para un trigger manual
+o, si algún día el backend se despliega en un entorno sin proceso persistente,
+un cron externo gratuito (GitHub Actions scheduled workflow, cron-job.org)
+apuntando a ellos — sin tocar la lógica de negocio.
+
+Si más adelante conviene meter n8n en el medio de todos modos (por ejemplo
+para desacoplar reintentos de webhooks), el cambio es aislado: los providers
+(`WhatsAppProvider`, `PaymentProvider`, `GoogleSheetsProvider`) ya son la capa
+de abstracción correcta para hacerlo sin tocar la lógica de negocio.
 
 ## Multi-tenancy
 

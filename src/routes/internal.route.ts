@@ -1,10 +1,12 @@
 import type { FastifyInstance } from "fastify";
 import { requireInternalToken } from "../middlewares/internal-auth.js";
-import { expireAppointmentsHandler } from "../controllers/internal.controller.js";
+import { expireAppointmentsHandler, sendRemindersHandler } from "../controllers/internal.controller.js";
 
 /**
- * Endpoints internos, no expuestos al público. Pensados para ser llamados por
- * el cron de n8n (workflow 11_cleanup_expired_appointments, Fase 9).
+ * Endpoints internos, no expuestos al público. Los dispara el scheduler
+ * in-process del propio backend (src/jobs/scheduler.ts, Fase 9), pero quedan
+ * disponibles para un trigger manual o un cron externo si hiciera falta
+ * (ver "Rol de n8n" en docs/ARCHITECTURE.md).
  */
 export async function internalRoutes(app: FastifyInstance): Promise<void> {
   app.post(
@@ -12,4 +14,5 @@ export async function internalRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: requireInternalToken },
     expireAppointmentsHandler,
   );
+  app.post("/internal/jobs/send-reminders", { preHandler: requireInternalToken }, sendRemindersHandler);
 }

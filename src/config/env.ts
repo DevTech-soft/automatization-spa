@@ -21,8 +21,6 @@ const envSchema = z.object({
   SUPABASE_ANON_KEY: z.string().min(1),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 
-  N8N_WEBHOOK_BASE_URL: z.string().url().optional().or(z.literal("")),
-
   WHATSAPP_ACCESS_TOKEN: z.string().optional().or(z.literal("")),
   WHATSAPP_PHONE_NUMBER_ID: z.string().optional().or(z.literal("")),
   WHATSAPP_VERIFY_TOKEN: z.string().optional().or(z.literal("")),
@@ -50,7 +48,7 @@ const envSchema = z.object({
 
   STAFF_PIN: z.string().optional().or(z.literal("")),
 
-  /** Protege los endpoints /internal/* (cron de n8n). Ver Fase 3. */
+  /** Protege los endpoints /internal/* (llamados por el scheduler in-process, ver Fase 3/9). */
   INTERNAL_JOBS_TOKEN: z.string().min(16, "INTERNAL_JOBS_TOKEN debe tener al menos 16 caracteres."),
 });
 
