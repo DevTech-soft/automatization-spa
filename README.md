@@ -4,10 +4,12 @@ MVP de reservas para spas/centros de belleza: reservas por web y WhatsApp, pagos
 webhook verificado, Gift Cards digitales y sincronización a Google Sheets como vista
 administrativa. Ver `docs/ARCHITECTURE.md` para las decisiones de diseño.
 
-Estado actual: **Fase 10 — Testing & Hardening** completada (Foundation,
+Estado actual: **Fase 11 — Deployment** en preparación (Foundation,
 disponibilidad, reservas, pagos, WhatsApp, Google Sheets, Gift Cards,
-recordatorios, y una pasada de hardening — ver `docs/TESTING.md`). Queda
-Fase 11 (deployment) — se va documentando en `docs/` a medida que se implementa.
+recordatorios y hardening ya completos — ver `docs/TESTING.md`). El
+`Dockerfile`/`railway.json` están listos y validados localmente contra
+Supabase real (`docs/DEPLOYMENT.md`); falta el deploy real a Railway y
+registrar los webhooks de producción con Meta/Wompi.
 
 ## Stack
 
