@@ -390,4 +390,17 @@ describe("rutas de Fase 8 — Gift Cards", () => {
     expect(redeemGiftCard).toHaveBeenCalledWith("GIFT-ABC12345", "1234");
     await app.close();
   });
+
+  it("POST /api/gift-cards/redeem tiene un límite de tasa propio, más estricto que el global (fuerza bruta de STAFF_PIN)", async () => {
+    const app = await buildApp();
+    const payload = { code: "GIFT-ABC12345", staffPin: "0000" };
+
+    let lastResponse;
+    for (let i = 0; i < 6; i++) {
+      lastResponse = await app.inject({ method: "POST", url: "/api/gift-cards/redeem", payload });
+    }
+
+    expect(lastResponse!.statusCode).toBe(429);
+    await app.close();
+  });
 });

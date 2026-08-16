@@ -4,10 +4,10 @@ MVP de reservas para spas/centros de belleza: reservas por web y WhatsApp, pagos
 webhook verificado, Gift Cards digitales y sincronización a Google Sheets como vista
 administrativa. Ver `docs/ARCHITECTURE.md` para las decisiones de diseño.
 
-Estado actual: **Fase 9 — Reminders** completada (Foundation, disponibilidad,
-reservas, pagos, WhatsApp, Google Sheets, Gift Cards y recordatorios). Quedan
-Fase 10 (testing/hardening) y Fase 11 (deployment) — se van documentando en
-`docs/` a medida que se implementan.
+Estado actual: **Fase 10 — Testing & Hardening** completada (Foundation,
+disponibilidad, reservas, pagos, WhatsApp, Google Sheets, Gift Cards,
+recordatorios, y una pasada de hardening — ver `docs/TESTING.md`). Queda
+Fase 11 (deployment) — se va documentando en `docs/` a medida que se implementa.
 
 ## Stack
 

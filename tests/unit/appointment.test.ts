@@ -29,11 +29,15 @@ vi.mock("../../src/services/google-sheets-sync.service.js", () => ({
   syncAppointmentToSheet: vi.fn().mockResolvedValue(undefined),
   syncCustomerToSheet: vi.fn().mockResolvedValue(undefined),
 }));
+// vi.hoisted: el mock de abajo se hoistea sobre esta declaración, así que
+// necesita que executeRawMock ya exista para poder capturarlo (sección 12 —
+// verificar que createAppointment sí toma el advisory lock, no solo que
+// createAppointment funcione asumiendo que lo toma).
+const { executeRawMock } = vi.hoisted(() => ({ executeRawMock: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("../../src/db/prisma.js", () => ({
   prisma: {
-    $transaction: vi.fn(async (callback: (tx: { $executeRaw: () => Promise<void> }) => unknown) => {
-      const tx = { $executeRaw: vi.fn().mockResolvedValue(undefined) };
-      return callback(tx);
+    $transaction: vi.fn(async (callback: (tx: { $executeRaw: typeof executeRawMock }) => unknown) => {
+      return callback({ $executeRaw: executeRawMock });
     }),
   },
 }));
@@ -130,6 +134,16 @@ describe("createAppointment", () => {
 
     expect(syncAppointmentToSheet).toHaveBeenCalledWith("appt-1");
     expect(syncCustomerToSheet).toHaveBeenCalledWith(CUSTOMER_ID);
+  });
+
+  it("toma el advisory lock de Postgres scopeado a (business, service, fecha) antes de chequear solapes (sección 12)", async () => {
+    mockHappyPath();
+
+    await createAppointment(baseInput);
+
+    expect(executeRawMock).toHaveBeenCalledTimes(1);
+    const [, lockKeyArg] = executeRawMock.mock.calls[0] as [TemplateStringsArray, string];
+    expect(lockKeyArg).toBe(`${BUSINESS_ID}:${SERVICE_ID}:2026-01-05`);
   });
 
   it("normaliza el teléfono antes de buscar/crear el cliente (dedup)", async () => {

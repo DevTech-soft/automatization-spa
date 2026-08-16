@@ -30,11 +30,14 @@ vi.mock("../../src/services/gift-card.service.js", () => ({
   confirmGiftCardPayment: vi.fn(),
   finalizeGiftCardAfterPayment: vi.fn().mockResolvedValue(undefined),
 }));
+// vi.hoisted: necesario para poder capturar las llamadas al lock desde los
+// tests (sección 9/12 — confirmar que el webhook sí serializa contra
+// reprocesos y contra la capacity, no solo que confirma la reserva).
+const { executeRawMock } = vi.hoisted(() => ({ executeRawMock: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("../../src/db/prisma.js", () => ({
   prisma: {
-    $transaction: vi.fn(async (callback: (tx: { $executeRaw: () => Promise<void> }) => unknown) => {
-      const tx = { $executeRaw: vi.fn().mockResolvedValue(undefined) };
-      return callback(tx);
+    $transaction: vi.fn(async (callback: (tx: { $executeRaw: typeof executeRawMock }) => unknown) => {
+      return callback({ $executeRaw: executeRawMock });
     }),
   },
 }));
@@ -338,6 +341,14 @@ describe("processPaymentWebhook", () => {
     expect(notifyAppointmentConfirmed).toHaveBeenCalledWith(APPOINTMENT_ID);
     expect(syncAppointmentToSheet).toHaveBeenCalledWith(APPOINTMENT_ID);
     expect(finalizeGiftCardAfterPayment).not.toHaveBeenCalled();
+
+    // sección 9/12: serializa contra reprocesos del mismo evento (lock por
+    // reference) y contra la capacity al confirmar (lock por business/service/fecha).
+    expect(executeRawMock).toHaveBeenCalledTimes(2);
+    const [, referenceLockKey] = executeRawMock.mock.calls[0] as [TemplateStringsArray, string];
+    expect(referenceLockKey).toBe(REFERENCE);
+    const [, capacityLockKey] = executeRawMock.mock.calls[1] as [TemplateStringsArray, string];
+    expect(capacityLockKey).toBe(`${BUSINESS_ID}:22222222-2222-2222-2222-222222222222:2026-01-05`);
   });
 
   it("confirma la Gift Card cuando el pago es APPROVED (en vez de una reserva)", async () => {

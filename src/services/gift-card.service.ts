@@ -13,6 +13,7 @@ import { generateCode } from "../utils/code-generator.js";
 import { isUniqueConstraintViolation } from "../utils/prisma-errors.js";
 import { normalizePhone } from "../utils/phone.js";
 import { dateOnlyToUTCDate } from "../utils/datetime.js";
+import { secureCompare } from "../utils/secure-compare.js";
 import { env } from "../config/env.js";
 import { DEFAULT_GIFT_CARD_VALIDITY_DAYS } from "../config/constants.js";
 import { getStorageProvider } from "../integrations/storage/index.js";
@@ -196,7 +197,7 @@ export async function redeemGiftCard(code: string, staffPin: string): Promise<vo
   if (!env.STAFF_PIN) {
     throw new UnauthorizedError("El canje de Gift Cards no está configurado (falta STAFF_PIN).");
   }
-  if (staffPin !== env.STAFF_PIN) {
+  if (!secureCompare(staffPin, env.STAFF_PIN)) {
     throw new UnauthorizedError("PIN de staff inválido.");
   }
 

@@ -1,0 +1,14 @@
+node_modules
+dist
+.git
+.env
+.env.local
+.env.*.local
+*.log
+coverage
+.DS_Store
+Thumbs.db
+tests
+.claude
+.vscode
+Prompt maestro — MVP de reservas, WhatsApp, pagos y Gift Cards para spas.md

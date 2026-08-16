@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { env } from "../config/env.js";
 import { UnauthorizedError } from "../errors/index.js";
+import { secureCompare } from "../utils/secure-compare.js";
 
 /**
  * Protege los endpoints /internal/* (llamados por el cron de n8n, no
@@ -15,7 +16,7 @@ export async function requireInternalToken(request: FastifyRequest, _reply: Fast
   const header = request.headers.authorization;
   const token = header?.startsWith("Bearer ") ? header.slice("Bearer ".length) : undefined;
 
-  if (!token || token !== env.INTERNAL_JOBS_TOKEN) {
+  if (!token || !secureCompare(token, env.INTERNAL_JOBS_TOKEN)) {
     throw new UnauthorizedError("Token interno inválido.");
   }
 }

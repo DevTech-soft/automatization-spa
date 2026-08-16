@@ -37,6 +37,26 @@ export function errorHandler(
     return;
   }
 
+  // Errores 4xx que lanzan plugins de Fastify (@fastify/rate-limit con 429,
+  // @fastify/static con 403 al intentar listar un directorio sin index, body
+  // JSON malformado, etc.) no son AppError ni ZodError, pero traen su propio
+  // statusCode. Sin este branch caían al 500 genérico de abajo: un cliente
+  // rate-limited recibía "error interno" en vez de 429, y cada 403 de
+  // @fastify/static se registraba como unhandled_error (ruido en el
+  // monitoreo por tráfico esperado, no un bug real).
+  const statusCode = "statusCode" in error ? error.statusCode : undefined;
+  if (typeof statusCode === "number" && statusCode >= 400 && statusCode < 500) {
+    request.log.warn({ requestId, statusCode }, "client_error");
+    reply.status(statusCode).send({
+      error: {
+        code: statusCode === 429 ? "TOO_MANY_REQUESTS" : "CLIENT_ERROR",
+        message: statusCode === 429 ? "Demasiadas solicitudes, intenta de nuevo más tarde." : "Solicitud inválida.",
+        requestId,
+      },
+    });
+    return;
+  }
+
   request.log.error({ requestId, err: error }, "unhandled_error");
   reply.status(500).send({
     error: {
