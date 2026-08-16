@@ -23,11 +23,15 @@ Ya desplegado y verificado en vivo:
   `docs/ENVIRONMENT.md`, `NODE_ENV=production`, `PORT=3000` fijo — ver la nota
   de puerto más abajo, aprendida desplegando este mismo servicio).
 - `/internal/jobs/*` confirmado rechazando requests sin token (`401`).
-- Deploy hecho vía `railway up` (CLI, subiendo el directorio local como
-  tarball) en vez de conectar el repo de GitHub — el remote de git
-  (`git@github-personal:...`) no tenía acceso SSH funcional desde este
-  sandbox. Si querés pasar a autodeploy por push a GitHub más adelante:
-  `railway service source connect --repo <owner/repo> --branch main`.
+- **Autodeploy conectado**: el servicio está enganchado a
+  `DevTech-soft/automatization-spa` rama `main`
+  (`railway service source connect --repo ... --branch main`) — cada push a
+  `main` redespliega solo. El primer deploy se hizo vía `railway up` (subir
+  el directorio local) porque el `git push` desde el sandbox de esa sesión no
+  tenía acceso SSH; una vez que el repo en GitHub tuvo el código al día, se
+  conectó como source y no hace falta `railway up` de nuevo — solo `git
+  push`. Para forzar un redeploy manual sin push nuevo: `railway redeploy
+  --from-source`.
 
 **Pendiente** (necesita acción tuya en paneles externos, sección 4): registrar
 los webhooks de WhatsApp y Wompi con la URL real de arriba, y probar un pago y
@@ -171,11 +175,6 @@ dashboard admin todavía, la configuración inicial es manual).
   pago no le llegan a la app todavía, aunque la API ya esté viva.
 - No se probó un pago real ni un mensaje de WhatsApp real end-to-end contra
   este deploy (necesita los webhooks registrados primero).
-- `git push` al remote configurado (`git@github-personal:...`) falla por
-  permisos SSH desde este sandbox — el deploy se hizo subiendo el directorio
-  local directo a Railway (`railway up`), no por autodeploy de GitHub. Si
-  querés autodeploy por push, hay que resolver el acceso SSH/HTTPS al repo
-  primero y despues correr `railway service source connect`.
 - Sin dashboard administrativo (sección 4/42 del prompt maestro): cambios de
   configuración del negocio (precios, horarios, diseños) siguen siendo
   manuales en Supabase.
