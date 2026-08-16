@@ -21,10 +21,6 @@
           <div class="steps__bar"></div>
           <span class="steps__label">Experiencia</span>
         </div>
-        <div class="steps__item" data-step="design">
-          <div class="steps__bar"></div>
-          <span class="steps__label">Diseño</span>
-        </div>
         <div class="steps__item" data-step="buyer">
           <div class="steps__bar"></div>
           <span class="steps__label">Comprador</span>
@@ -32,6 +28,10 @@
         <div class="steps__item" data-step="recipient">
           <div class="steps__bar"></div>
           <span class="steps__label">Destinatario</span>
+        </div>
+        <div class="steps__item" data-step="design">
+          <div class="steps__bar"></div>
+          <span class="steps__label">Diseño</span>
         </div>
         <div class="steps__item" data-step="summary">
           <div class="steps__bar"></div>
@@ -55,32 +55,10 @@
           </div>
         </section>
 
-        <!-- Paso 2: diseño -->
-        <section class="panel" data-panel="design" hidden>
+        <!-- Paso 2: comprador -->
+        <section class="panel" data-panel="buyer" hidden>
           <button type="button" class="link-back" data-back>‹ Cambiar experiencia</button>
           <p class="panel__eyebrow">Paso 2 de 5</p>
-          <h2 class="panel__title">Elige un diseño</h2>
-          <p class="panel__hint">Así se verá la tarjeta que recibe la persona.</p>
-          <div class="design-grid" id="designGrid">
-            <button type="button" class="design-card" data-design="clasico">
-              <span class="design-card__swatch design-card__swatch--clasico"></span>
-              <span class="design-card__label">Clásico</span>
-            </button>
-            <button type="button" class="design-card" data-design="floral">
-              <span class="design-card__swatch design-card__swatch--floral"></span>
-              <span class="design-card__label">Floral</span>
-            </button>
-            <button type="button" class="design-card" data-design="elegante">
-              <span class="design-card__swatch design-card__swatch--elegante"></span>
-              <span class="design-card__label">Elegante</span>
-            </button>
-          </div>
-        </section>
-
-        <!-- Paso 3: comprador -->
-        <section class="panel" data-panel="buyer" hidden>
-          <button type="button" class="link-back" data-back>‹ Cambiar diseño</button>
-          <p class="panel__eyebrow">Paso 3 de 5</p>
           <h2 class="panel__title">Tus datos</h2>
           <p class="panel__hint">Como comprador, para confirmarte la compra.</p>
           <form id="buyerForm" novalidate>
@@ -105,10 +83,10 @@
           </form>
         </section>
 
-        <!-- Paso 4: destinatario -->
+        <!-- Paso 3: destinatario -->
         <section class="panel" data-panel="recipient" hidden>
           <button type="button" class="link-back" data-back>‹ Editar mis datos</button>
-          <p class="panel__eyebrow">Paso 4 de 5</p>
+          <p class="panel__eyebrow">Paso 3 de 5</p>
           <h2 class="panel__title">¿Para quién es?</h2>
           <p class="panel__hint">Cuéntanos sobre la persona que recibe el regalo.</p>
           <form id="recipientForm" novalidate>
@@ -131,14 +109,48 @@
               <input type="date" id="scheduledDate" name="scheduledDate" />
             </div>
             <div class="actions">
-              <button type="submit" class="btn btn-primary btn-block">Continuar al resumen</button>
+              <button type="submit" class="btn btn-primary btn-block">Continuar al diseño</button>
             </div>
           </form>
         </section>
 
+        <!-- Paso 4: diseño (con preview en vivo) -->
+        <section class="panel" data-panel="design" hidden>
+          <button type="button" class="link-back" data-back>‹ Editar destinatario</button>
+          <p class="panel__eyebrow">Paso 4 de 5</p>
+          <h2 class="panel__title">Elige un diseño</h2>
+          <p class="panel__hint">Así se va a ver la tarjeta que recibe la persona.</p>
+          <div class="gc-preview" id="cardPreview"><div class="gc-canvas" id="cardCanvas"></div></div>
+          <div class="design-grid" id="designGrid">
+            <button type="button" class="design-card" data-design="clasico">
+              <span class="design-card__swatch design-card__swatch--clasico"></span>
+              <span class="design-card__label">Clásico · Torre Eiffel</span>
+            </button>
+            <button type="button" class="design-card" data-design="clasico-puente">
+              <span class="design-card__swatch design-card__swatch--clasico-puente"></span>
+              <span class="design-card__label">Clásico · Puente</span>
+            </button>
+            <button type="button" class="design-card" data-design="floral">
+              <span class="design-card__swatch design-card__swatch--floral"></span>
+              <span class="design-card__label">Floral · Rosas</span>
+            </button>
+            <button type="button" class="design-card" data-design="floral-tulipanes">
+              <span class="design-card__swatch design-card__swatch--floral-tulipanes"></span>
+              <span class="design-card__label">Floral · Tulipanes</span>
+            </button>
+            <button type="button" class="design-card" data-design="elegante">
+              <span class="design-card__swatch design-card__swatch--elegante"></span>
+              <span class="design-card__label">Elegante</span>
+            </button>
+          </div>
+          <div class="actions">
+            <button type="button" class="btn btn-primary btn-block" id="designContinueButton" disabled>Continuar al pago</button>
+          </div>
+        </section>
+
         <!-- Paso 5: resumen y pago -->
         <section class="panel" data-panel="summary" hidden>
-          <button type="button" class="link-back" data-back>‹ Editar destinatario</button>
+          <button type="button" class="link-back" data-back>‹ Cambiar diseño</button>
           <p class="panel__eyebrow">Paso 5 de 5</p>
           <h2 class="panel__title">Confirma y paga</h2>
           <p class="panel__hint">Al pagar, generamos la Gift Card y se la enviamos por WhatsApp.</p>

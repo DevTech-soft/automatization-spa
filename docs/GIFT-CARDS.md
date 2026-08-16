@@ -56,11 +56,43 @@ podría canjearlo sin ser staff). La consulta (`validateGiftCard`,
 ## Puppeteer: por qué renderizar HTML en vez de una librería de imágenes
 
 `gift-card-image.service.ts` arma la Gift Card como HTML+CSS (`buildHtml`,
-tres diseños en `DESIGNS`: `clasico`/`floral`/`elegante`) y la renderiza a
-PNG con Puppeteer (`page.setContent` + `page.screenshot`). Se prefirió sobre
-una librería de generación de imágenes (`canvas`, `sharp` + plantillas) para
-poder reusar CSS real (gradientes, tipografía, el mismo lenguaje visual del
-resto del sitio) sin reimplementar layout en un API de dibujo de bajo nivel.
+cinco diseños en `DESIGNS`: `clasico`, `clasico-puente`, `floral`,
+`floral-tulipanes`, `elegante` — ver `config/constants.ts`
+`GIFT_CARD_DESIGNS`) y la renderiza a PNG con Puppeteer (`page.setContent` +
+`page.screenshot`). Se prefirió sobre una librería de generación de imágenes
+(`canvas`, `sharp` + plantillas) para poder reusar CSS real (gradientes,
+tipografía, el mismo lenguaje visual del resto del sitio) sin reimplementar
+layout en un API de dibujo de bajo nivel.
+
+### Motivos decorativos (rediseño post-Fase 8)
+
+`clasico`/`floral` son pares con un segundo diseño de la misma paleta
+(`clasico-puente`, `floral-tulipanes`) y un motivo decorativo distinto — le
+da al comprador dos variantes por categoría entre las que elegir. Los
+motivos (`src/services/gift-card-motifs.ts`) son SVG a mano, sin assets
+externos: una sola primitiva de "pétalo" (un path lente, punta al origen)
+reutilizada con `rotate`/`scale`/`translate` arma flores radiales (rosa,
+silvestre), flores en abanico (tulipán) y ramas de laurel; la Torre Eiffel y
+el puente colgante son siluetas sólidas rellenas (mismo tratamiento visual
+que el ícono, no líneas técnicas finas — un primer intento del puente como
+arco de líneas delgadas se leía como una regla, no como un puente).
+Verificado visualmente renderizando cada diseño con Puppeteer localmente
+(`renderGiftCardImage`) y revisando el PNG antes de darlo por bueno — la
+suite automática (`tests/unit/gift-card-motifs.test.ts`) solo verifica que
+cada diseño devuelve un `<svg>` no vacío, no que se vea bien; eso se valida
+a ojo cuando se toque `gift-card-motifs.ts`.
+
+**Frontend (`/regalar`, `web/js/gift-card-preview.js`)**: sin build step no
+hay forma de compartir código entre server y frontend (sección 3), así que
+el mismo template (paletas + motivos) está **duplicado a propósito** en
+JS vanilla — si se cambia un diseño en `gift-card-motifs.ts`, replicar el
+cambio ahí. El preview dibuja la tarjeta a tamaño real (1200×630, igual que
+el PNG final) y la escala visualmente con `transform: scale()`, en vez de
+reimplementar el layout con unidades relativas — garantiza que la
+tipografía y el layout sean idénticos al resultado final, no una
+aproximación. El paso de diseño se movió a penúltimo (antes de pagar, no
+después de elegir servicio) para que el comprador vea la tarjeta ya con el
+nombre del destinatario y el mensaje puestos antes de decidir el diseño.
 
 Nota de implementación: `page.setContent` solo acepta
 `waitUntil: "load"|"domcontentloaded"` (a diferencia de `page.goto`, que

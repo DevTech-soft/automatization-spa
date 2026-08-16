@@ -1,4 +1,5 @@
 import puppeteer from "puppeteer";
+import { decorationFor } from "./gift-card-motifs.js";
 
 export interface GiftCardImageInput {
   businessName: string;
@@ -13,9 +14,16 @@ export interface GiftCardImageInput {
 const CARD_WIDTH = 1200;
 const CARD_HEIGHT = 630;
 
+/**
+ * `clasico`/`clasico-puente` y `floral`/`floral-tulipanes` son pares: misma
+ * paleta, distinto motivo decorativo (`gift-card-motifs.ts`) — le da al
+ * comprador dos variantes por categoría entre las que elegir (sección 14).
+ */
 const DESIGNS: Record<string, { bg: string; bgAlt: string; ink: string; accent: string; accentTint: string }> = {
   clasico: { bg: "#f7f2ea", bgAlt: "#e7ede4", ink: "#23301f", accent: "#3f5a44", accentTint: "#c1633d" },
+  "clasico-puente": { bg: "#f7f2ea", bgAlt: "#e7ede4", ink: "#23301f", accent: "#3f5a44", accentTint: "#c1633d" },
   floral: { bg: "#fbeee6", bgAlt: "#f5d9c8", ink: "#3a2418", accent: "#c1633d", accentTint: "#3f5a44" },
+  "floral-tulipanes": { bg: "#fbeee6", bgAlt: "#f5d9c8", ink: "#3a2418", accent: "#c1633d", accentTint: "#3f5a44" },
   elegante: { bg: "#1b1f1c", bgAlt: "#262b26", ink: "#f3ede0", accent: "#c9a24b", accentTint: "#f3ede0" },
 };
 
@@ -30,6 +38,10 @@ function escapeHtml(value: string): string {
 function buildHtml(input: GiftCardImageInput): string {
   const palette = DESIGNS[input.design] ?? DESIGNS["clasico"]!;
   const message = input.message ? escapeHtml(input.message) : "";
+  const decoration = decorationFor(input.design, palette.accent, palette.accentTint);
+  // Corner del motivo: floral "crece" desde abajo, torre/puente se paran en
+  // la base, laurel es un filete de esquina — cada uno ancla distinto.
+  const decorPosition = input.design === "elegante" ? "top: 8px; right: 8px;" : "bottom: -18px; right: -16px;";
 
   return `<!doctype html>
 <html>
@@ -48,6 +60,16 @@ function buildHtml(input: GiftCardImageInput): string {
         flex-direction: column;
         justify-content: space-between;
         padding: 64px 72px;
+        position: relative;
+        overflow: hidden;
+      }
+      .content, .footer { position: relative; z-index: 1; }
+      .decor {
+        position: absolute;
+        z-index: 0;
+        opacity: 0.55;
+        pointer-events: none;
+        ${decorPosition}
       }
       .eyebrow {
         font-family: -apple-system, "Segoe UI", sans-serif;
@@ -96,7 +118,8 @@ function buildHtml(input: GiftCardImageInput): string {
     </style>
   </head>
   <body>
-    <div>
+    ${decoration ? `<div class="decor">${decoration}</div>` : ""}
+    <div class="content">
       <p class="eyebrow">Gift Card &middot; ${escapeHtml(input.businessName)}</p>
       <p class="title">Para ${escapeHtml(input.recipientName)}</p>
       <p class="body">Un regalo de <strong>${escapeHtml(input.buyerName)}</strong> para disfrutar de<br />

@@ -88,6 +88,34 @@ un query param: cada mensaje entrante trae el número de WhatsApp que lo
 recibió, que se compara contra `businesses.whatsapp_number`. Ver
 `docs/WHATSAPP.md`.
 
+### Pendiente para la fase SaaS: onboarding de WhatsApp por cliente
+
+Hoy `WHATSAPP_ACCESS_TOKEN`/`WHATSAPP_PHONE_NUMBER_ID` son variables de
+entorno globales de un solo negocio — asumen una única app de Meta Developer
+configurada a mano (ver `docs/DEPLOYMENT.md`). Eso no escala a multi-tenant:
+cada cliente nuevo no debería tener que crear su propia app en Meta for
+Developers, que es un proceso técnico y poco amigable para un dueño de spa.
+
+La solución estándar es **Embedded Signup** (el flujo oficial de Meta para
+"Tech Providers"): la plataforma mantiene **una sola** app de Meta, y cada
+cliente conecta su número de WhatsApp Business con un flujo corto tipo
+"Continuar con Facebook", sin pasar por Meta for Developers. Requiere:
+
+- Guardar `access_token` y `phone_number_id` **por `business_id`** (columnas
+  nuevas en `businesses`, no env vars globales) — probablemente cifradas en
+  reposo, no solo protegidas por RLS.
+  `MetaWhatsAppProvider`/`WhatsAppProvider` (Fase 6, sección 26) ya están
+  abstraídos por interfaz, así que el cambio es en cómo se resuelven las
+  credenciales por negocio antes de instanciar el provider, no en la lógica
+  de envío/parseo de mensajes.
+- Implementar el flujo de Embedded Signup (SDK de Facebook Login para
+  Business + intercambio de código por token de larga duración).
+
+Alternativa a evaluar en su momento: un BSP (360dialog, Twilio, Gupshup) que
+envuelve el mismo Embedded Signup con una API más simple y soporte, a cambio
+de un costo recurrente por mensaje/mes — encajaría igual detrás de la interfaz
+`WhatsAppProvider` como un adapter nuevo.
+
 ## Modelo de recursos (disponibilidad)
 
 El spa puede tener varias citas en paralelo (varias sillas/camillas), pero sin

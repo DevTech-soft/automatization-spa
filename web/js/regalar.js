@@ -1,6 +1,7 @@
 import { apiRequest, ApiError, formatCurrency, formatDateLong } from "/js/api.js";
+import { renderCardPreview } from "/js/gift-card-preview.js";
 
-const STEP_ORDER = ["service", "design", "buyer", "recipient", "summary"];
+const STEP_ORDER = ["service", "buyer", "recipient", "design", "summary"];
 
 const els = {
   brandName: document.getElementById("brandName"),
@@ -10,6 +11,9 @@ const els = {
   serviceList: document.getElementById("serviceList"),
   serviceError: document.getElementById("serviceError"),
   designGrid: document.getElementById("designGrid"),
+  cardPreview: document.getElementById("cardPreview"),
+  cardCanvas: document.getElementById("cardCanvas"),
+  designContinueButton: document.getElementById("designContinueButton"),
   buyerForm: document.getElementById("buyerForm"),
   recipientForm: document.getElementById("recipientForm"),
   receipt: document.getElementById("receipt"),
@@ -58,6 +62,7 @@ function goToStep(name) {
   });
 
   renderSummaryStrip();
+  if (name === "design") updatePreview();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -67,7 +72,7 @@ function renderSummaryStrip() {
     parts.push(`<span class="summary-strip__item"><strong>${escapeHtml(state.service.name)}</strong></span>`);
   }
   if (state.design) {
-    parts.push(`<span class="summary-strip__item">${escapeHtml(state.design)}</span>`);
+    parts.push(`<span class="summary-strip__item">${escapeHtml(DESIGN_LABELS[state.design] ?? state.design)}</span>`);
   }
   if (state.service) {
     parts.push(
@@ -105,23 +110,13 @@ function renderServices() {
     `;
     card.addEventListener("click", () => {
       state.service = service;
-      goToStep("design");
+      goToStep("buyer");
     });
     els.serviceList.appendChild(card);
   });
 }
 
-// ---------- Paso 2: diseño ----------
-
-els.designGrid.querySelectorAll("[data-design]").forEach((button) => {
-  button.addEventListener("click", () => {
-    state.design = button.dataset.design;
-    els.designGrid.querySelectorAll("[data-design]").forEach((b) => b.classList.toggle("is-selected", b === button));
-    goToStep("buyer");
-  });
-});
-
-// ---------- Paso 3: comprador ----------
+// ---------- Paso 2: comprador ----------
 
 const BUYER_VALIDATORS = {
   buyerName: (value) => value.trim().length >= 2,
@@ -151,7 +146,7 @@ els.buyerForm.addEventListener("submit", (event) => {
   goToStep("recipient");
 });
 
-// ---------- Paso 4: destinatario ----------
+// ---------- Paso 3: destinatario ----------
 
 const RECIPIENT_VALIDATORS = {
   recipientName: (value) => value.trim().length >= 2,
@@ -178,13 +173,55 @@ els.recipientForm.addEventListener("submit", (event) => {
     message: String(formData.get("message") ?? "").trim() || undefined,
     scheduledDate: String(formData.get("scheduledDate") ?? "").trim() || undefined,
   };
+  goToStep("design");
+});
+
+// ---------- Paso 4: diseño (con preview en vivo) ----------
+
+/** Redibuja la tarjeta a tamaño real con los datos ya cargados (sección de diseño, penúltimo paso a propósito). */
+function updatePreview() {
+  renderCardPreview(els.cardPreview, els.cardCanvas, {
+    design: state.design,
+    businessName: state.business?.name ?? "",
+    recipientName: state.recipient.recipientName,
+    buyerName: state.buyer.buyerName,
+    serviceName: state.service?.name ?? "",
+    message: state.recipient.message,
+  });
+}
+
+els.designGrid.querySelectorAll("[data-design]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.design = button.dataset.design;
+    els.designGrid.querySelectorAll("[data-design]").forEach((b) => b.classList.toggle("is-selected", b === button));
+    els.designContinueButton.disabled = false;
+    updatePreview();
+  });
+});
+
+els.designContinueButton.addEventListener("click", () => {
+  if (!state.design) return;
   renderReceipt();
   goToStep("summary");
 });
 
+let previewResizeTimer;
+window.addEventListener("resize", () => {
+  clearTimeout(previewResizeTimer);
+  previewResizeTimer = setTimeout(() => {
+    if (state.currentStep === "design") updatePreview();
+  }, 120);
+});
+
 // ---------- Paso 5: resumen y pago ----------
 
-const DESIGN_LABELS = { clasico: "Clásico", floral: "Floral", elegante: "Elegante" };
+const DESIGN_LABELS = {
+  clasico: "Clásico · Torre Eiffel",
+  "clasico-puente": "Clásico · Puente",
+  floral: "Floral · Rosas",
+  "floral-tulipanes": "Floral · Tulipanes",
+  elegante: "Elegante",
+};
 
 function renderReceipt() {
   els.receipt.innerHTML = `
