@@ -10,6 +10,29 @@ Este documento asume que ya existe un proyecto de Supabase con las
 migraciones aplicadas en desarrollo (Fase 1) — Railway aloja la API, no la
 base de datos.
 
+## Estado real (Fase 11)
+
+Ya desplegado y verificado en vivo:
+
+- Proyecto Railway `spa-mvp` (workspace `DevTech-soft`), servicio único
+  (Dockerfile), apuntando al Supabase real del proyecto.
+- Dominio: `https://spa-mvp-production.up.railway.app` — `/health` responde
+  `200 {"status":"ok","db":"ok"}`, `/reservar` y los assets sirven `200`,
+  `/api/business/demo-spa` devuelve el negocio real desde Supabase.
+- Variables de entorno cargadas desde el `.env` local (todas las de
+  `docs/ENVIRONMENT.md`, `NODE_ENV=production`, `PORT=3000` fijo — ver la nota
+  de puerto más abajo, aprendida desplegando este mismo servicio).
+- `/internal/jobs/*` confirmado rechazando requests sin token (`401`).
+- Deploy hecho vía `railway up` (CLI, subiendo el directorio local como
+  tarball) en vez de conectar el repo de GitHub — el remote de git
+  (`git@github-personal:...`) no tenía acceso SSH funcional desde este
+  sandbox. Si querés pasar a autodeploy por push a GitHub más adelante:
+  `railway service source connect --repo <owner/repo> --branch main`.
+
+**Pendiente** (necesita acción tuya en paneles externos, sección 4): registrar
+los webhooks de WhatsApp y Wompi con la URL real de arriba, y probar un pago y
+un mensaje de WhatsApp reales end-to-end.
+
 ## 0. Verificado en Fase 11 (antes de desplegar)
 
 Antes de escribir este documento se validó localmente, con Docker real
@@ -46,27 +69,33 @@ pero considera actualizar tu Node para que coincida con producción.
 
 ## 1. Crear el proyecto en Railway
 
-Con la CLI de Railway o el dashboard (`railway.com/new`):
+Ya hecho para este servicio (ver "Estado real" arriba). Para un entorno
+nuevo (ej. staging, o si hay que recrearlo):
 
-1. Crear un proyecto nuevo (o usar uno existente si ya tenés uno reservado
-   para este spa).
-2. Agregar un servicio desde este repo de GitHub (o `railway up` desde local
-   si todavía no está en GitHub). Railway detecta el `Dockerfile`
-   automáticamente.
+1. Crear un proyecto nuevo (o usar uno existente).
+2. `railway up` desde la raíz del repo (sube el directorio local como
+   tarball y crea proyecto + servicio si no hay uno linkeado — respeta
+   `.gitignore`, así que no sube `node_modules`/`.env`/`dist`). Alternativa:
+   conectar un repo de GitHub y dejar que Railway autodespliegue en cada push.
 3. **No** agregar un servicio de Postgres de Railway — la base de datos es
    Supabase, ya existente (sección 2 del prompt maestro: Supabase es la
    única source of truth).
 
 ## 2. Variables de entorno
 
-Configurar en el servicio de Railway (Settings → Variables) todas las
-variables de `docs/ENVIRONMENT.md` **excepto** `PORT` (Railway la inyecta
-sola). Puntos importantes:
+Configurar en el servicio de Railway (Settings → Variables, o `railway
+variable set`) todas las variables de `docs/ENVIRONMENT.md`. Puntos
+importantes:
 
 - `NODE_ENV=production` — setearla explícitamente. Railway no la fija por
   vos, y sin ella el `Dockerfile` sigue diciendo `production` (su `ENV`
   interno), pero cualquier variable que pongas en el dashboard tiene
   prioridad — ver la nota de `docs/ENVIRONMENT.md`.
+- `PORT=3000` — **fijarla explícitamente**, no dejar que Railway asigne una
+  sola. Ver la nota de puerto en `docs/ENVIRONMENT.md`: sin esto, el dominio
+  generado puede terminar apuntando a un puerto distinto al que escucha la
+  app y da `502 Application failed to respond` aunque el deploy diga
+  `SUCCESS` — nos pasó desplegando este mismo servicio.
 - `APP_URL` — todavía no la vas a tener hasta el paso 3 (necesitás el dominio
   que te da Railway primero). Poné un valor provisional y actualizalo después
   — cambiar una env var en Railway redeploya solo.
@@ -85,24 +114,28 @@ sola). Puntos importantes:
 2. Seguir los logs de build/deploy — deberían verse las mismas líneas que en
    la verificación local de la sección 0 (`prisma migrate deploy`, luego
    `server_started`, luego `scheduled_jobs_started`).
-3. Generar un dominio (Settings → Networking → Generate Domain, o conectar un
-   dominio propio).
+3. Generar un dominio: `railway domain --port 3000` (o Settings → Networking
+   → Generate Domain, poniendo el mismo puerto que `PORT`).
 4. Actualizar `APP_URL` en las variables de entorno con ese dominio
    (`https://...`) y esperar el redeploy automático.
 5. Confirmar `https://<tu-dominio>/health` → `200 {"status":"ok","db":"ok"}`.
+   Si da `502`, revisar que el target port del dominio (`railway domain
+   status <dominio>`) coincida con `PORT`.
 
 ## 4. Configurar los webhooks externos
 
-Con `APP_URL` ya apuntando al dominio real:
+Con la app ya en `https://spa-mvp-production.up.railway.app`:
 
 - **WhatsApp** (`docs/WHATSAPP.md`): Meta for Developers → tu app → WhatsApp
-  → Configuration → Webhook. URL: `https://<tu-dominio>/api/webhooks/whatsapp`.
+  → Configuration → Webhook. URL:
+  `https://spa-mvp-production.up.railway.app/api/webhooks/whatsapp`.
   Verify token: el mismo valor que pusiste en `WHATSAPP_VERIFY_TOKEN`. Suscribir
   el campo `messages`.
 - **Pagos** (`docs/PAYMENTS.md`): Dashboard de Wompi → Desarrolladores →
-  Eventos. URL: `https://<tu-dominio>/api/webhooks/payment`. Confirmar que
-  `PAYMENT_WEBHOOK_SECRET` en Railway coincide con el secreto de eventos que
-  te muestra el dashboard.
+  Eventos. URL:
+  `https://spa-mvp-production.up.railway.app/api/webhooks/payment`. Confirmar
+  que `PAYMENT_WEBHOOK_SECRET` en Railway coincide con el secreto de eventos
+  que te muestra el dashboard.
 - **Google Sheets** (`docs/GOOGLE-SHEETS.md`): no requiere webhook, solo que
   la Service Account tenga acceso de editor al Sheet de producción.
 
@@ -133,11 +166,16 @@ dashboard admin todavía, la configuración inicial es manual).
 
 ## Qué falta / fuera de este documento
 
-- No se ejecutó un deploy real en este sandbox (requiere decisión y
-  credenciales del usuario — ver el chat de la Fase 11).
-- `docker build` sí se corrió y validó localmente (sección 0), pero no en el
-  builder real de Railway — la primera build ahí puede tardar más (Chromium +
-  Puppeteer) o comportarse distinto por diferencias de plataforma/arquitectura.
+- Webhooks de WhatsApp y Wompi todavía no registrados contra la URL real
+  (sección 4) — sin esto, los mensajes de WhatsApp y las confirmaciones de
+  pago no le llegan a la app todavía, aunque la API ya esté viva.
+- No se probó un pago real ni un mensaje de WhatsApp real end-to-end contra
+  este deploy (necesita los webhooks registrados primero).
+- `git push` al remote configurado (`git@github-personal:...`) falla por
+  permisos SSH desde este sandbox — el deploy se hizo subiendo el directorio
+  local directo a Railway (`railway up`), no por autodeploy de GitHub. Si
+  querés autodeploy por push, hay que resolver el acceso SSH/HTTPS al repo
+  primero y despues correr `railway service source connect`.
 - Sin dashboard administrativo (sección 4/42 del prompt maestro): cambios de
   configuración del negocio (precios, horarios, diseños) siguen siendo
   manuales en Supabase.

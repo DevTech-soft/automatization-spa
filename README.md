@@ -4,12 +4,12 @@ MVP de reservas para spas/centros de belleza: reservas por web y WhatsApp, pagos
 webhook verificado, Gift Cards digitales y sincronización a Google Sheets como vista
 administrativa. Ver `docs/ARCHITECTURE.md` para las decisiones de diseño.
 
-Estado actual: **Fase 11 — Deployment** en preparación (Foundation,
-disponibilidad, reservas, pagos, WhatsApp, Google Sheets, Gift Cards,
-recordatorios y hardening ya completos — ver `docs/TESTING.md`). El
-`Dockerfile`/`railway.json` están listos y validados localmente contra
-Supabase real (`docs/DEPLOYMENT.md`); falta el deploy real a Railway y
-registrar los webhooks de producción con Meta/Wompi.
+Estado actual: **Fase 11 — Deployment**, backend desplegado y en vivo en
+Railway: https://spa-mvp-production.up.railway.app (`/health` responde
+`ok`). Todas las fases anteriores completas — ver `docs/TESTING.md` y
+`docs/DEPLOYMENT.md`. Falta registrar los webhooks de producción con
+Meta/Wompi (`docs/DEPLOYMENT.md`, sección 4) para que las reservas por
+WhatsApp y los pagos reales lleguen a la app desplegada.
 
 ## Stack
 
