@@ -1,0 +1,280 @@
+/* Hoja de estilos para /legal/*  (Política de privacidad, Términos, Eliminación de datos).
+   Convertida desde el borrador de docs/files/legal.css al frontend vanilla de este proyecto.
+   Tipografía: serif para lectura larga, sans para navegación y encabezados.
+   No depende de ninguna librería ni de recursos externos. */
+
+.legal-root {
+  --ink: #1c1f26;
+  --ink-muted: #5a6270;
+  --rule: #e3e1dd;
+  --surface: #ffffff;
+  --surface-sunk: #f6f5f3;
+  --accent: #2f5d50;
+
+  --serif: "Iowan Old Style", "Charter", "Bitstream Charter", Georgia, "Times New Roman", serif;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+.legal-shell {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 3.5rem 1.5rem 6rem;
+}
+
+@media (min-width: 48rem) {
+  .legal-shell {
+    padding: 5rem 2rem 8rem;
+  }
+}
+
+/* --- Navegación superior --- */
+
+.legal-nav {
+  font-family: var(--sans);
+  font-size: 0.875rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 3rem;
+}
+
+.legal-nav a {
+  color: var(--ink-muted);
+  text-decoration: none;
+  padding-bottom: 0.15rem;
+  border-bottom: 1px solid transparent;
+}
+
+.legal-nav a:hover {
+  color: var(--ink);
+  border-bottom-color: var(--rule);
+}
+
+.legal-nav a[aria-current="page"] {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.legal-nav .legal-nav-brand {
+  font-weight: 600;
+  color: var(--ink);
+  margin-right: auto;
+}
+
+/* --- Encabezado del documento --- */
+
+.legal-title {
+  font-family: var(--sans);
+  font-size: 2rem;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  margin: 0 0 0.75rem;
+}
+
+.legal-meta {
+  font-family: var(--sans);
+  font-size: 0.8125rem;
+  color: var(--ink-muted);
+  margin: 0 0 2.5rem;
+}
+
+.legal-lede {
+  font-size: 1.0625rem;
+  color: var(--ink-muted);
+  margin: 0 0 2.5rem;
+  padding-left: 1rem;
+  border-left: 2px solid var(--accent);
+}
+
+/* --- Índice --- */
+
+.legal-toc {
+  background: var(--surface-sunk);
+  padding: 1.5rem 1.75rem;
+  margin-bottom: 3.5rem;
+  font-family: var(--sans);
+  font-size: 0.9375rem;
+}
+
+.legal-toc h2 {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+  margin: 0 0 0.85rem;
+}
+
+.legal-toc ol {
+  margin: 0;
+  padding-left: 1.35rem;
+  columns: 1;
+}
+
+@media (min-width: 40rem) {
+  .legal-toc ol {
+    columns: 2;
+    column-gap: 2rem;
+  }
+}
+
+.legal-toc li {
+  margin-bottom: 0.35rem;
+  break-inside: avoid;
+}
+
+.legal-toc a {
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.legal-toc a:hover {
+  border-bottom-color: var(--ink-muted);
+}
+
+/* --- Secciones --- */
+
+.legal-section {
+  margin-bottom: 3rem;
+  scroll-margin-top: 2rem;
+}
+
+.legal-section h2 {
+  font-family: var(--sans);
+  font-size: 1.1875rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 0.9rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule);
+}
+
+.legal-section h2 .legal-num {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  margin-right: 0.6rem;
+  font-weight: 500;
+}
+
+.legal-section h3 {
+  font-family: var(--sans);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin: 1.75rem 0 0.5rem;
+}
+
+.legal-section p {
+  margin: 0 0 1rem;
+}
+
+.legal-section ul,
+.legal-section ol.legal-list {
+  margin: 0 0 1.25rem;
+  padding-left: 1.35rem;
+}
+
+.legal-section li {
+  margin-bottom: 0.5rem;
+}
+
+.legal-section a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+/* --- Elementos de apoyo --- */
+
+.legal-fill {
+  background: #fdf4d8;
+  padding: 0.05em 0.3em;
+  border-radius: 2px;
+  font-family: var(--sans);
+  font-size: 0.9em;
+}
+
+.legal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--sans);
+  font-size: 0.875rem;
+  margin: 0 0 1.5rem;
+}
+
+.legal-table th,
+.legal-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.7rem 0.9rem 0.7rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.legal-table th {
+  font-weight: 600;
+  color: var(--ink-muted);
+  border-bottom-color: var(--ink-muted);
+}
+
+/* Ancho de la primera columna, sin estilos en línea (bloqueados por la CSP de helmet). */
+.legal-table.k34 th:first-child,
+.legal-table.k34 td:first-child {
+  width: 34%;
+}
+
+.legal-table.k42 th:first-child,
+.legal-table.k42 td:first-child {
+  width: 42%;
+}
+
+.legal-callout {
+  background: var(--surface-sunk);
+  border-left: 2px solid var(--accent);
+  padding: 1.25rem 1.5rem;
+  margin: 0 0 1.5rem;
+  font-family: var(--sans);
+  font-size: 0.9375rem;
+}
+
+.legal-callout p:last-child {
+  margin-bottom: 0;
+}
+
+.legal-contact {
+  font-family: var(--sans);
+  font-size: 0.9375rem;
+  line-height: 1.9;
+}
+
+.legal-footer {
+  margin-top: 4rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--rule);
+  font-family: var(--sans);
+  font-size: 0.8125rem;
+  color: var(--ink-muted);
+}
+
+/* --- Accesibilidad --- */
+
+.legal-root a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .legal-root * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
