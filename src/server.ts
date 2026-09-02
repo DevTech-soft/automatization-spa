@@ -8,7 +8,11 @@ async function main(): Promise<void> {
   const app = await buildApp();
 
   try {
-    await app.listen({ port: env.PORT, host: "0.0.0.0" });
+    // "::" y no "0.0.0.0": la red privada de Railway es IPv6, y n8n llama a
+    // este servicio por http://<servicio>.railway.internal. Escuchando solo en
+    // IPv4 esas llamadas fallan con ECONNREFUSED. El dual-stack de Node deja
+    // el puerto igualmente accesible por IPv4.
+    await app.listen({ port: env.PORT, host: "::" });
     logger.info({ port: env.PORT, env: env.NODE_ENV }, "server_started");
     startScheduledJobs();
   } catch (error) {

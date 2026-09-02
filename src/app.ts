@@ -14,6 +14,7 @@ import { businessRoutes } from "./routes/business.route.js";
 import { serviceRoutes } from "./routes/service.route.js";
 import { appointmentRoutes } from "./routes/appointment.route.js";
 import { internalRoutes } from "./routes/internal.route.js";
+import { agentRoutes } from "./routes/agent.route.js";
 import { paymentRoutes } from "./routes/payment.route.js";
 import { giftCardRoutes } from "./routes/giftCard.route.js";
 import { webRoutes } from "./routes/web.route.js";
@@ -71,6 +72,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(serviceRoutes);
   await app.register(appointmentRoutes);
   await app.register(internalRoutes);
+  await app.register(agentRoutes);
   await app.register(paymentRoutes);
   await app.register(giftCardRoutes);
   await app.register(whatsappRoutes);

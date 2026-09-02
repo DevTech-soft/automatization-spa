@@ -50,6 +50,22 @@ const envSchema = z.object({
 
   /** Protege los endpoints /internal/* (llamados por el scheduler in-process, ver Fase 3/9). */
   INTERNAL_JOBS_TOKEN: z.string().min(16, "INTERNAL_JOBS_TOKEN debe tener al menos 16 caracteres."),
+
+  /**
+   * Webhook del agente conversacional en n8n (ver docs/AGENTE-N8N.md). Si esta
+   * variable está vacía, el canal de WhatsApp usa siempre el bot determinístico
+   * de menús — el agente es opt-in por negocio vía `business.settings.agentEnabled`.
+   * En Railway apunta a la red privada: http://n8n.railway.internal:5678/webhook/<id>
+   */
+  N8N_AGENT_WEBHOOK_URL: z.string().url().optional().or(z.literal("")),
+  /**
+   * Secreto compartido con n8n. Viaja en `X-Agent-Token` en el reenvío hacia
+   * n8n, y de vuelta como `Authorization: Bearer` en /internal/agent/*. Si no
+   * se define, esas rutas caen a INTERNAL_JOBS_TOKEN.
+   */
+  N8N_AGENT_TOKEN: z.string().optional().or(z.literal("")),
+  /** Presupuesto de espera del reenvío a n8n antes de caer al bot de menús. */
+  N8N_AGENT_TIMEOUT_MS: z.coerce.number().int().positive().default(20000),
 });
 
 export type Env = z.infer<typeof envSchema>;

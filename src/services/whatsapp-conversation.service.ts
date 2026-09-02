@@ -7,6 +7,7 @@ import { appointmentRepository } from "../repositories/appointment.repository.js
 import { whatsappConversationRepository } from "../repositories/whatsappConversation.repository.js";
 import { getWhatsAppProvider } from "../integrations/whatsapp/index.js";
 import type { InteractiveListRow, WhatsAppProvider } from "../integrations/whatsapp/index.js";
+import { forwardToAgent, isAgentEnabled, readAgentSettings } from "../integrations/n8n/AgentForwarder.js";
 import { getAvailability } from "./availability.service.js";
 import { createAppointment } from "./appointment.service.js";
 import { createPayment } from "./payment.service.js";
@@ -56,6 +57,29 @@ export async function handleIncomingWhatsAppMessage(rawPayload: unknown): Promis
 
   const phone = normalizePhone(message.from);
   logger.info({ businessId: business.id, phone }, "whatsapp_message_received");
+
+  // Negocios migrados al agente conversacional de n8n (settings.agentEnabled):
+  // el mensaje se reenvía y este servicio no sigue. Solo se reenvía texto —
+  // el agente no envía listas interactivas, así que un interactive_reply aquí
+  // viene de una conversación previa del bot de menús y se resuelve abajo.
+  // Si n8n no contesta, no se pierde la conversación: cae al bot de menús.
+  if (message.kind === "text" && isAgentEnabled(business.settings)) {
+    const forwarded = await forwardToAgent({
+      businessId: business.id,
+      businessName: business.name,
+      timezone: business.timezone,
+      currency: business.currency,
+      phone,
+      contactName: message.contactName,
+      text: message.text,
+      agent: readAgentSettings(business.settings),
+    });
+
+    if (forwarded) {
+      return;
+    }
+    logger.warn({ businessId: business.id, phone }, "whatsapp_agent_unavailable_menu_fallback");
+  }
 
   if (message.kind === "text" && /^cancelar$/i.test(message.text.trim())) {
     const existing = await whatsappConversationRepository.findActive(business.id, phone);

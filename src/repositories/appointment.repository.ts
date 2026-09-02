@@ -48,6 +48,25 @@ export const appointmentRepository = {
     });
   },
 
+  /**
+   * Reservas vigentes de un cliente por teléfono, usadas por el agente
+   * conversacional para responder "¿cuándo tengo mi cita?" sin pedirle el
+   * código. Vigente = PENDING o CONFIRMED de hoy en adelante; las EXPIRED,
+   * CANCELLED y pasadas no interesan en la conversación.
+   */
+  findActiveByPhone(businessId: string, phone: string, fromDate: Date, db: Db = prisma) {
+    return db.appointment.findMany({
+      where: {
+        businessId,
+        customer: { phone },
+        status: { in: ["PENDING", "CONFIRMED"] },
+        appointmentDate: { gte: fromDate },
+      },
+      include: { customer: true, service: true },
+      orderBy: [{ appointmentDate: "asc" }, { startTime: "asc" }],
+    });
+  },
+
   /** Usado por `/gracias` (Fase 5) para mostrar el estado tras volver del checkout. */
   findByPaymentReference(paymentReference: string, db: Db = prisma) {
     return db.appointment.findFirst({
