@@ -32,6 +32,13 @@ Payment gateway = fuente de verdad del estado del pago
   del prompt maestro) en vez del monorepo completo: no hay beneficio de
   workspaces cuando solo existe un backend real y un frontend sin build step.
 
+  > **Actualización (Fase F0 de `docs/PANEL-OPERADOR.md`, 2026-09):** ese
+  > supuesto cambió. Al agregarse el panel de operador + CRM (Next.js), el repo
+  > pasó a **monorepo pnpm + Turborepo**: el backend vive en `apps/backend/`, el
+  > schema Prisma en `packages/db/` (`@spa/db`), y el panel irá en
+  > `apps/panel/`. El backend sigue siendo el único con acceso a la base de
+  > datos. Ver `docs/PANEL-OPERADOR.md` §8.
+
 ## Rol de n8n
 
 **Actualización de Fase 4/6/7** (corrige el plan original de Fase 0 de abajo):
@@ -209,3 +216,8 @@ Ver sección 4 del prompt maestro: sin app móvil, sin dashboard admin complejo,
 sin sistema de empleados, sin inventario/contabilidad/facturación, sin
 membresías/suscripciones, sin CRM avanzado, sin IA conversacional para lógica
 crítica, sin microservicios/Kubernetes/Redis/RabbitMQ.
+
+> **Actualización (2026-09):** el proyecto sí evoluciona hacia panel de
+> operador, suscripciones/facturación interna y CRM con portal de cliente —
+> como fase posterior al MVP y en su propia app (`apps/panel/`), no en el
+> backend. Plan completo en `docs/PANEL-OPERADOR.md`.
