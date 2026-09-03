@@ -21,6 +21,7 @@ import { webRoutes } from "./routes/web.route.js";
 import { whatsappRoutes } from "./routes/whatsapp.route.js";
 import { authRoutes } from "./routes/auth.route.js";
 import { adminRoutes } from "./routes/admin.route.js";
+import { isPanelAuthEnabled } from "./auth/better-auth.js";
 
 // "src/app.ts" en dev (tsx) y "dist/app.js" en build viven ambos un nivel por
 // debajo de la raíz del proyecto, así que "../web" resuelve igual en los dos casos.
@@ -75,8 +76,10 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   app.setErrorHandler(errorHandler);
 
-  await app.register(authRoutes);
-  await app.register(adminRoutes);
+  if (isPanelAuthEnabled) {
+    await app.register(authRoutes);
+    await app.register(adminRoutes);
+  }
   await app.register(healthRoutes);
   await app.register(businessRoutes);
   await app.register(serviceRoutes);

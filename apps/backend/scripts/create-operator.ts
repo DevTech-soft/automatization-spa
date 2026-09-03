@@ -10,7 +10,9 @@
  *   pnpm --filter @spa/backend script:create-operator <email> <password> [nombre]
  *
  * Requiere `BETTER_AUTH_SECRET` + `DATABASE_URL` en el entorno. La contraseña
- * debe tener 12+ caracteres. Configura el 2FA después desde el panel.
+ * debe tener 12+ caracteres. Si ya existe un `user` con ese correo pero sin
+ * credenciales (estado a medias de una corrida previa), lo limpia y lo recrea.
+ * El 2FA se activa después desde el panel.
  */
 import { auth } from "../src/auth/better-auth.js";
 import { prisma } from "../src/db/prisma.js";
@@ -27,10 +29,19 @@ async function main(): Promise<void> {
     throw new Error("La contraseña debe tener al menos 12 caracteres.");
   }
 
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const existing = await prisma.user.findUnique({
+    where: { email },
+    include: { accounts: true },
+  });
+
   if (existing) {
-    console.log(`Ya existe un usuario con ${email} (${existing.id}). Nada que hacer.`);
-    return;
+    const hasCredential = existing.accounts.some((a) => a.providerId === "credential");
+    if (hasCredential) {
+      console.log(`Ya existe un operador con ${email} (${existing.id}). Nada que hacer.`);
+      return;
+    }
+    console.log(`Usuario ${email} existe pero sin credenciales — se limpia y recrea.`);
+    await prisma.user.delete({ where: { id: existing.id } });
   }
 
   const result = await auth.api.signUpEmail({ body: { email, password, name } });

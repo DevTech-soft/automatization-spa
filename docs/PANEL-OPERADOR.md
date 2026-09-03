@@ -469,12 +469,29 @@ que el backend). `packages/ui` sigue diferido a F7.
 **Better Auth (F3a):** `apps/backend/src/auth/better-auth.ts` — `prismaAdapter`,
 `emailAndPassword` (sin verificación por correo en v1, 12+ chars), plugins
 `bearer` + `twoFactor` + `organization`. Cookie de sesión `SameSite=None; Secure`
-(el panel es cross-site). Las 7 tablas (`user`, `session`, `account`,
-`verification`, `twoFactor`, `organization`, `member`, `invitation`) las genera
-`@better-auth/cli generate` y se fusionan a `packages/db/prisma/schema.prisma`
-**sin** la convención `@map` snake_case (son contrato con la librería). Único
-añadido nuestro: `Organization.businessId` (1:1 con `Business`). El usuario
-`operator` se crea con `scripts/create-operator.ts` (no hay signup público).
+solo en prod (`lax`/no-secure en dev http). Sin `BETTER_AUTH_SECRET` el backend
+arranca normal pero **no monta** `/api/auth/*` ni `/admin/*` (`isPanelAuthEnabled`).
+Las 8 tablas (`user`, `session`, `account`, `verification`, `twoFactor`,
+`organization`, `member`, `invitation`) se generan con `@better-auth/cli generate`
+y se fusionan a `packages/db/prisma/schema.prisma` **sin** `@map` snake_case (son
+contrato con la librería). ⚠️ El `@better-auth/cli` está congelado en 1.4.x y core
+va en 1.7.2 — omitió `account.issuer` (obligatorio en 1.7); se agregó a mano +
+migración `..._better_auth_account_issuer`. Al subir de versión, comparar contra
+`getAuthTables()` de `better-auth/db`. Único añadido nuestro:
+`Organization.businessId` (1:1 con `Business`). El usuario `operator` se crea con
+`scripts/create-operator.ts` (no hay signup público; sana un `user` a medias).
+
+**Panel (F3b):** `apps/panel` — Next 16 App Router + React 19 + Tailwind v4 +
+componentes shadcn escritos a mano (`components/ui`). `app/login` (`signIn.email`
+del cliente Better Auth apuntando a `/api/auth` del propio panel), `app/(app)`
+= grupo protegido cuyo layout server-side llama `/admin/me` (vía `lib/backend.ts`,
+reenvía cookies) y rebota a `/login` si no hay sesión. **BFF**:
+`app/api/auth/[...all]/route.ts` proxea a `${BACKEND_URL}/api/auth/*` —
+rechaza requests cross-origin al panel y reescribe el `Origin` al del backend
+(Better Auth valida `Origin`==`baseURL`/trusted + Fetch Metadata, y rechaza un
+`Origin` cross-site aunque esté en `trustedOrigins`). Deploy: **Vercel**, Root
+Directory `apps/panel`, `vercel.json` (`turbo run build --filter=@spa/panel`).
+Env del panel: `BACKEND_URL` (server-only), `NEXT_PUBLIC_PANEL_URL`.
 
 ### 8.4 Qué se construye vs qué solo se configura
 
@@ -537,7 +554,7 @@ No es una superficie de v1, pero **la arquitectura lo asume desde F0**:
 | **F0** | ✅ **hecho** (en `main`). **Monorepo** (Turborepo + pnpm, `apps/backend` + `packages/db`) — mergeado y deploy en Railway verificado en verde. **Modelo de datos**: `Business.status`/`chargeMode`/`depositPercentage`/branding, pago parcial en `Appointment`, y `WhatsAppAccount`, `PaymentCredentials`, `SubscriptionPlan`, `OperatorInvoice`, `OperatorPayment` (+ join), `ClientContact`, `AuditLog` — migración `20260903194848_panel_operador_data_model`. **Cifrado de secretos**: `apps/backend/src/utils/crypto.ts` (AES-256-GCM, `SECRETS_ENCRYPTION_KEY`), columnas `*_enc`. Tablas de Better Auth se difieren a F3. | — | ✅ |
 | **F1** | ✅ **hecho** (en `main`). Guard único de `status` (`business-guard.ts`) en reservas web/API, gift cards nuevas y herramientas del agente; suspensión suave (mensaje único) y silencio en WhatsApp. Resolución de tenant del webhook: parser extrae `phone_number_id`, se resuelve por `whatsAppAccountRepository` con fallback al número display (F4 puebla `whatsapp_accounts`). | F0 | ✅ |
 | **F2** | ✅ **hecho** (en `main`). `paymentCredentials.repository` (cifra/descifra), `resolveProviderForBusiness` con fallback a env, `getPaymentProviderForCredentials`. Webhook multi-comercio (`extractWebhookReference` → Payment → credenciales del negocio → valida firma). Branch `TOTAL`/`DEPOSIT` en `createPayment` (split guardado al crear el link), `confirmIfPending` → `DEPOSIT_PAID`, mensajes con abono/saldo en bot/agente/confirmación/`/gracias`/formulario. Script `script:demo-payment-credentials`. | F0 | ✅ |
-| **F3** | En progreso. **F3a hecho** (en `main`): Better Auth montado en el **backend** (`/api/auth/*`, `src/auth/better-auth.ts` — plugins `bearer`+`twoFactor`+`organization`), tablas de auth (migración `..._better_auth`, `Organization.businessId` 1:1 con `Business`), guard `requireOperatorSession` en `/admin/*` + `GET /admin/me`, CORS/credentials para `PANEL_URL`, `packages/shared` (Zod/DTOs, build a `dist/`), scripts `create-operator` / `demo-payment-credentials`. **Pendiente**: F3b panel Next.js (`apps/panel`, BFF), F3c CRUD de negocios, F3d branding + onboarding, F3e dashboards. | F0, F1 | en progreso |
+| **F3** | En progreso. **F3a + F3b hechos** (en `main`). F3a: Better Auth en el **backend** (`/api/auth/*`, plugins `bearer`+`twoFactor`+`organization`), tablas de auth, guard `requireOperatorSession` en `/admin/*` + `GET /admin/me`, `packages/shared`. F3b: **`apps/panel`** (Next 16 App Router + Tailwind v4 + shadcn a mano) — login (`signIn.email`), shell protegido que consume `/admin/me`, **proxy BFF** `app/api/auth/[...all]` (reescribe `Origin` al backend + chequeo same-origin propio), `vercel.json`. Fix: `account.issuer` faltaba (el CLI 1.4.x < core 1.7.2) → migración `..._better_auth_account_issuer`. **Pendiente**: F3c CRUD de negocios, F3d branding + onboarding, F3e dashboards. | F0, F1 | en progreso |
 | **F4** | WhatsApp por-tenant: `MetaWhatsAppProvider` toma credenciales del negocio; **integrar Embedded Signup** en el panel (callback, token exchange, suscripción a WABA); gestión de perfil/nombre. | F0, F1, F3, **M0 aprobado** (⇒ M-1) | cuando Meta apruebe |
 | **F5** | Facturación: generación recurrente de facturas, PDF de factura y recibo, auto-`past_due`/`suspended` por mora, reactivación al pagar. | F0, F3 | tras F3 |
 | **F6** | Extras: métricas de uso por cliente (citas, conversaciones, costo WhatsApp), recordatorios automáticos de vencimiento al operador, Google Sheets por-tenant. | F3 | después |

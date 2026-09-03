@@ -10,3 +10,6 @@ allowBuilds:
   esbuild: true
   prisma: true
   puppeteer: true
+
+minimumReleaseAgeExclude:
+  - lucide-react@1.40.0

@@ -6,6 +6,7 @@ const { getSessionMock, handlerMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("../../src/auth/better-auth.js", () => ({
+  isPanelAuthEnabled: true,
   auth: {
     api: { getSession: getSessionMock },
     handler: handlerMock,

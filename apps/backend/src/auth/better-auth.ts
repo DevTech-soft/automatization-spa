@@ -21,16 +21,28 @@ import { logger } from "../utils/logger.js";
 const baseURL = env.BETTER_AUTH_URL || env.APP_URL;
 const trustedOrigins = [env.PANEL_URL, env.APP_URL].filter((value): value is string => Boolean(value));
 
-if (!env.BETTER_AUTH_SECRET) {
+/**
+ * `true` sólo si el panel está configurado. Cuando falta el secreto, `app.ts`
+ * NO monta `/api/auth/*` ni `/admin/*` — el backend arranca normal y solo el
+ * panel queda inactivo (antes: Better Auth tiraba `BetterAuthError` con el
+ * secreto por defecto y mataba el proceso).
+ */
+export const isPanelAuthEnabled = Boolean(env.BETTER_AUTH_SECRET);
+
+if (!isPanelAuthEnabled) {
   logger.warn(
-    "better_auth_secret_missing: BETTER_AUTH_SECRET no configurado — el panel de operador no funcionará (ver docs/PANEL-OPERADOR.md §9).",
+    "better_auth_secret_missing: BETTER_AUTH_SECRET no configurado — el panel de operador queda inactivo (rutas /api/auth/* y /admin/* no montadas). Ver docs/PANEL-OPERADOR.md §9.",
   );
 }
+
+const isProd = env.NODE_ENV === "production";
 
 export const auth = betterAuth({
   baseURL,
   basePath: "/api/auth",
-  secret: env.BETTER_AUTH_SECRET || undefined,
+  // Nunca el string por defecto de la librería: si falta el secreto, un valor
+  // propio evita el crash y las rutas ni se montan.
+  secret: env.BETTER_AUTH_SECRET || "spa-panel-auth-disabled-no-secret-configured",
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   trustedOrigins,
   emailAndPassword: {
@@ -38,11 +50,12 @@ export const auth = betterAuth({
     requireEmailVerification: false,
     minPasswordLength: 12,
   },
-  // El panel es cross-site respecto al backend; la cookie de sesión debe cruzar.
   advanced: {
+    // En prod el panel (Vercel) es cross-site respecto al backend → la cookie
+    // debe cruzar. En dev sobre http, `Secure` la haría inservible.
     defaultCookieAttributes: {
-      sameSite: "none",
-      secure: true,
+      sameSite: isProd ? "none" : "lax",
+      secure: isProd,
     },
   },
   plugins: [bearer(), twoFactor(), organization()],

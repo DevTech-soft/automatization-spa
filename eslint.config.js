@@ -14,6 +14,8 @@ export default tseslint.config(
       "**/.turbo/**",
       "**/web/**",
       "packages/db/prisma/migrations/**",
+      // El panel (Next.js) tiene su propio lint (`next lint`); no lo cubre este config.
+      "apps/panel/**",
     ],
   },
   {

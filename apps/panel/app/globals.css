@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+/*
+ * Panel de operador — tema neutro (zinc) con acento índigo. Tailwind v4:
+ * los tokens viven en @theme y se consumen como `bg-background`, `text-fg`, etc.
+ */
+@theme {
+  --color-background: hsl(0 0% 100%);
+  --color-surface: hsl(240 5% 98%);
+  --color-fg: hsl(240 10% 12%);
+  --color-fg-muted: hsl(240 4% 46%);
+  --color-border: hsl(240 6% 90%);
+  --color-input: hsl(240 6% 90%);
+  --color-ring: hsl(243 75% 59%);
+  --color-primary: hsl(243 75% 59%);
+  --color-primary-fg: hsl(0 0% 100%);
+  --color-danger: hsl(0 72% 51%);
+  --color-danger-fg: hsl(0 0% 100%);
+  --radius: 0.625rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  @theme {
+    --color-background: hsl(240 10% 6%);
+    --color-surface: hsl(240 6% 10%);
+    --color-fg: hsl(0 0% 96%);
+    --color-fg-muted: hsl(240 5% 65%);
+    --color-border: hsl(240 4% 18%);
+    --color-input: hsl(240 4% 18%);
+    --color-ring: hsl(243 75% 68%);
+    --color-primary: hsl(243 75% 66%);
+    --color-primary-fg: hsl(240 10% 6%);
+  }
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-fg);
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}

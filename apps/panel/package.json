@@ -1,0 +1,31 @@
+{
+  "name": "@spa/panel",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Panel de operador — multi-cliente, CRM (docs/PANEL-OPERADOR.md §8)",
+  "scripts": {
+    "dev": "next dev --port 3100",
+    "build": "next build",
+    "start": "next start --port 3100",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@spa/shared": "workspace:*",
+    "better-auth": "1.7.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.40.0",
+    "next": "16.3.4",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "tailwind-merge": "^3.6.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^22.7.4",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.6.2"
+  }
+}

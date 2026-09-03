@@ -585,6 +585,8 @@ model Session {
 
 model Account {
   id                    String    @id
+  /// Better Auth 1.7+: obligatorio. Para credenciales locales es "local:credential".
+  issuer                String
   accountId             String
   providerId            String
   userId                String
