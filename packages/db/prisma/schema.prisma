@@ -21,10 +21,51 @@ enum AppointmentStatus {
 
 enum PaymentStatus {
   PENDING
+  /// Abono pagado online (chargeMode = DEPOSIT); el saldo se paga presencial.
+  DEPOSIT_PAID
   PAID
   FAILED
   EXPIRED
   REFUNDED
+}
+
+/// Máquina de estados del negocio — ver docs/PANEL-OPERADOR.md §5.
+/// El guard único que consume esto llega en F1; en F0 solo se persiste.
+enum BusinessStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  CANCELLED
+}
+
+/// Modo de cobro de las reservas por negocio — docs/PANEL-OPERADOR.md §6.2 (D4).
+enum ChargeMode {
+  /// Link de pago por el 100% del servicio.
+  TOTAL
+  /// "Abono": link por un % configurable; el resto se paga en el local.
+  DEPOSIT
+}
+
+/// Entorno de las credenciales de pago de un negocio.
+enum PaymentEnvironment {
+  TEST
+  PROD
+}
+
+/// Ciclo de facturación del plan de suscripción que el negocio le paga al operador.
+enum SubscriptionCycle {
+  MONTHLY
+  ANNUAL
+}
+
+/// Estado de una cuenta de cobro emitida al cliente — docs/PANEL-OPERADOR.md §6.5.
+enum OperatorInvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  VOID
 }
 
 enum AppointmentSource {
@@ -76,21 +117,31 @@ enum ConversationState {
 }
 
 model Business {
-  id             String   @id @default(uuid())
-  name           String
-  slug           String   @unique
-  phone          String?
-  whatsappNumber String?  @map("whatsapp_number")
-  email          String?
-  address        String?
-  logoUrl        String?  @map("logo_url")
-  timezone       String   @default("America/Bogota")
-  currency       String   @default("COP")
+  id                String         @id @default(uuid())
+  name              String
+  slug              String         @unique
+  phone             String?
+  whatsappNumber    String?        @map("whatsapp_number")
+  email             String?
+  address           String?
+  logoUrl           String?        @map("logo_url")
+  /// Branding formalizado (docs/PANEL-OPERADOR.md §4); hoy vive disperso en settings.
+  colorPrimary      String?        @map("color_primary")
+  colorSecondary    String?        @map("color_secondary")
+  timezone          String         @default("America/Bogota")
+  currency          String         @default("COP")
   /// Config flexible: gift_card_validity_days, reminder_hours_before, etc.
-  settings       Json     @default("{}")
-  active         Boolean  @default(true)
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  settings          Json           @default("{}")
+  /// Gate legacy (booleano). Se mantiene hasta que F1 migre el enforcement a `status`.
+  active            Boolean        @default(true)
+  /// Máquina de estados de suscripción (§5). En F0 solo se persiste; el guard llega en F1.
+  status            BusinessStatus @default(TRIAL)
+  /// Modo de cobro de las reservas (D4).
+  chargeMode        ChargeMode     @default(TOTAL) @map("charge_mode")
+  /// % del servicio que se cobra online en modo DEPOSIT (1–100). NULL si chargeMode = TOTAL.
+  depositPercentage Int?           @map("deposit_percentage")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
 
   services              Service[]
   businessHours         BusinessHour[]
@@ -100,6 +151,13 @@ model Business {
   giftCards             GiftCard[]
   notificationLogs      NotificationLog[]
   whatsAppConversations WhatsAppConversation[]
+  whatsAppAccounts      WhatsAppAccount[]
+  paymentCredentials    PaymentCredentials?
+  subscriptionPlan      SubscriptionPlan?
+  operatorInvoices      OperatorInvoice[]
+  operatorPayments      OperatorPayment[]
+  clientContacts        ClientContact[]
+  auditLogs             AuditLog[]
 
   @@map("businesses")
 }
@@ -160,24 +218,28 @@ model Customer {
 }
 
 model Appointment {
-  id              String            @id @default(uuid())
-  businessId      String            @map("business_id")
-  customerId      String            @map("customer_id")
-  serviceId       String            @map("service_id")
-  appointmentCode String            @map("appointment_code")
-  appointmentDate DateTime          @map("appointment_date") @db.Date
+  id               String            @id @default(uuid())
+  businessId       String            @map("business_id")
+  customerId       String            @map("customer_id")
+  serviceId        String            @map("service_id")
+  appointmentCode  String            @map("appointment_code")
+  appointmentDate  DateTime          @map("appointment_date") @db.Date
   /// Hora local del negocio en formato "HH:mm"
-  startTime       String            @map("start_time")
-  endTime         String            @map("end_time")
-  price           Decimal           @db.Decimal(12, 2)
-  status          AppointmentStatus @default(PENDING)
-  paymentStatus   PaymentStatus     @default(PENDING) @map("payment_status")
-  paymentReference String?          @map("payment_reference")
-  source          AppointmentSource
-  notes           String?
-  expiresAt       DateTime?         @map("expires_at")
-  createdAt       DateTime          @default(now()) @map("created_at")
-  updatedAt       DateTime          @updatedAt @map("updated_at")
+  startTime        String            @map("start_time")
+  endTime          String            @map("end_time")
+  price            Decimal           @db.Decimal(12, 2)
+  status           AppointmentStatus @default(PENDING)
+  paymentStatus    PaymentStatus     @default(PENDING) @map("payment_status")
+  paymentReference String?           @map("payment_reference")
+  /// Pago parcial (chargeMode = DEPOSIT): monto cobrado online. NULL en modo TOTAL.
+  depositAmount    Decimal?          @map("deposit_amount") @db.Decimal(12, 2)
+  /// Saldo a pagar presencialmente en el local (price - depositAmount).
+  pendingBalance   Decimal?          @map("pending_balance") @db.Decimal(12, 2)
+  source           AppointmentSource
+  notes            String?
+  expiresAt        DateTime?         @map("expires_at")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
@@ -288,4 +350,185 @@ model WhatsAppConversation {
   @@unique([businessId, phone])
   @@index([businessId])
   @@map("whatsapp_conversations")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Multi-cliente / panel de operador — ver docs/PANEL-OPERADOR.md.
+// F0 introduce el modelo de datos; el wiring (guards, webhooks por-tenant,
+// panel, facturación) llega en F1–F5. Los campos `*_enc` guardan secretos
+// cifrados con AES-256-GCM a nivel de aplicación (§9).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Cuenta de WhatsApp Business (WABA) de un negocio (§7). Un negocio puede tener
+/// 1+ números. El webhook multi-WABA resuelve el tenant por `phoneNumberId` (§7.2).
+model WhatsAppAccount {
+  id                 String   @id @default(uuid())
+  businessId         String   @map("business_id")
+  /// WhatsApp Business Account ID de Meta.
+  wabaId             String   @map("waba_id")
+  /// phone_number_id — llave estable de Meta; resuelve el tenant en el webhook.
+  phoneNumberId      String   @unique @map("phone_number_id")
+  /// Número en formato display (+57...), informativo.
+  displayPhoneNumber String?  @map("display_phone_number")
+  displayName        String?  @map("display_name")
+  /// Token de acceso de la WABA, cifrado en reposo (AES-256-GCM, §9).
+  accessTokenEnc     String   @map("access_token_enc")
+  /// Estado de suscripción de la app a la WABA (subscribed_apps de Meta).
+  subscriptionStatus String?  @map("subscription_status")
+  /// Calidad del número reportada por Meta: GREEN | YELLOW | RED | UNKNOWN.
+  qualityRating      String?  @map("quality_rating")
+  /// Tier de mensajería de Meta: TIER_250 | TIER_1K | TIER_10K | ...
+  messagingLimit     String?  @map("messaging_limit")
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@map("whatsapp_accounts")
+}
+
+/// Credenciales de Wompi por negocio (D3): la plata del spa va directo a su cuenta.
+/// Las 4 llaves se guardan cifradas (§9). 1 por negocio.
+model PaymentCredentials {
+  id                 String             @id @default(uuid())
+  businessId         String             @unique @map("business_id")
+  provider           String             @default("wompi")
+  environment        PaymentEnvironment @default(PROD)
+  apiKeyEnc          String             @map("api_key_enc")
+  publicKeyEnc       String             @map("public_key_enc")
+  integritySecretEnc String             @map("integrity_secret_enc")
+  webhookSecretEnc   String             @map("webhook_secret_enc")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("payment_credentials")
+}
+
+/// Plan que el negocio le paga al operador (§6.5). 1 por negocio.
+/// Defaults: mensual $50.000 COP / 30 días / 3 días de gracia (D8).
+model SubscriptionPlan {
+  id         String            @id @default(uuid())
+  businessId String            @unique @map("business_id")
+  name       String            @default("mensual")
+  price      Decimal           @db.Decimal(12, 2)
+  currency   String            @default("COP")
+  cycle      SubscriptionCycle @default(MONTHLY)
+  /// Fecha hasta la que el servicio está pago. Se recalcula con cada OperatorPayment.
+  validUntil DateTime          @map("valid_until") @db.Date
+  /// Días de gracia tras validUntil antes de pasar a SUSPENDED.
+  graceDays  Int               @default(3) @map("grace_days")
+  createdAt  DateTime          @default(now()) @map("created_at")
+  updatedAt  DateTime          @updatedAt @map("updated_at")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("subscription_plans")
+}
+
+/// Cuenta de cobro emitida al cliente — no "factura" (persona natural sin IVA, D7).
+/// PDF vía el pipeline Puppeteer de Gift Cards (§6.4).
+model OperatorInvoice {
+  id         String                @id @default(uuid())
+  /// Consecutivo legible: CC-2026-001.
+  number     String                @unique
+  businessId String                @map("business_id")
+  issuedAt   DateTime              @map("issued_at") @db.Date
+  dueAt      DateTime              @map("due_at") @db.Date
+  periodFrom DateTime              @map("period_from") @db.Date
+  periodTo   DateTime              @map("period_to") @db.Date
+  /// Líneas: [{ concept, period, amount }].
+  items      Json                  @default("[]")
+  subtotal   Decimal               @db.Decimal(12, 2)
+  /// 0 por ahora (sin IVA); el campo queda para cuando el operador se formalice (D7).
+  taxes      Decimal               @default(0) @db.Decimal(12, 2)
+  total      Decimal               @db.Decimal(12, 2)
+  currency   String                @default("COP")
+  status     OperatorInvoiceStatus @default(DRAFT)
+  pdfUrl     String?               @map("pdf_url")
+  createdAt  DateTime              @default(now()) @map("created_at")
+  updatedAt  DateTime              @updatedAt @map("updated_at")
+
+  business Business                 @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  payments OperatorPaymentInvoice[]
+
+  @@index([businessId])
+  @@index([status])
+  @@map("operator_invoices")
+}
+
+/// Pago recibido del cliente por su suscripción; genera recibo PDF (§6.4).
+model OperatorPayment {
+  id         String   @id @default(uuid())
+  businessId String   @map("business_id")
+  paidAt     DateTime @map("paid_at") @db.Date
+  amount     Decimal  @db.Decimal(12, 2)
+  currency   String   @default("COP")
+  /// Transferencia | Nequi | Daviplata | ...
+  method     String
+  reference  String?
+  pdfUrl     String?  @map("pdf_url")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  business Business                 @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  invoices OperatorPaymentInvoice[]
+
+  @@index([businessId])
+  @@map("operator_payments")
+}
+
+/// Join N:N — un pago puede saldar varias cuentas de cobro y viceversa.
+model OperatorPaymentInvoice {
+  paymentId String @map("payment_id")
+  invoiceId String @map("invoice_id")
+
+  payment OperatorPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  invoice OperatorInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@id([paymentId, invoiceId])
+  @@index([invoiceId])
+  @@map("operator_payment_invoices")
+}
+
+/// Contacto del cliente al que se le vendió el servicio (§4).
+model ClientContact {
+  id         String    @id @default(uuid())
+  businessId String    @map("business_id")
+  name       String
+  phone      String?
+  email      String?
+  soldAt     DateTime? @map("sold_at") @db.Date
+  notes      String?
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@map("client_contacts")
+}
+
+/// Trazabilidad de acciones sensibles del panel — suspensiones, reactivaciones,
+/// cambios de credenciales (§9). `before`/`after` guardan el estado serializado.
+model AuditLog {
+  id         String   @id @default(uuid())
+  /// Actor: userId de Better Auth, o "system" para jobs.
+  actor      String
+  action     String
+  businessId String?  @map("business_id")
+  before     Json?
+  after      Json?
+  /// Metadatos libres: ip, userAgent, requestId.
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  business Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+
+  @@index([businessId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
 }
