@@ -14,9 +14,20 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     url: "/api/auth/*",
     async handler(request, reply) {
       const url = new URL(request.url, `${request.protocol}://${request.host}`);
+      const headers = fromNodeHeaders(request.headers);
+
+      // BFF (docs/PANEL-OPERADOR.md D12): el proxy del panel manda el `Origin`
+      // real del browser en `x-forwarded-origin` (fetch de Next descarta el
+      // header `Origin` porque es "forbidden"). Better Auth lo valida igual
+      // contra `trustedOrigins`, así que un valor falso no pasa el CSRF.
+      const forwardedOrigin = request.headers["x-forwarded-origin"];
+      if (typeof forwardedOrigin === "string" && forwardedOrigin) {
+        headers.set("origin", forwardedOrigin);
+      }
+
       const webRequest = new Request(url, {
         method: request.method,
-        headers: fromNodeHeaders(request.headers),
+        headers,
         body:
           request.method !== "GET" && request.body != null
             ? JSON.stringify(request.body)

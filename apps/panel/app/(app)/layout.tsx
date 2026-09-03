@@ -3,6 +3,11 @@ import Link from "next/link";
 import { getOperator } from "@/lib/backend";
 import { SignOutButton } from "@/components/sign-out-button";
 
+const NAV = [
+  { href: "/dashboard", label: "Inicio" },
+  { href: "/businesses", label: "Negocios" },
+];
+
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const operator = await getOperator();
   if (!operator) {
@@ -12,9 +17,22 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex min-h-full flex-col">
       <header className="flex h-14 items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-background)] px-6">
-        <Link href="/dashboard" className="text-sm font-semibold">
-          Panel de operador
-        </Link>
+        <div className="flex items-center gap-6">
+          <Link href="/dashboard" className="text-sm font-semibold">
+            Panel de operador
+          </Link>
+          <nav className="flex items-center gap-4 text-sm">
+            {NAV.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="text-[var(--color-fg-muted)] transition-colors hover:text-[var(--color-fg)]"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        </div>
         <div className="flex items-center gap-3">
           <span className="text-sm text-[var(--color-fg-muted)]">{operator.email}</span>
           <SignOutButton />

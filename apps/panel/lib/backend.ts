@@ -34,3 +34,46 @@ export async function getOperator(): Promise<AdminMeResponse | null> {
     return null;
   }
 }
+
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+    readonly fieldErrors?: Record<string, string[]>,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+/** GET a `/admin/*` → `data`. Lanza `ApiError` si no es 2xx. */
+export async function adminGet<T>(path: string): Promise<T> {
+  const res = await backendFetch(path);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new ApiError(res.status, body?.error?.message ?? "Error al consultar el backend.");
+  }
+  return body.data as T;
+}
+
+/** POST/PATCH a `/admin/*` con JSON. Lanza `ApiError` (con `fieldErrors` si el backend los da). */
+export async function adminMutate<T>(
+  method: "POST" | "PATCH",
+  path: string,
+  payload: unknown,
+): Promise<T> {
+  const res = await backendFetch(path, {
+    method,
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new ApiError(
+      res.status,
+      body?.error?.message ?? "No se pudo guardar.",
+      body?.error?.fieldErrors,
+    );
+  }
+  return body.data as T;
+}

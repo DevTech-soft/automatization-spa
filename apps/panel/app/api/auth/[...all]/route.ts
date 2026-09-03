@@ -9,9 +9,9 @@ const BACKEND_ORIGIN = new URL(BACKEND_URL).origin;
  * ambos sentidos. La cookie de sesión queda first-party del panel — no hace
  * falta dominio compartido.
  *
- * CSRF: sólo se aceptan requests **same-origin** al propio panel; al reenviar,
- * el `Origin` se reescribe al del backend para que Better Auth lo vea como una
- * llamada same-origin (sus `trustedOrigins` sólo necesitan el propio backend).
+ * CSRF: sólo se aceptan requests **same-origin** al propio panel. El `Origin`
+ * real (que el fetch de Next no puede reenviar — es "forbidden header") va en
+ * `x-forwarded-origin`; el backend lo valida contra `trustedOrigins`.
  */
 async function proxy(request: NextRequest, all: string[]): Promise<Response> {
   const requestOrigin = request.headers.get("origin");
@@ -31,7 +31,7 @@ async function proxy(request: NextRequest, all: string[]): Promise<Response> {
       cookie: request.headers.get("cookie") ?? "",
       "user-agent": request.headers.get("user-agent") ?? "",
       "x-forwarded-for": request.headers.get("x-forwarded-for") ?? "",
-      origin: BACKEND_ORIGIN,
+      "x-forwarded-origin": requestOrigin ?? panelOrigin,
     },
     body: hasBody ? await request.text() : undefined,
     redirect: "manual",
