@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "dotenv-cli": "^8.0.0",
+    "nanoid": "^5.0.7",
     "tsx": "^4.19.1"
   }
 }
