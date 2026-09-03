@@ -4,6 +4,7 @@ vi.mock("../../src/repositories/appointment.repository.js", () => ({
   appointmentRepository: {
     findById: vi.fn(),
     setPaymentReference: vi.fn(),
+    setDepositSplit: vi.fn(),
     confirmIfPending: vi.fn(),
     markPaymentConflict: vi.fn(),
   },
@@ -14,11 +15,16 @@ vi.mock("../../src/repositories/business.repository.js", () => ({
 vi.mock("../../src/repositories/payment.repository.js", () => ({
   paymentRepository: { create: vi.fn(), findByReference: vi.fn(), updateStatus: vi.fn() },
 }));
+vi.mock("../../src/repositories/paymentCredentials.repository.js", () => ({
+  paymentCredentialsRepository: { findByBusinessId: vi.fn().mockResolvedValue(null) },
+}));
 vi.mock("../../src/repositories/giftCard.repository.js", () => ({
   giftCardRepository: { findById: vi.fn(), setPaymentReference: vi.fn() },
 }));
 vi.mock("../../src/integrations/payments/index.js", () => ({
   getPaymentProvider: vi.fn(),
+  getPaymentProviderForCredentials: vi.fn(),
+  extractWebhookReference: vi.fn().mockReturnValue("PAY-ABC12345"),
 }));
 vi.mock("../../src/services/notification.service.js", () => ({
   notifyAppointmentConfirmed: vi.fn().mockResolvedValue(undefined),
@@ -45,8 +51,13 @@ vi.mock("../../src/db/prisma.js", () => ({
 const { appointmentRepository } = await import("../../src/repositories/appointment.repository.js");
 const { businessRepository } = await import("../../src/repositories/business.repository.js");
 const { paymentRepository } = await import("../../src/repositories/payment.repository.js");
+const { paymentCredentialsRepository } = await import(
+  "../../src/repositories/paymentCredentials.repository.js"
+);
 const { giftCardRepository } = await import("../../src/repositories/giftCard.repository.js");
-const { getPaymentProvider } = await import("../../src/integrations/payments/index.js");
+const { getPaymentProvider, getPaymentProviderForCredentials, extractWebhookReference } = await import(
+  "../../src/integrations/payments/index.js"
+);
 const { notifyAppointmentConfirmed } = await import("../../src/services/notification.service.js");
 const { syncAppointmentToSheet } = await import("../../src/services/google-sheets-sync.service.js");
 const { confirmGiftCardPayment, finalizeGiftCardAfterPayment } = await import(
@@ -183,6 +194,63 @@ describe("createPayment", () => {
     expect(result.paymentUrl).toBe("https://checkout.wompi.co/p/xyz");
   });
 
+  it("modo DEPOSIT: el link cobra el abono (precio × %) y guarda el split en la reserva", async () => {
+    vi.mocked(appointmentRepository.findById).mockResolvedValue({
+      id: APPOINTMENT_ID,
+      businessId: BUSINESS_ID,
+      status: "PENDING",
+      expiresAt: new Date(Date.now() + 10 * 60_000),
+      paymentReference: null,
+      price: 90000,
+      depositAmount: null,
+    } as never);
+    vi.mocked(businessRepository.findById).mockResolvedValue({
+      id: BUSINESS_ID,
+      currency: "COP",
+      chargeMode: "DEPOSIT",
+      depositPercentage: 30,
+    } as never);
+    const provider = fakeProvider();
+    vi.mocked(getPaymentProvider).mockReturnValue(provider as never);
+
+    const result = await createPayment({ entityType: "APPOINTMENT", entityId: APPOINTMENT_ID });
+
+    expect(provider.createPayment).toHaveBeenCalledWith(expect.objectContaining({ amount: 27000 }));
+    const [data] = vi.mocked(paymentRepository.create).mock.calls[0]!;
+    expect(Number(data.amount)).toBe(27000);
+    expect(appointmentRepository.setDepositSplit).toHaveBeenCalledWith(
+      APPOINTMENT_ID,
+      27000,
+      63000,
+      expect.anything(),
+    );
+    expect(result).toMatchObject({ chargeMode: "DEPOSIT", amount: 27000, pendingBalance: 63000 });
+  });
+
+  it("modo DEPOSIT con porcentaje 100 se comporta como TOTAL (sin split)", async () => {
+    vi.mocked(appointmentRepository.findById).mockResolvedValue({
+      id: APPOINTMENT_ID,
+      businessId: BUSINESS_ID,
+      status: "PENDING",
+      expiresAt: new Date(Date.now() + 10 * 60_000),
+      paymentReference: null,
+      price: 90000,
+      depositAmount: null,
+    } as never);
+    vi.mocked(businessRepository.findById).mockResolvedValue({
+      id: BUSINESS_ID,
+      currency: "COP",
+      chargeMode: "DEPOSIT",
+      depositPercentage: 100,
+    } as never);
+    vi.mocked(getPaymentProvider).mockReturnValue(fakeProvider() as never);
+
+    const result = await createPayment({ entityType: "APPOINTMENT", entityId: APPOINTMENT_ID });
+
+    expect(appointmentRepository.setDepositSplit).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ chargeMode: "TOTAL", amount: 90000, pendingBalance: null });
+  });
+
   it("reutiliza la referencia existente si ya hay un payment PENDING, sin crear uno nuevo", async () => {
     vi.mocked(appointmentRepository.findById).mockResolvedValue({
       id: APPOINTMENT_ID,
@@ -211,6 +279,8 @@ describe("createPayment", () => {
 
 describe("processPaymentWebhook", () => {
   beforeEach(() => {
+    vi.mocked(extractWebhookReference).mockReturnValue(REFERENCE);
+    vi.mocked(paymentCredentialsRepository.findByBusinessId).mockResolvedValue(null);
     vi.mocked(appointmentRepository.findById).mockResolvedValue({
       id: APPOINTMENT_ID,
       businessId: BUSINESS_ID,
@@ -218,6 +288,7 @@ describe("processPaymentWebhook", () => {
       appointmentDate: new Date("2026-01-05T00:00:00.000Z"),
       status: "PENDING",
       notes: null,
+      depositAmount: null,
     } as never);
   });
 
@@ -226,8 +297,21 @@ describe("processPaymentWebhook", () => {
   });
 
   it("lanza WebhookVerificationError si la firma es inválida y no procesa el evento", async () => {
+    // §6.3: la referencia se resuelve primero; con un Payment conocido pero firma
+    // inválida (secreto del comercio equivocado), se rechaza con 401.
     const provider = fakeProvider({ validateWebhook: vi.fn().mockReturnValue(false) } as never);
     vi.mocked(getPaymentProvider).mockReturnValue(provider as never);
+    vi.mocked(extractWebhookReference).mockReturnValue(REFERENCE);
+    vi.mocked(paymentRepository.findByReference).mockResolvedValue({
+      id: "pay-1",
+      reference: REFERENCE,
+      businessId: BUSINESS_ID,
+      status: "PENDING",
+      amount: 90000,
+      currency: "COP",
+      entityType: "APPOINTMENT",
+      entityId: APPOINTMENT_ID,
+    } as never);
 
     await expect(processPaymentWebhook({ any: "payload" })).rejects.toBeInstanceOf(WebhookVerificationError);
     expect(provider.parseWebhook).not.toHaveBeenCalled();
@@ -235,19 +319,12 @@ describe("processPaymentWebhook", () => {
 
   it("ignora silenciosamente una referencia desconocida", async () => {
     const provider = fakeProvider();
-    provider.parseWebhook.mockReturnValue({
-      provider: "wompi",
-      reference: "PAY-DOESNOTEXIST",
-      transactionId: "tx-1",
-      status: "APPROVED",
-      amountInCents: 9000000,
-      currency: "COP",
-      raw: {},
-    });
     vi.mocked(getPaymentProvider).mockReturnValue(provider as never);
+    vi.mocked(extractWebhookReference).mockReturnValue("PAY-DOESNOTEXIST");
     vi.mocked(paymentRepository.findByReference).mockResolvedValue(null);
 
     await expect(processPaymentWebhook({})).resolves.toBeUndefined();
+    expect(provider.validateWebhook).not.toHaveBeenCalled();
     expect(paymentRepository.updateStatus).not.toHaveBeenCalled();
   });
 
@@ -337,7 +414,7 @@ describe("processPaymentWebhook", () => {
       expect.anything(),
       expect.anything(),
     );
-    expect(appointmentRepository.confirmIfPending).toHaveBeenCalledWith(APPOINTMENT_ID, expect.anything());
+    expect(appointmentRepository.confirmIfPending).toHaveBeenCalledWith(APPOINTMENT_ID, expect.anything(), "PAID");
     expect(notifyAppointmentConfirmed).toHaveBeenCalledWith(APPOINTMENT_ID);
     expect(syncAppointmentToSheet).toHaveBeenCalledWith(APPOINTMENT_ID);
     expect(finalizeGiftCardAfterPayment).not.toHaveBeenCalled();
@@ -349,6 +426,89 @@ describe("processPaymentWebhook", () => {
     expect(referenceLockKey).toBe(REFERENCE);
     const [, capacityLockKey] = executeRawMock.mock.calls[1] as [TemplateStringsArray, string];
     expect(capacityLockKey).toBe(`${BUSINESS_ID}:22222222-2222-2222-2222-222222222222:2026-01-05`);
+  });
+
+  it("confirma con DEPOSIT_PAID (no PAID) cuando la reserva se creó con abono", async () => {
+    vi.mocked(appointmentRepository.findById).mockResolvedValue({
+      id: APPOINTMENT_ID,
+      businessId: BUSINESS_ID,
+      serviceId: "22222222-2222-2222-2222-222222222222",
+      appointmentDate: new Date("2026-01-05T00:00:00.000Z"),
+      status: "PENDING",
+      notes: null,
+      depositAmount: 27000,
+    } as never);
+    const provider = fakeProvider();
+    provider.parseWebhook.mockReturnValue({
+      provider: "wompi",
+      reference: REFERENCE,
+      transactionId: "tx-1",
+      status: "APPROVED",
+      amountInCents: 2700000,
+      currency: "COP",
+      raw: {},
+    });
+    vi.mocked(getPaymentProvider).mockReturnValue(provider as never);
+    vi.mocked(paymentRepository.findByReference).mockResolvedValue({
+      id: "pay-1",
+      reference: REFERENCE,
+      businessId: BUSINESS_ID,
+      status: "PENDING",
+      amount: 27000,
+      currency: "COP",
+      entityType: "APPOINTMENT",
+      entityId: APPOINTMENT_ID,
+    } as never);
+    vi.mocked(appointmentRepository.confirmIfPending).mockResolvedValue(true);
+
+    await processPaymentWebhook({});
+
+    expect(appointmentRepository.confirmIfPending).toHaveBeenCalledWith(
+      APPOINTMENT_ID,
+      expect.anything(),
+      "DEPOSIT_PAID",
+    );
+  });
+
+  it("valida la firma con las credenciales del negocio (PaymentCredentials), no las env", async () => {
+    const tenantProvider = fakeProvider();
+    tenantProvider.parseWebhook.mockReturnValue({
+      provider: "wompi",
+      reference: REFERENCE,
+      transactionId: "tx-1",
+      status: "APPROVED",
+      amountInCents: 9000000,
+      currency: "COP",
+      raw: {},
+    });
+    vi.mocked(getPaymentProviderForCredentials).mockReturnValue(tenantProvider as never);
+    vi.mocked(paymentCredentialsRepository.findByBusinessId).mockResolvedValue({
+      provider: "wompi",
+      apiKey: "k",
+      publicKey: "p",
+      integritySecret: "i",
+      webhookSecret: "w",
+      environment: "PROD",
+    } as never);
+    vi.mocked(paymentRepository.findByReference).mockResolvedValue({
+      id: "pay-1",
+      reference: REFERENCE,
+      businessId: BUSINESS_ID,
+      status: "PENDING",
+      amount: 90000,
+      currency: "COP",
+      entityType: "APPOINTMENT",
+      entityId: APPOINTMENT_ID,
+    } as never);
+    vi.mocked(appointmentRepository.confirmIfPending).mockResolvedValue(true);
+
+    await processPaymentWebhook({});
+
+    expect(getPaymentProviderForCredentials).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: "wompi", webhookSecret: "w" }),
+    );
+    expect(getPaymentProvider).not.toHaveBeenCalled();
+    expect(tenantProvider.validateWebhook).toHaveBeenCalled();
   });
 
   it("confirma la Gift Card cuando el pago es APPROVED (en vez de una reserva)", async () => {

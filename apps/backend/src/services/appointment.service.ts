@@ -218,6 +218,9 @@ export interface AppointmentStatusResult {
   startTime: string;
   endTime: string;
   price: string;
+  /** Modo abono (§6.2): monto cobrado online y saldo presencial. `null` en cobro total. */
+  depositAmount: string | null;
+  pendingBalance: string | null;
 }
 
 /**
@@ -240,5 +243,7 @@ export async function getAppointmentStatusByReference(reference: string): Promis
     startTime: appointment.startTime,
     endTime: appointment.endTime,
     price: appointment.price.toString(),
+    depositAmount: appointment.depositAmount != null ? appointment.depositAmount.toString() : null,
+    pendingBalance: appointment.pendingBalance != null ? appointment.pendingBalance.toString() : null,
   };
 }

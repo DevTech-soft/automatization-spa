@@ -98,6 +98,12 @@ export type CreateAgentAppointmentResult =
       inicio: string;
       fin: string;
       precio: number;
+      /** "total" = el link cobra el 100%; "abono" = cobra una parte, el resto es presencial. */
+      modoCobro: "total" | "abono";
+      /** Monto que cobra el link de pago (el total, o el abono). */
+      montoLink: number;
+      /** Saldo a pagar en el local. `null` cuando modoCobro = "total". */
+      saldoPendiente: number | null;
       linkPago: string;
       minutosParaPagar: number;
     }
@@ -141,6 +147,9 @@ export async function createAgentAppointment(
       inicio: appointment.startTime,
       fin: appointment.endTime,
       precio: Number(appointment.price),
+      modoCobro: payment.chargeMode === "DEPOSIT" ? "abono" : "total",
+      montoLink: payment.amount,
+      saldoPendiente: payment.pendingBalance,
       linkPago: payment.paymentUrl,
       minutosParaPagar: PENDING_EXPIRATION_MINUTES,
     };

@@ -129,3 +129,23 @@ export class WompiPaymentProvider implements PaymentProvider {
 function mapWompiStatus(status: WompiWebhookPayload["data"]["transaction"]["status"]): WebhookEventStatus {
   return status;
 }
+
+/**
+ * Extrae `data.transaction.reference` de un payload de Wompi sin validar nada
+ * (§6.3). Tolerante: devuelve null si el payload no tiene la forma esperada.
+ */
+export function extractWompiReference(rawPayload: unknown): string | null {
+  if (typeof rawPayload !== "object" || rawPayload === null) {
+    return null;
+  }
+  const data = (rawPayload as Record<string, unknown>)["data"];
+  const transaction =
+    typeof data === "object" && data !== null
+      ? (data as Record<string, unknown>)["transaction"]
+      : undefined;
+  const reference =
+    typeof transaction === "object" && transaction !== null
+      ? (transaction as Record<string, unknown>)["reference"]
+      : undefined;
+  return typeof reference === "string" && reference.length > 0 ? reference : null;
+}

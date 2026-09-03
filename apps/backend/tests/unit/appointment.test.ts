@@ -261,7 +261,30 @@ describe("getAppointmentStatusByReference", () => {
       startTime: "10:00",
       endTime: "11:00",
       price: "90000",
+      depositAmount: null,
+      pendingBalance: null,
     });
+  });
+
+  it("incluye el split del abono cuando la reserva se pagó en modo DEPOSIT", async () => {
+    vi.mocked(appointmentRepository.findByPaymentReference).mockResolvedValue({
+      appointmentCode: "APT-DEP00001",
+      status: "CONFIRMED",
+      paymentStatus: "DEPOSIT_PAID",
+      appointmentDate: new Date("2026-01-05T00:00:00.000Z"),
+      startTime: "10:00",
+      endTime: "11:00",
+      price: { toString: () => "90000" },
+      depositAmount: { toString: () => "27000" },
+      pendingBalance: { toString: () => "63000" },
+      service: { name: "Masaje relajante" },
+    } as never);
+
+    const result = await getAppointmentStatusByReference("PAY-DEP00001");
+
+    expect(result.paymentStatus).toBe("DEPOSIT_PAID");
+    expect(result.depositAmount).toBe("27000");
+    expect(result.pendingBalance).toBe("63000");
   });
 });
 

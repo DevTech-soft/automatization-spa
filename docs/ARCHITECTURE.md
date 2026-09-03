@@ -170,12 +170,22 @@ la migración y no se toca al correr `prisma migrate dev` en el futuro.
 
 ## Pagos
 
-Interfaz `PaymentProvider` (`createPayment`, `validateWebhook`, `parseWebhook`)
-con un primer adapter `WompiPaymentProvider` (default: Colombia / COP /
-`America/Bogota`, decisión de Fase 0 — pendiente de confirmar con el primer
-cliente real). Cambiar de proveedor implica escribir un nuevo adapter, no
-tocar el resto de la aplicación. Detalle completo del flujo, la verificación
-de firma y las reglas de idempotencia en `docs/PAYMENTS.md`.
+Interfaz `PaymentProvider` (`createPayment`, `validateWebhook`, `parseWebhook`,
+`extractWebhookReference`) con un primer adapter `WompiPaymentProvider` (default:
+Colombia / COP / `America/Bogota`, decisión de Fase 0 — pendiente de confirmar
+con el primer cliente real). Cambiar de proveedor implica escribir un nuevo
+adapter, no tocar el resto de la aplicación. Detalle completo del flujo, la
+verificación de firma y las reglas de idempotencia en `docs/PAYMENTS.md`.
+
+> **Actualización F2 (`docs/PANEL-OPERADOR.md` §D3/§6.2-6.3):** las llaves de
+> Wompi pueden vivir **por negocio** en `payment_credentials` (cifradas,
+> `paymentCredentials.repository`), con fallback a las env `PAYMENT_*` globales.
+> El webhook es **multi-comercio**: lee la `reference` sin validar, resuelve el
+> negocio dueño del `Payment` y recién ahí valida la firma con el secreto de ese
+> comercio. Las reservas tienen **modo de cobro** `TOTAL` / `DEPOSIT` (abono):
+> `business.chargeMode` + `depositPercentage` → el link cobra el abono, el saldo
+> se paga presencial (`appointment.depositAmount` / `pendingBalance`,
+> `paymentStatus = DEPOSIT_PAID`).
 
 El webhook (`POST /api/webhooks/payment`, Fase 4) es la única fuente que puede
 confirmar un pago (sección 9). Usa `pg_advisory_xact_lock(hashtext(reference))`
@@ -228,14 +238,50 @@ Tabla `notification_log` (`entity_type`, `entity_id`, `type` con constraint
 duplicados (secciones 21 y 32), sin necesitar columnas booleanas por tipo de
 notificación en cada tabla.
 
-## Qué NO se construye en el MVP
+## Alcance: qué se construye y qué no
 
-Ver sección 4 del prompt maestro: sin app móvil, sin dashboard admin complejo,
-sin sistema de empleados, sin inventario/contabilidad/facturación, sin
-membresías/suscripciones, sin CRM avanzado, sin IA conversacional para lógica
-crítica, sin microservicios/Kubernetes/Redis/RabbitMQ.
+### El MVP (secciones 1–42 del prompt maestro) — hecho
 
-> **Actualización (2026-09):** el proyecto sí evoluciona hacia panel de
-> operador, suscripciones/facturación interna y CRM con portal de cliente —
-> como fase posterior al MVP y en su propia app (`apps/panel/`), no en el
-> backend. Plan completo en `docs/PANEL-OPERADOR.md`.
+Backend Fastify sin UI propia: reservas web + WhatsApp (bot determinístico y
+agente n8n), pagos Wompi, Gift Cards, recordatorios, sincronización a Google
+Sheets. Un solo negocio. El panel de operador (post-MVP) es una app aparte que
+consume la API `/admin/*`; el backend nunca sirve su propia interfaz.
+
+### Post-MVP: multi-cliente + panel de operador + CRM — en curso
+
+El proyecto **sí** evoluciona más allá de lo que la sección 4 del prompt maestro
+excluía. Plan completo y decisiones en **`docs/PANEL-OPERADOR.md`**; resumen del
+estado por fase en su §10. En construcción / hecho:
+
+- **Integraciones por-tenant** (F1–F2, hechas): estado de suscripción del negocio
+  con guard en cada entrada, resolución de tenant de WhatsApp por
+  `phone_number_id`, credenciales de Wompi cifradas por negocio, webhook
+  multi-comercio, modo de cobro `total`/`abono`.
+- **Panel de operador + CRM** (F3, F7): app Next.js en `apps/panel/` (Vercel),
+  API `/admin/*` en el backend con Better Auth (sesión + filtro de tenant). El
+  backend **sigue siendo el único con acceso a Postgres** — el panel nunca lo
+  toca directo. CRUD de negocios, branding, onboarding, y a mediano plazo un
+  portal donde cada spa ve las conversaciones de su bot, citas y métricas.
+- **Suscripciones y cobro interno** (F5): planes con vencimiento, cuentas de
+  cobro + recibos en PDF, auto-suspensión por mora. Es cobro **del operador a
+  sus clientes**, no membresías de las clientas del spa.
+
+### Fuera de alcance (sigue sin construirse)
+
+- **App móvil nativa.** Todo es web.
+- **Gestión de empleados / turnos / nómina.** El modelo tiene `capacity` por
+  servicio, no agenda por profesional.
+- **Inventario, contabilidad, POS.**
+- **Facturación electrónica DIAN.** Se emiten cuentas de cobro + recibos
+  internos; la facturación formal (Alegra/Siigo/Factus) queda para cuando el
+  operador se formalice y sea responsable de IVA (D7, §11 del plan).
+- **IA conversacional para la lógica crítica.** El agente n8n asiste la
+  conversación, pero disponibilidad, concurrencia, hold de pago y confirmación
+  viven en reglas deterministas del backend (secciones 12/18/22).
+- **Registro self-service de clientes.** El operador da de alta cada negocio a
+  mano (no es un SaaS público).
+- **Microservicios / Kubernetes / Redis / RabbitMQ.** Un contenedor (backend en
+  Railway) + una app (panel en Vercel) + n8n.
+- **Row Level Security de Supabase.** El aislamiento por tenant vive en el
+  backend (filtro por `business_id` en cada query y en el guard de `/admin/*`);
+  RLS se evalúa si en algún momento algo distinto del backend toca la DB.

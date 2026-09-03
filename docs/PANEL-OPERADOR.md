@@ -74,10 +74,10 @@ pero las integraciones **no lo son**. Eso es el grueso del trabajo:
 | Integración | Hoy | Debe pasar a |
 |---|---|---|
 | WhatsApp | `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` (env únicas) | tabla `WhatsAppAccount` por negocio: `wabaId`, `phoneNumberId`, token cifrado |
-| Wompi | `PAYMENT_API_KEY`, `PAYMENT_PUBLIC_KEY`, `PAYMENT_INTEGRITY_SECRET`, `PAYMENT_WEBHOOK_SECRET` (env únicas) | tabla `PaymentCredentials` por negocio, cifrada |
+| Wompi | `PAYMENT_API_KEY`, `PAYMENT_PUBLIC_KEY`, `PAYMENT_INTEGRITY_SECRET`, `PAYMENT_WEBHOOK_SECRET` (env únicas) | ✅ **F2**: tabla `PaymentCredentials` por negocio, cifrada (con fallback a las env) |
 | Google Sheets | `GOOGLE_*` + `GOOGLE_SHEET_ID` (env únicas) | config por negocio (opcional, fase tardía) |
 | Agente n8n | `SPA_AGENT_TOKEN` compartido, negocio se resuelve por `businessId` | ✅ ya sirve, no cambia |
-| Resolución de tenant en el webhook de WhatsApp | por `display_phone_number` | por **`phone_number_id`** (llave estable que da Meta) |
+| Resolución de tenant en el webhook de WhatsApp | por `display_phone_number` | ✅ **F1**: por `phone_number_id` (`whatsAppAccountRepository`) con fallback al número |
 
 > **Nota de arquitectura**: `ARCHITECTURE.md` dice que el backend es "desatendido,
 > sin dashboard (sección 42)". Este plan es una **desviación deliberada** de ese
@@ -198,6 +198,14 @@ Wompi.
 
 ### 6.2 Cobro: `total` vs `abono`
 
+> ✅ **Implementado en F2.** `business.chargeMode` (`TOTAL` | `DEPOSIT`) +
+> `depositPercentage` (1–99; 100 se comporta como TOTAL). El split se calcula y
+> persiste (`appointment.depositAmount` / `pendingBalance`) **al crear el link de
+> pago**. El pago confirmado deja `paymentStatus = DEPOSIT_PAID`. Los mensajes
+> (bot de WhatsApp, herramienta del agente, confirmación, `/gracias`, formulario
+> web) muestran el abono y el saldo presencial. Las **gift cards siempre cobran
+> el 100%** — el abono es solo para reservas.
+
 ```
 Reserva creada (createAppointment: hold PENDING por PENDING_EXPIRATION_MINUTES)
         │
@@ -220,17 +228,27 @@ Reserva creada (createAppointment: hold PENDING por PENDING_EXPIRATION_MINUTES)
 
 ### 6.3 Webhook de Wompi multi-comercio
 
+> ✅ **Implementado en F2** (`payment.service.processPaymentWebhook`).
+
 Un solo endpoint. El evento trae un `reference`; el modelo `Payment` ya guarda
 `businessId`. Flujo:
 
-1. Leer `reference` del payload **sin verificar**.
-2. Buscar el `Payment` → obtener el `businessId` → cargar sus
-   `PaymentCredentials`.
-3. Validar la firma del evento con el `PAYMENT_WEBHOOK_SECRET` **de ese negocio**.
-4. Procesar.
+1. `extractWebhookReference` lee `reference` del payload **sin verificar**.
+2. Buscar el `Payment` → si no existe, responde 200 y no hace nada. Si existe,
+   obtener `businessId` → `resolveProviderForBusiness` carga sus
+   `PaymentCredentials` (descifradas) o cae a las env `PAYMENT_*` globales.
+3. Validar la firma del evento con el secreto de eventos **de ese negocio**.
+   Referencia conocida + firma inválida → 401; referencia desconocida → 200.
+4. Procesar (transacción con lock por `reference`, idempotente, sin cambios).
 
 > El `reference` no es secreto, pero un atacante que lo adivine igual no puede
 > falsificar la firma del comercio correcto. Aceptable.
+
+**Cómo cargar las credenciales de un negocio antes del panel (F3):**
+`pnpm --filter @spa/backend script:demo-payment-credentials [slug]` cifra las env
+`PAYMENT_*` actuales y las guarda como `PaymentCredentials` de ese negocio
+(por defecto `demo-spa`). Requiere `SECRETS_ENCRYPTION_KEY` en el entorno.
+Borrar la fila revierte al fallback por env sin desplegar.
 
 ### 6.4 Facturación recurrente + recibos
 
@@ -505,7 +523,7 @@ No es una superficie de v1, pero **la arquitectura lo asume desde F0**:
 | **M0** | Verificación de negocio en Meta + App Review (Advanced Access `whatsapp_business_*`) | M-1 | tras M-1 (crítico, semanas de espera) |
 | **F0** | ✅ **hecho** (en `main`). **Monorepo** (Turborepo + pnpm, `apps/backend` + `packages/db`) — mergeado y deploy en Railway verificado en verde. **Modelo de datos**: `Business.status`/`chargeMode`/`depositPercentage`/branding, pago parcial en `Appointment`, y `WhatsAppAccount`, `PaymentCredentials`, `SubscriptionPlan`, `OperatorInvoice`, `OperatorPayment` (+ join), `ClientContact`, `AuditLog` — migración `20260903194848_panel_operador_data_model`. **Cifrado de secretos**: `apps/backend/src/utils/crypto.ts` (AES-256-GCM, `SECRETS_ENCRYPTION_KEY`), columnas `*_enc`. Tablas de Better Auth se difieren a F3. | — | ✅ |
 | **F1** | ✅ **hecho** (en `main`). Guard único de `status` (`business-guard.ts`) en reservas web/API, gift cards nuevas y herramientas del agente; suspensión suave (mensaje único) y silencio en WhatsApp. Resolución de tenant del webhook: parser extrae `phone_number_id`, se resuelve por `whatsAppAccountRepository` con fallback al número display (F4 puebla `whatsapp_accounts`). | F0 | ✅ |
-| **F2** | Wompi por-tenant: mover llaves a `PaymentCredentials`, webhook multi-comercio, branch `total`/`abono` en reservas, pago parcial en `Appointment`/`Payment`. | F0 | tras F0 |
+| **F2** | ✅ **hecho** (en `main`). `paymentCredentials.repository` (cifra/descifra), `resolveProviderForBusiness` con fallback a env, `getPaymentProviderForCredentials`. Webhook multi-comercio (`extractWebhookReference` → Payment → credenciales del negocio → valida firma). Branch `TOTAL`/`DEPOSIT` en `createPayment` (split guardado al crear el link), `confirmIfPending` → `DEPOSIT_PAID`, mensajes con abono/saldo en bot/agente/confirmación/`/gracias`/formulario. Script `script:demo-payment-credentials`. | F0 | ✅ |
 | **F3** | **Panel** (`apps/panel`, Next.js + shadcn + Better Auth en Vercel) + endpoints `/admin/*` en el backend (con guard de sesión y filtro de tenant). CRUD de negocios, branding, checklist de onboarding, dashboard de vencimientos e ingresos. | F0, F1 | en paralelo a F2 |
 | **F4** | WhatsApp por-tenant: `MetaWhatsAppProvider` toma credenciales del negocio; **integrar Embedded Signup** en el panel (callback, token exchange, suscripción a WABA); gestión de perfil/nombre. | F0, F1, F3, **M0 aprobado** (⇒ M-1) | cuando Meta apruebe |
 | **F5** | Facturación: generación recurrente de facturas, PDF de factura y recibo, auto-`past_due`/`suspended` por mora, reactivación al pagar. | F0, F3 | tras F3 |

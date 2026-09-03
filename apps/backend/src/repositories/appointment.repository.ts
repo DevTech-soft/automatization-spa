@@ -80,15 +80,29 @@ export const appointmentRepository = {
   },
 
   /**
-   * Confirma la cita tras un pago validado, solo si sigue en un estado
-   * "confirmable" (idempotente ante reprocesos). Puede lanzar el error del
-   * trigger `check_appointment_capacity` si el slot ya no está disponible —
-   * el llamador debe capturarlo (ver payment.service.ts).
+   * Guarda el split del abono (modo de cobro DEPOSIT, docs/PANEL-OPERADOR.md §6.2).
+   * Se llama al crear el link de pago: `depositAmount` es lo que cobra el link y
+   * `pendingBalance` lo que la clienta paga en el local.
    */
-  async confirmIfPending(id: string, db: Db = prisma): Promise<boolean> {
+  setDepositSplit(id: string, depositAmount: number, pendingBalance: number, db: Db = prisma) {
+    return db.appointment.update({ where: { id }, data: { depositAmount, pendingBalance } });
+  },
+
+  /**
+   * Confirma la cita tras un pago validado, solo si sigue en un estado
+   * "confirmable" (idempotente ante reprocesos). `paymentStatus` es `PAID` para
+   * cobro total y `DEPOSIT_PAID` cuando solo se abonó (§6.2). Puede lanzar el
+   * error del trigger `check_appointment_capacity` si el slot ya no está
+   * disponible — el llamador debe capturarlo (ver payment.service.ts).
+   */
+  async confirmIfPending(
+    id: string,
+    db: Db = prisma,
+    paymentStatus: "PAID" | "DEPOSIT_PAID" = "PAID",
+  ): Promise<boolean> {
     const result = await db.appointment.updateMany({
       where: { id, status: { in: ["PENDING", "EXPIRED"] } },
-      data: { status: "CONFIRMED", paymentStatus: "PAID" },
+      data: { status: "CONFIRMED", paymentStatus },
     });
     return result.count > 0;
   },

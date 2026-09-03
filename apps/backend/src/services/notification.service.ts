@@ -62,13 +62,20 @@ export async function notifyAppointmentConfirmed(appointmentId: string): Promise
   const dateLabel = dateOnlyFromUTCDate(appointment.appointmentDate);
   const price = formatMoney(appointment.price.toString(), business.currency);
 
+  // Modo abono (§6.2): la clienta pagó solo una parte online; el saldo es presencial.
+  const isDeposit = appointment.depositAmount != null && appointment.pendingBalance != null;
+  const depositLine = isDeposit
+    ? `\nAbono recibido: ${formatMoney(appointment.depositAmount!.toString(), business.currency)}` +
+      `\nSaldo a pagar en el local: ${formatMoney(appointment.pendingBalance!.toString(), business.currency)}`
+    : "";
+
   try {
     if (await claimNotification(business.id, "APPOINTMENT", appointment.id, "APPOINTMENT_CONFIRMATION")) {
       const provider = getWhatsAppProvider();
       await provider.sendText(
         customer.phone,
         `¡Hola ${customer.name}! Tu reserva en ${business.name} quedó confirmada ✅\n\n` +
-          `${service.name}\n${dateLabel} · ${appointment.startTime} - ${appointment.endTime}\n${price}\n\n` +
+          `${service.name}\n${dateLabel} · ${appointment.startTime} - ${appointment.endTime}\n${price}${depositLine}\n\n` +
           `Código: ${appointment.appointmentCode}`,
       );
       logger.info({ appointmentId }, "whatsapp_appointment_confirmation_sent");
@@ -89,7 +96,10 @@ export async function notifyAppointmentConfirmed(appointmentId: string): Promise
         `Nueva reserva confirmada 📅\n\n` +
           `Cliente: ${customer.name} (${customer.phone})\n` +
           `Servicio: ${service.name}\n${dateLabel} · ${appointment.startTime} - ${appointment.endTime}\n` +
-          `Valor: ${price}\nEstado de pago: PAID`,
+          `Valor: ${price}\n` +
+          (isDeposit
+            ? `Estado de pago: ABONO PAGADO${depositLine}`
+            : `Estado de pago: PAID`),
       );
       logger.info({ appointmentId }, "whatsapp_business_notification_sent");
     }

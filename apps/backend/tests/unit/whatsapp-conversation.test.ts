@@ -429,6 +429,9 @@ describe("handleIncomingWhatsAppMessage", () => {
       vi.mocked(createPayment).mockResolvedValue({
         paymentUrl: "https://checkout.wompi.co/p/xyz",
         reference: "PAY-1",
+        chargeMode: "TOTAL",
+        amount: 90000,
+        pendingBalance: null,
       });
 
       await handleIncomingWhatsAppMessage({});
@@ -448,6 +451,41 @@ describe("handleIncomingWhatsAppMessage", () => {
         appointmentId: APPOINTMENT_ID,
       });
       expect(provider.sendText).toHaveBeenCalledWith(PHONE, expect.stringContaining("checkout.wompi.co"));
+    });
+
+    it("en modo abono, el mensaje pide el abono y menciona el saldo en el local", async () => {
+      const provider = fakeProvider();
+      provider.parseIncomingMessage.mockReturnValue({
+        kind: "text",
+        from: PHONE,
+        to: BUSINESS_WA_NUMBER,
+        text: "María Pérez",
+      });
+      vi.mocked(getWhatsAppProvider).mockReturnValue(provider as never);
+      mockBusinessFound();
+      vi.mocked(whatsappConversationRepository.findActive).mockResolvedValue(
+        baseConversation({
+          state: "COLLECTING_NAME",
+          serviceId: SERVICE_ID,
+          date: new Date("2026-01-06T00:00:00.000Z"),
+          startTime: "10:00",
+        }) as never,
+      );
+      vi.mocked(createAppointment).mockResolvedValue({ id: APPOINTMENT_ID, service: { name: "Masaje" } } as never);
+      vi.mocked(createPayment).mockResolvedValue({
+        paymentUrl: "https://checkout.wompi.co/p/xyz",
+        reference: "PAY-1",
+        chargeMode: "DEPOSIT",
+        amount: 27000,
+        pendingBalance: 63000,
+      });
+
+      await handleIncomingWhatsAppMessage({});
+
+      const [, body] = vi.mocked(provider.sendText).mock.calls[0]!;
+      expect(body).toMatch(/abona/i);
+      expect(body).toContain("checkout.wompi.co");
+      expect(body).toMatch(/saldo/i);
     });
 
     it("si el horario ya no está disponible al crear la reserva, vuelve a SELECTING_TIME", async () => {
@@ -555,7 +593,13 @@ describe("handleIncomingWhatsAppMessage", () => {
         status: "PENDING",
         paymentStatus: "PENDING",
       } as never);
-      vi.mocked(createPayment).mockResolvedValue({ paymentUrl: "https://checkout.wompi.co/p/xyz", reference: "PAY-1" });
+      vi.mocked(createPayment).mockResolvedValue({
+        paymentUrl: "https://checkout.wompi.co/p/xyz",
+        reference: "PAY-1",
+        chargeMode: "TOTAL",
+        amount: 90000,
+        pendingBalance: null,
+      });
 
       await handleIncomingWhatsAppMessage({});
 

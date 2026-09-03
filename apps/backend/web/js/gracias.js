@@ -50,16 +50,23 @@ function renderNotFound(backHref, backLabel) {
 // ---------- Reserva (por defecto) ----------
 
 function renderAppointmentConfirmed(details) {
+  const isDeposit = details.depositAmount != null && details.pendingBalance != null;
+  const priceHtml = isDeposit
+    ? `Precio: ${formatCurrency(details.price, "COP")}<br />
+       Abono recibido: ${formatCurrency(details.depositAmount, "COP")}<br />
+       Saldo a pagar en el local: <strong>${formatCurrency(details.pendingBalance, "COP")}</strong>`
+    : formatCurrency(details.price, "COP");
+
   render({
     mode: "success",
     status: "Reserva confirmada",
     title: "¡Todo listo!",
     bodyHtml: `
-      <p>Tu pago fue recibido y tu cita quedó confirmada.</p>
+      <p>${isDeposit ? "Tu abono fue recibido y tu cita quedó confirmada." : "Tu pago fue recibido y tu cita quedó confirmada."}</p>
       <p><strong>${escapeHtml(details.serviceName)}</strong><br />
       ${formatDateLong(details.date)}<br />
       ${details.startTime} – ${details.endTime}<br />
-      ${formatCurrency(details.price, "COP")}</p>
+      ${priceHtml}</p>
       <p class="confirm-code">${escapeHtml(details.appointmentCode)}</p>
     `,
   });

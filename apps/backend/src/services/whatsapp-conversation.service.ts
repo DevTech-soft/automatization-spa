@@ -370,12 +370,22 @@ async function handleNameCollection(
       appointmentId: appointment.id,
     });
 
-    await provider.sendText(
-      phone,
-      `¡Gracias, ${customerName}! Para confirmar tu reserva de ${appointment.service.name} paga aquí:\n\n` +
-        `${payment.paymentUrl}\n\n` +
-        `Tu horario queda reservado por 15 minutos mientras completas el pago. Escribe "estado" para consultar en cualquier momento.`,
-    );
+    const business = await businessRepository.findById(businessId);
+    const currency = business?.currency ?? "COP";
+    const holdNote =
+      `Tu horario queda reservado por 15 minutos mientras completas el pago. ` +
+      `Escribe "estado" para consultar en cualquier momento.`;
+
+    const bodyText =
+      payment.chargeMode === "DEPOSIT" && payment.pendingBalance != null
+        ? `¡Gracias, ${customerName}! Para separar tu cupo de ${appointment.service.name} abona ` +
+          `${formatMoney(payment.amount, currency)} aquí:\n\n${payment.paymentUrl}\n\n` +
+          `El saldo de ${formatMoney(payment.pendingBalance, currency)} lo pagas en el local el día de tu cita.\n\n` +
+          holdNote
+        : `¡Gracias, ${customerName}! Para confirmar tu reserva de ${appointment.service.name} paga aquí:\n\n` +
+          `${payment.paymentUrl}\n\n${holdNote}`;
+
+    await provider.sendText(phone, bodyText);
   } catch (error) {
     if (error instanceof AvailabilityError) {
       await provider.sendText(phone, `${error.message} Elige otro horario.`);
@@ -430,9 +440,10 @@ async function handleWaitingPayment(
 
   try {
     const payment = await createPayment({ entityType: "APPOINTMENT", entityId: appointment.id });
+    const noun = payment.chargeMode === "DEPOSIT" ? "tu abono" : "tu pago";
     await provider.sendText(
       phone,
-      `Todavía no hemos recibido tu pago. Puedes completarlo aquí:\n\n${payment.paymentUrl}`,
+      `Todavía no hemos recibido ${noun}. Puedes completarlo aquí:\n\n${payment.paymentUrl}`,
     );
   } catch (error) {
     if (error instanceof ValidationError || error instanceof NotFoundError) {

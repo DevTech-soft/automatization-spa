@@ -228,13 +228,31 @@ els.detailsForm.addEventListener("submit", (event) => {
 
 // ---------- Paso 5: resumen y pago ----------
 
+function depositSplit() {
+  const pct = Number(state.business?.depositPercentage);
+  if (state.business?.chargeMode !== "DEPOSIT" || !(pct >= 1 && pct < 100)) {
+    return null;
+  }
+  const price = Number(state.service.price);
+  const deposit = Math.round((price * pct) / 100);
+  return { deposit, balance: price - deposit };
+}
+
 function renderReceipt() {
+  const currency = state.business?.currency;
+  const split = depositSplit();
+  const totalRows = split
+    ? `<div class="receipt__row"><span class="receipt__label">Precio del servicio</span><span>${formatCurrency(state.service.price, currency)}</span></div>
+       <div class="receipt__row receipt__row--total"><span>Abono ahora</span><span>${formatCurrency(split.deposit, currency)}</span></div>
+       <div class="receipt__row"><span class="receipt__label">Saldo en el local</span><span>${formatCurrency(split.balance, currency)}</span></div>`
+    : `<div class="receipt__row receipt__row--total"><span>Total</span><span>${formatCurrency(state.service.price, currency)}</span></div>`;
+
   els.receipt.innerHTML = `
     <div class="receipt__row"><span class="receipt__label">Servicio</span><span>${escapeHtml(state.service.name)}</span></div>
     <div class="receipt__row"><span class="receipt__label">Fecha</span><span>${formatDateLong(state.date)}</span></div>
     <div class="receipt__row"><span class="receipt__label">Hora</span><span>${state.slot.startTime} – ${state.slot.endTime}</span></div>
     <div class="receipt__row"><span class="receipt__label">Cliente</span><span>${escapeHtml(state.customer.customerName)}</span></div>
-    <div class="receipt__row receipt__row--total"><span>Total</span><span>${formatCurrency(state.service.price, state.business?.currency)}</span></div>
+    ${totalRows}
   `;
 }
 
@@ -275,7 +293,9 @@ function setPaying(isPaying) {
   els.payButton.disabled = isPaying;
   els.payButton.innerHTML = isPaying
     ? '<span class="spinner"></span> Redirigiendo al pago…'
-    : "Pagar con Wompi";
+    : depositSplit()
+      ? "Abonar con Wompi"
+      : "Pagar con Wompi";
 }
 
 // ---------- back links ----------
