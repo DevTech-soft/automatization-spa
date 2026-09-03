@@ -7,6 +7,7 @@ import { businessHourRepository } from "../repositories/businessHour.repository.
 import { appointmentRepository } from "../repositories/appointment.repository.js";
 import { customerRepository } from "../repositories/customer.repository.js";
 import { AvailabilityError, NotFoundError, ValidationError } from "../errors/index.js";
+import { assertBusinessOperational } from "./business-guard.js";
 import {
   businessDateTimeToInstant,
   businessToday,
@@ -70,6 +71,7 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
   if (!business) {
     throw new NotFoundError("Negocio no encontrado.");
   }
+  assertBusinessOperational(business);
 
   const service = await serviceRepository.findActiveById(businessId, serviceId);
   if (!service) {

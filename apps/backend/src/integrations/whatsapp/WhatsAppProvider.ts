@@ -18,10 +18,15 @@ export type InteractiveMessage =
   | { type: "list"; bodyText: string; buttonText: string; sections: InteractiveListSection[] }
   | { type: "buttons"; bodyText: string; buttons: InteractiveButton[] };
 
-/** `to` es el número de WhatsApp del negocio que recibió el mensaje — resuelve el tenant (sección 5). */
+/**
+ * `to` es el número display del negocio que recibió el mensaje; `phoneNumberId`
+ * es la llave estable de Meta (`metadata.phone_number_id`). El webhook resuelve
+ * el tenant preferentemente por `phoneNumberId` (docs/PANEL-OPERADOR.md §7.2) y
+ * cae a `to` mientras F4 no puebla `whatsapp_accounts`.
+ */
 export type IncomingWhatsAppMessage =
-  | { kind: "text"; from: string; to: string; text: string; contactName?: string | undefined }
-  | { kind: "interactive_reply"; from: string; to: string; replyId: string; contactName?: string | undefined }
+  | { kind: "text"; from: string; to: string; phoneNumberId?: string | undefined; text: string; contactName?: string | undefined }
+  | { kind: "interactive_reply"; from: string; to: string; phoneNumberId?: string | undefined; replyId: string; contactName?: string | undefined }
   /** Delivery receipts, read receipts, etc. — no acción del bot, solo ack 200. */
   | { kind: "ignored" };
 

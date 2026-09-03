@@ -21,6 +21,16 @@ export class NotFoundError extends AppError {
   readonly code = "NOT_FOUND";
 }
 
+/**
+ * El negocio existe pero su suscripción está suspendida (mora) — docs/PANEL-OPERADOR.md §5.
+ * 403 (no 404) en las superficies HTTP: la reserva/compra se corta con un aviso,
+ * no se finge que el negocio no existe. Reversible al instante cambiando `status`.
+ */
+export class BusinessSuspendedError extends AppError {
+  readonly statusCode = 403;
+  readonly code = "BUSINESS_SUSPENDED";
+}
+
 export class PaymentError extends AppError {
   readonly statusCode = 402;
   readonly code = "PAYMENT_ERROR";

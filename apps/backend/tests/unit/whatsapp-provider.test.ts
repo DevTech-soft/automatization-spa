@@ -52,6 +52,7 @@ describe("MetaWhatsAppProvider.parseIncomingMessage", () => {
       kind: "text",
       from: "573001112233",
       to: "573000000000",
+      phoneNumberId: "123",
       text: "hola",
       contactName: "María",
     });

@@ -76,7 +76,7 @@ describe("createGiftCard", () => {
   });
 
   it("lanza NotFoundError si el servicio no existe o no está activo", async () => {
-    vi.mocked(businessRepository.findById).mockResolvedValue({ id: BUSINESS_ID, settings: {} } as never);
+    vi.mocked(businessRepository.findById).mockResolvedValue({ id: BUSINESS_ID, settings: {}, status: "ACTIVE", active: true } as never);
     vi.mocked(serviceRepository.findActiveById).mockResolvedValue(null);
 
     await expect(
@@ -95,6 +95,8 @@ describe("createGiftCard", () => {
     vi.mocked(businessRepository.findById).mockResolvedValue({
       id: BUSINESS_ID,
       settings: { gift_card_validity_days: 30 },
+      status: "ACTIVE",
+      active: true,
     } as never);
     vi.mocked(serviceRepository.findActiveById).mockResolvedValue({ id: SERVICE_ID, price: 90000 } as never);
     vi.mocked(giftCardRepository.create).mockResolvedValue({ id: GIFT_CARD_ID } as never);
@@ -118,7 +120,7 @@ describe("createGiftCard", () => {
   });
 
   it("reintenta con un nuevo código si hay colisión de unique constraint", async () => {
-    vi.mocked(businessRepository.findById).mockResolvedValue({ id: BUSINESS_ID, settings: {} } as never);
+    vi.mocked(businessRepository.findById).mockResolvedValue({ id: BUSINESS_ID, settings: {}, status: "ACTIVE", active: true } as never);
     vi.mocked(serviceRepository.findActiveById).mockResolvedValue({ id: SERVICE_ID, price: 90000 } as never);
     const collision = new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
       code: "P2002",

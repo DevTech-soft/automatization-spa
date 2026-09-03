@@ -9,6 +9,7 @@ import {
   UnauthorizedError,
   ValidationError,
 } from "../errors/index.js";
+import { assertBusinessOperational } from "./business-guard.js";
 import { generateCode } from "../utils/code-generator.js";
 import { isUniqueConstraintViolation } from "../utils/prisma-errors.js";
 import { normalizePhone } from "../utils/phone.js";
@@ -55,6 +56,10 @@ export async function createGiftCard(input: CreateGiftCardInput) {
   if (!business) {
     throw new NotFoundError("Negocio no encontrado.");
   }
+  // F1 (§5): comprar una gift card nueva requiere negocio operativo. El canje y
+  // la validación de gift cards ya pagadas NO se bloquean — no se castiga a la
+  // clienta que ya pagó por una mora del negocio.
+  assertBusinessOperational(business);
 
   const service = await serviceRepository.findActiveById(input.businessId, input.serviceId);
   if (!service) {

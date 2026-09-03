@@ -3,6 +3,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("../../src/repositories/business.repository.js", () => ({
   businessRepository: { findByWhatsAppNumber: vi.fn(), findById: vi.fn() },
 }));
+vi.mock("../../src/repositories/whatsAppAccount.repository.js", () => ({
+  whatsAppAccountRepository: { findBusinessByPhoneNumberId: vi.fn() },
+}));
 vi.mock("../../src/repositories/service.repository.js", () => ({
   serviceRepository: { findActiveByBusinessId: vi.fn(), findActiveById: vi.fn() },
 }));
@@ -34,6 +37,7 @@ vi.mock("../../src/services/payment.service.js", () => ({
 }));
 
 const { businessRepository } = await import("../../src/repositories/business.repository.js");
+const { whatsAppAccountRepository } = await import("../../src/repositories/whatsAppAccount.repository.js");
 const { serviceRepository } = await import("../../src/repositories/service.repository.js");
 const { businessHourRepository } = await import("../../src/repositories/businessHour.repository.js");
 const { appointmentRepository } = await import("../../src/repositories/appointment.repository.js");
@@ -69,12 +73,18 @@ function fakeProvider() {
 function mockBusinessFound() {
   vi.mocked(businessRepository.findByWhatsAppNumber).mockResolvedValue({
     id: BUSINESS_ID,
+    name: "Demo Spa",
+    phone: null,
     timezone: "America/Bogota",
     whatsappNumber: BUSINESS_WA_NUMBER,
+    status: "ACTIVE",
+    active: true,
   } as never);
   vi.mocked(businessRepository.findById).mockResolvedValue({
     id: BUSINESS_ID,
     timezone: "America/Bogota",
+    status: "ACTIVE",
+    active: true,
   } as never);
 }
 
@@ -117,6 +127,73 @@ describe("handleIncomingWhatsAppMessage", () => {
     await handleIncomingWhatsAppMessage({});
 
     expect(whatsappConversationRepository.findActive).not.toHaveBeenCalled();
+  });
+
+  it("suspensión suave: un negocio SUSPENDED recibe un único mensaje y no procesa la conversación", async () => {
+    const provider = fakeProvider();
+    provider.parseIncomingMessage.mockReturnValue({ kind: "text", from: PHONE, to: BUSINESS_WA_NUMBER, text: "hola" });
+    vi.mocked(getWhatsAppProvider).mockReturnValue(provider as never);
+    vi.mocked(businessRepository.findByWhatsAppNumber).mockResolvedValue({
+      id: BUSINESS_ID,
+      name: "Demo Spa",
+      phone: "+573009998877",
+      timezone: "America/Bogota",
+      whatsappNumber: BUSINESS_WA_NUMBER,
+      status: "SUSPENDED",
+      active: true,
+    } as never);
+
+    await handleIncomingWhatsAppMessage({});
+
+    expect(provider.sendText).toHaveBeenCalledTimes(1);
+    expect(provider.sendText).toHaveBeenCalledWith(PHONE, expect.stringContaining("temporalmente inactivo"));
+    expect(whatsappConversationRepository.findActive).not.toHaveBeenCalled();
+  });
+
+  it("un negocio CANCELLED no recibe ninguna respuesta (silencio total)", async () => {
+    const provider = fakeProvider();
+    provider.parseIncomingMessage.mockReturnValue({ kind: "text", from: PHONE, to: BUSINESS_WA_NUMBER, text: "hola" });
+    vi.mocked(getWhatsAppProvider).mockReturnValue(provider as never);
+    vi.mocked(businessRepository.findByWhatsAppNumber).mockResolvedValue({
+      id: BUSINESS_ID,
+      name: "Demo Spa",
+      timezone: "America/Bogota",
+      whatsappNumber: BUSINESS_WA_NUMBER,
+      status: "CANCELLED",
+      active: true,
+    } as never);
+
+    await handleIncomingWhatsAppMessage({});
+
+    expect(provider.sendText).not.toHaveBeenCalled();
+    expect(whatsappConversationRepository.findActive).not.toHaveBeenCalled();
+  });
+
+  it("resuelve el tenant por phone_number_id cuando hay una WhatsAppAccount", async () => {
+    const provider = fakeProvider();
+    provider.parseIncomingMessage.mockReturnValue({
+      kind: "text",
+      from: PHONE,
+      to: "otro-numero",
+      phoneNumberId: "pn-123",
+      text: "hola",
+    });
+    vi.mocked(getWhatsAppProvider).mockReturnValue(provider as never);
+    vi.mocked(whatsAppAccountRepository.findBusinessByPhoneNumberId).mockResolvedValue({
+      id: BUSINESS_ID,
+      name: "Demo Spa",
+      timezone: "America/Bogota",
+      status: "ACTIVE",
+      active: true,
+    } as never);
+    vi.mocked(whatsappConversationRepository.findActive).mockResolvedValue(null);
+    vi.mocked(whatsappConversationRepository.createInitial).mockResolvedValue({ id: CONVERSATION_ID } as never);
+    vi.mocked(serviceRepository.findActiveByBusinessId).mockResolvedValue([] as never);
+
+    await handleIncomingWhatsAppMessage({});
+
+    expect(whatsAppAccountRepository.findBusinessByPhoneNumberId).toHaveBeenCalledWith("pn-123");
+    expect(businessRepository.findByWhatsAppNumber).not.toHaveBeenCalled();
   });
 
   it("inicia una conversación nueva y envía la lista de servicios", async () => {

@@ -3,6 +3,7 @@ import { serviceRepository } from "../repositories/service.repository.js";
 import { businessHourRepository } from "../repositories/businessHour.repository.js";
 import { appointmentRepository } from "../repositories/appointment.repository.js";
 import { NotFoundError, ValidationError } from "../errors/index.js";
+import { assertBusinessOperational } from "./business-guard.js";
 import {
   businessToday,
   calendarDayOfWeek,
@@ -50,6 +51,7 @@ export async function getAvailability(params: GetAvailabilityParams): Promise<Av
   if (!business) {
     throw new NotFoundError("Negocio no encontrado.");
   }
+  assertBusinessOperational(business);
 
   const service = await serviceRepository.findActiveById(businessId, serviceId);
   if (!service) {

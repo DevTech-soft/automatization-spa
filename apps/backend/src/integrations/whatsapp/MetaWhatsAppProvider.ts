@@ -97,14 +97,15 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
     }
 
     const contactName = extractContactName(rawPayload);
+    const phoneNumberId = extractPhoneNumberId(rawPayload);
 
     if (message.type === "text" && typeof message.text?.body === "string") {
-      return { kind: "text", from: message.from, to, text: message.text.body, contactName };
+      return { kind: "text", from: message.from, to, phoneNumberId, text: message.text.body, contactName };
     }
 
     const replyId = message.interactive?.list_reply?.id ?? message.interactive?.button_reply?.id;
     if (message.type === "interactive" && typeof replyId === "string") {
-      return { kind: "interactive_reply", from: message.from, to, replyId, contactName };
+      return { kind: "interactive_reply", from: message.from, to, phoneNumberId, replyId, contactName };
     }
 
     // Otros tipos (imagen, audio, ubicación, etc.) — el bot determinístico no los soporta (sección 18).
@@ -174,6 +175,13 @@ function extractReceivingNumber(rawPayload: unknown): string | null {
   const metadata = value?.["metadata"] as Record<string, unknown> | undefined;
   const number = metadata?.["display_phone_number"];
   return typeof number === "string" ? number : null;
+}
+
+function extractPhoneNumberId(rawPayload: unknown): string | undefined {
+  const value = getChangeValue(rawPayload);
+  const metadata = value?.["metadata"] as Record<string, unknown> | undefined;
+  const id = metadata?.["phone_number_id"];
+  return typeof id === "string" ? id : undefined;
 }
 
 function extractContactName(rawPayload: unknown): string | undefined {

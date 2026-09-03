@@ -1,6 +1,8 @@
 import { DateTime } from "luxon";
 import type { WhatsAppConversation } from "@spa/db";
 import { businessRepository } from "../repositories/business.repository.js";
+import { whatsAppAccountRepository } from "../repositories/whatsAppAccount.repository.js";
+import { isBusinessOperational } from "./business-guard.js";
 import { serviceRepository } from "../repositories/service.repository.js";
 import { businessHourRepository } from "../repositories/businessHour.repository.js";
 import { appointmentRepository } from "../repositories/appointment.repository.js";
@@ -49,13 +51,38 @@ export async function handleIncomingWhatsAppMessage(rawPayload: unknown): Promis
     return;
   }
 
-  const business = await businessRepository.findByWhatsAppNumber(message.to);
+  // Resolución de tenant (docs/PANEL-OPERADOR.md §7.2): se prefiere el
+  // `phone_number_id` estable de Meta; mientras F4 no puebla `whatsapp_accounts`
+  // cae al match por número display.
+  const business =
+    (message.phoneNumberId
+      ? await whatsAppAccountRepository.findBusinessByPhoneNumberId(message.phoneNumberId)
+      : null) ?? (await businessRepository.findByWhatsAppNumber(message.to));
+
   if (!business) {
-    logger.warn({ to: message.to }, "whatsapp_message_unknown_business_number");
+    logger.warn({ to: message.to, phoneNumberId: message.phoneNumberId }, "whatsapp_message_unknown_business_number");
     return;
   }
 
   const phone = normalizePhone(message.from);
+
+  // F1 — guard de estado (§5). El canal de WhatsApp no responde con 4xx:
+  // `SUSPENDED` → un único mensaje de "servicio inactivo" y nada más;
+  // `CANCELLED` / `active=false` → silencio total.
+  if (!isBusinessOperational(business)) {
+    if (business.status === "SUSPENDED") {
+      await provider.sendText(
+        phone,
+        `El servicio de reservas de ${business.name} está temporalmente inactivo. ` +
+          `Por favor comunícate directamente con el negocio${business.phone ? ` (${business.phone})` : ""}.`,
+      );
+      logger.info({ businessId: business.id }, "whatsapp_message_soft_suspended");
+    } else {
+      logger.info({ businessId: business.id, status: business.status }, "whatsapp_message_dropped_inactive");
+    }
+    return;
+  }
+
   logger.info({ businessId: business.id, phone }, "whatsapp_message_received");
 
   // Negocios migrados al agente conversacional de n8n (settings.agentEnabled):

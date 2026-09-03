@@ -151,11 +151,25 @@ pero las integraciones **no lo son**. Eso es el grueso del trabajo:
 
 ### Enforcement
 
-El `status` se consulta en **cada puerta de entrada**. Hoy existe
-`business.active` (boolean) — hay que auditar que se respete en:
-`POST /api/webhooks/whatsapp`, rutas `/internal/agent/*`, API pública de reservas
-y páginas del formulario, canje de gift cards. La Fase F1 lo centraliza en un
-único guard.
+El `status` se consulta en **cada puerta de entrada**. **Hecho en F1**
+(`apps/backend/src/services/business-guard.ts`):
+
+- `isBusinessOperational` / `assertBusinessOperational`. Operativos: `TRIAL`,
+  `ACTIVE`, `PAST_DUE`. Cortan: `SUSPENDED` (→ `BusinessSuspendedError` 403),
+  `CANCELLED` y el flag legacy `active=false` (→ 404, no revela que existe).
+- Superficies HTTP que llaman al guard: `getBusinessBySlug` (`/api/business/:slug`),
+  `getAvailability`, `createAppointment`, `listServices`, `createGiftCard`, y
+  `requireBusiness` del agente (cubre `/internal/agent/*`). El formulario web ya
+  muestra el mensaje del 403/404 en su alerta de error.
+- **Gift cards ya pagadas**: el canje y la validación **no** se bloquean — no se
+  castiga a la clienta por la mora del negocio; solo se bloquea *comprar* una
+  nueva.
+- **WhatsApp** no lanza 4xx: `SUSPENDED` → un único mensaje "servicio
+  temporalmente inactivo"; `CANCELLED`/`active=false` → silencio total.
+- `business.active` se mantiene (lo respeta el guard) hasta que un cambio
+  posterior lo elimine en favor de `status`.
+- Webhook de pago (`/api/webhooks/payment`): **sin** guard a propósito — un
+  negocio suspendido debe seguir confirmando pagos de reservas en vuelo.
 
 ---
 
@@ -490,7 +504,7 @@ No es una superficie de v1, pero **la arquitectura lo asume desde F0**:
 | **M-1** | **Formalizarse**: matrícula mercantil (Cámara de Comercio) + RUT, o crear una SAS. Prerrequisito de M0. | — | **ahora** (D7) |
 | **M0** | Verificación de negocio en Meta + App Review (Advanced Access `whatsapp_business_*`) | M-1 | tras M-1 (crítico, semanas de espera) |
 | **F0** | ✅ **hecho** (en `main`). **Monorepo** (Turborepo + pnpm, `apps/backend` + `packages/db`) — mergeado y deploy en Railway verificado en verde. **Modelo de datos**: `Business.status`/`chargeMode`/`depositPercentage`/branding, pago parcial en `Appointment`, y `WhatsAppAccount`, `PaymentCredentials`, `SubscriptionPlan`, `OperatorInvoice`, `OperatorPayment` (+ join), `ClientContact`, `AuditLog` — migración `20260903194848_panel_operador_data_model`. **Cifrado de secretos**: `apps/backend/src/utils/crypto.ts` (AES-256-GCM, `SECRETS_ENCRYPTION_KEY`), columnas `*_enc`. Tablas de Better Auth se difieren a F3. | — | ✅ |
-| **F1** | Guard único de `status` en cada entrada + suspensión suave. Migrar resolución de tenant a `phone_number_id`. | F0 | tras F0 |
+| **F1** | ✅ **hecho** (en `main`). Guard único de `status` (`business-guard.ts`) en reservas web/API, gift cards nuevas y herramientas del agente; suspensión suave (mensaje único) y silencio en WhatsApp. Resolución de tenant del webhook: parser extrae `phone_number_id`, se resuelve por `whatsAppAccountRepository` con fallback al número display (F4 puebla `whatsapp_accounts`). | F0 | ✅ |
 | **F2** | Wompi por-tenant: mover llaves a `PaymentCredentials`, webhook multi-comercio, branch `total`/`abono` en reservas, pago parcial en `Appointment`/`Payment`. | F0 | tras F0 |
 | **F3** | **Panel** (`apps/panel`, Next.js + shadcn + Better Auth en Vercel) + endpoints `/admin/*` en el backend (con guard de sesión y filtro de tenant). CRUD de negocios, branding, checklist de onboarding, dashboard de vencimientos e ingresos. | F0, F1 | en paralelo a F2 |
 | **F4** | WhatsApp por-tenant: `MetaWhatsAppProvider` toma credenciales del negocio; **integrar Embedded Signup** en el panel (callback, token exchange, suscripción a WABA); gestión de perfil/nombre. | F0, F1, F3, **M0 aprobado** (⇒ M-1) | cuando Meta apruebe |

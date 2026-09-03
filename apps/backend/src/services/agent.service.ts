@@ -6,6 +6,7 @@ import { getAvailability } from "./availability.service.js";
 import { createAppointment } from "./appointment.service.js";
 import { createPayment } from "./payment.service.js";
 import { AvailabilityError, NotFoundError, ValidationError } from "../errors/index.js";
+import { assertBusinessOperational } from "./business-guard.js";
 import { businessToday, dateOnlyFromUTCDate, dateOnlyToUTCDate } from "../utils/datetime.js";
 import { normalizePhone } from "../utils/phone.js";
 import { logger } from "../utils/logger.js";
@@ -27,6 +28,10 @@ async function requireBusiness(businessId: string) {
   if (!business) {
     throw new NotFoundError("Negocio no encontrado.");
   }
+  // F1 (§5): las herramientas del agente quedan "off" para negocios no operativos
+  // (SUSPENDED → 403, CANCELLED → 404). El bot de menús ya corta antes de
+  // reenviar a n8n; esto cubre una llamada directa de n8n.
+  assertBusinessOperational(business);
   return business;
 }
 

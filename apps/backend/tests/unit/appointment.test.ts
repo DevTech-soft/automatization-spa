@@ -57,7 +57,7 @@ const {
   getAppointmentStatusByReference,
   sendUpcomingAppointmentReminders,
 } = await import("../../src/services/appointment.service.js");
-const { AvailabilityError, NotFoundError } = await import("../../src/errors/index.js");
+const { AvailabilityError, NotFoundError, BusinessSuspendedError } = await import("../../src/errors/index.js");
 
 const BUSINESS_ID = "11111111-1111-1111-1111-111111111111";
 const SERVICE_ID = "22222222-2222-2222-2222-222222222222";
@@ -79,6 +79,8 @@ function mockHappyPath() {
   vi.mocked(businessRepository.findById).mockResolvedValue({
     id: BUSINESS_ID,
     timezone: "America/Bogota",
+    status: "ACTIVE",
+    active: true,
   } as never);
   vi.mocked(serviceRepository.findActiveById).mockResolvedValue({
     id: SERVICE_ID,
@@ -114,6 +116,19 @@ describe("createAppointment", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.clearAllMocks();
+  });
+
+  it("rechaza la reserva si el negocio está SUSPENDED (F1 §5)", async () => {
+    mockHappyPath();
+    vi.mocked(businessRepository.findById).mockResolvedValue({
+      id: BUSINESS_ID,
+      timezone: "America/Bogota",
+      status: "SUSPENDED",
+      active: true,
+    } as never);
+
+    await expect(createAppointment(baseInput)).rejects.toBeInstanceOf(BusinessSuspendedError);
+    expect(appointmentRepository.create).not.toHaveBeenCalled();
   });
 
   it("crea una reserva PENDING con expiración a 15 minutos y código APT-", async () => {

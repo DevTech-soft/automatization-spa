@@ -104,6 +104,15 @@ un query param: cada mensaje entrante trae el número de WhatsApp que lo
 recibió, que se compara contra `businesses.whatsapp_number`. Ver
 `docs/WHATSAPP.md`.
 
+> **Actualización F1 (`docs/PANEL-OPERADOR.md`):** el webhook ahora resuelve el
+> tenant preferentemente por `metadata.phone_number_id` vía
+> `whatsAppAccountRepository` (llave estable de Meta), y cae al match por
+> `whatsapp_number` mientras F4 no puebla `whatsapp_accounts`. Además todas las
+> puertas de entrada (reservas, gift cards nuevas, agente) pasan por
+> `business-guard.ts`, que corta `SUSPENDED` (403) y `CANCELLED` (404); WhatsApp
+> aplica suspensión suave (mensaje único) / silencio. Máquina de estados del
+> negocio: `docs/PANEL-OPERADOR.md` §5.
+
 ### Pendiente para la fase SaaS: onboarding de WhatsApp por cliente
 
 Hoy `WHATSAPP_ACCESS_TOKEN`/`WHATSAPP_PHONE_NUMBER_ID` son variables de

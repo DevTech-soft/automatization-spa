@@ -29,6 +29,8 @@ function mockBusiness() {
   vi.mocked(businessRepository.findById).mockResolvedValue({
     id: BUSINESS_ID,
     timezone: "America/Bogota",
+    status: "ACTIVE",
+    active: true,
   } as never);
 }
 
