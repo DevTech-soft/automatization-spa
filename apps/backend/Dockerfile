@@ -19,10 +19,13 @@ FROM base AS build
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 COPY apps/backend/package.json ./apps/backend/
 COPY packages/db/package.json ./packages/db/
+COPY packages/shared/package.json ./packages/shared/
 RUN pnpm install --frozen-lockfile
 # Resto del código y build.
 COPY . .
 RUN pnpm --filter @spa/db generate
+# @spa/shared se compila a dist/ y el backend lo importa como JS en runtime.
+RUN pnpm --filter @spa/shared build
 RUN pnpm --filter @spa/backend build
 
 FROM base AS runtime

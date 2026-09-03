@@ -19,7 +19,7 @@
       "cache": false
     },
     "dev": {
-      "dependsOn": ["^generate"],
+      "dependsOn": ["^build", "^generate"],
       "cache": false,
       "persistent": true
     }

@@ -21,6 +21,17 @@ const envSchema = z.object({
   SUPABASE_ANON_KEY: z.string().min(1),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 
+  /**
+   * Auth del panel de operador (Better Auth, docs/PANEL-OPERADOR.md §8/§9).
+   * Better Auth se monta en este backend (`/api/auth/*`); el panel es cliente.
+   * `BETTER_AUTH_SECRET`: 32+ chars, `openssl rand -base64 32`.
+   * `BETTER_AUTH_URL`: URL pública del backend (para callbacks); si falta, usa APP_URL.
+   * `PANEL_URL`: origen del panel (Vercel) — CORS + trustedOrigins de Better Auth.
+   */
+  BETTER_AUTH_SECRET: z.string().min(32, "BETTER_AUTH_SECRET debe tener al menos 32 caracteres.").optional().or(z.literal("")),
+  BETTER_AUTH_URL: z.string().url().optional().or(z.literal("")),
+  PANEL_URL: z.string().url().optional().or(z.literal("")),
+
   WHATSAPP_ACCESS_TOKEN: z.string().optional().or(z.literal("")),
   WHATSAPP_PHONE_NUMBER_ID: z.string().optional().or(z.literal("")),
   WHATSAPP_VERIFY_TOKEN: z.string().optional().or(z.literal("")),

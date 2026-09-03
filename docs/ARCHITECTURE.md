@@ -47,6 +47,14 @@ Payment gateway = fuente de verdad del estado del pago
   > AES-256-GCM con `SECRETS_ENCRYPTION_KEY`). Los tokens de WhatsApp y llaves de
   > Wompi se guardan en columnas `*_enc`. El wiring (guards, webhooks por-tenant,
   > panel) llega en F1–F5.
+  >
+  > **F3a (auth del panel):** **Better Auth se monta en ESTE backend**
+  > (`/api/auth/*`, `src/auth/better-auth.ts`) — Postgres sigue 100% en el
+  > backend. El panel (`apps/panel/`, Vercel) será cliente puro con patrón BFF.
+  > Las rutas `/admin/*` validan la sesión de Better Auth en cada request
+  > (`requireOperatorSession`). Tipos/Zod compartidos en `packages/shared`
+  > (`@spa/shared`, compila a `dist/`). Tablas de Better Auth: migración
+  > `..._better_auth`.
 
 ## Rol de n8n
 

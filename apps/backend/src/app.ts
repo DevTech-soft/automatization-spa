@@ -19,6 +19,8 @@ import { paymentRoutes } from "./routes/payment.route.js";
 import { giftCardRoutes } from "./routes/giftCard.route.js";
 import { webRoutes } from "./routes/web.route.js";
 import { whatsappRoutes } from "./routes/whatsapp.route.js";
+import { authRoutes } from "./routes/auth.route.js";
+import { adminRoutes } from "./routes/admin.route.js";
 
 // "src/app.ts" en dev (tsx) y "dist/app.js" en build viven ambos un nivel por
 // debajo de la raíz del proyecto, así que "../web" resuelve igual en los dos casos.
@@ -40,7 +42,13 @@ export async function buildApp(): Promise<FastifyInstance> {
     },
   });
   await app.register(cors, {
-    origin: env.NODE_ENV === "production" ? [env.APP_URL] : true,
+    // El panel (Vercel) es cross-origin y manda credenciales (cookie/bearer de
+    // Better Auth), así que necesita estar en la allowlist con `credentials: true`.
+    origin:
+      env.NODE_ENV === "production"
+        ? [env.APP_URL, env.PANEL_URL].filter((value): value is string => Boolean(value))
+        : true,
+    credentials: true,
   });
   await app.register(rateLimit, {
     max: 100,
@@ -67,6 +75,8 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   app.setErrorHandler(errorHandler);
 
+  await app.register(authRoutes);
+  await app.register(adminRoutes);
   await app.register(healthRoutes);
   await app.register(businessRoutes);
   await app.register(serviceRoutes);

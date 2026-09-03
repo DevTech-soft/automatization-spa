@@ -62,7 +62,8 @@ self-service: el operador crea los clientes y maneja la cartera a mano.
 | D8 | Planes: **prueba 7 días** (gratis), **mensual $50.000 COP**, **gracia 3 días** tras el vencimiento | Config por defecto de `SubscriptionPlan`. Ver §6.5. |
 | D9 | **Panel propio, no admin genérico.** Se descarta Directus/Retool: el objetivo es un producto (CRM + portal de cliente), no un CRUD interno. Stack: **monorepo (Turborepo + pnpm) · Next.js 15 App Router · Tailwind + shadcn/ui · Better Auth · Vercel**. Ver §8. | El repo actual se reorganiza como monorepo (`apps/backend`, `apps/panel`, `packages/*`) en F0. El backend Fastify sigue siendo el dueño único del Postgres. |
 | D10 | **El panel (en Vercel) no toca la DB directo**; toda la data pasa por la API `/admin/*` del backend Fastify. Tipos y validación compartidos vía `packages/shared` (Zod). | El backend queda como única superficie con acceso a Postgres (que sigue privado en Railway). Hay que construir `/admin/*` con paginación/filtros server-side. |
-| D11 | **Auth: Better Auth** self-host sobre el mismo Postgres, con plugin `organization` (tenant = `businessId`) y RBAC. Rol `operator` en v1; roles de cliente en F7. | Sin costo por MAU. El backend valida la sesión de Better Auth en cada request a `/admin/*`. 2FA para el operador vía plugin. |
+| D11 | **Auth: Better Auth montado en el backend Fastify** (`/api/auth/*`), sobre el mismo Postgres, con plugin `organization` (tenant = `businessId`), `bearer` y `twoFactor`. Rol `operator` en v1; roles de cliente en F7. El panel es cliente puro (patrón BFF, D12). | Postgres sigue 100% en el backend (respeta D10). El backend valida la sesión en cada request a `/admin/*` (`requireOperatorSession`). Sin costo por MAU. |
+| D12 | **El panel usa BFF**: el navegador solo habla con el panel; sus route handlers de Next reenvían a `/api/auth/*` y `/admin/*` con la sesión adjunta server-side (cookie o `Authorization: Bearer` vía plugin `bearer`). | No hace falta dominio compartido ni cookies cross-site para arrancar. `PANEL_URL` va en CORS + `trustedOrigins` de Better Auth. |
 
 ---
 
@@ -460,8 +461,20 @@ Cifrado de secretos por-tenant (§9):
   guarden credenciales; `encryptSecret` lanza si se usa sin configurarla.
 - Rotación de la clave maestra: pendiente (el prefijo `v1:` deja espacio).
 
-`packages/shared` y `packages/ui` se crean en F3, cuando exista el panel y haya
-código que compartir (evita paquetes vacíos).
+`packages/shared` — ✅ **creado en F3a**. Zod schemas + DTOs (`adminMeSchema`,
+`paginationQuerySchema`, `PaginatedResponse`, `paginate`). Compila a `dist/` con
+`tsc` (el backend lo importa como JS en runtime; el Dockerfile lo compila antes
+que el backend). `packages/ui` sigue diferido a F7.
+
+**Better Auth (F3a):** `apps/backend/src/auth/better-auth.ts` — `prismaAdapter`,
+`emailAndPassword` (sin verificación por correo en v1, 12+ chars), plugins
+`bearer` + `twoFactor` + `organization`. Cookie de sesión `SameSite=None; Secure`
+(el panel es cross-site). Las 7 tablas (`user`, `session`, `account`,
+`verification`, `twoFactor`, `organization`, `member`, `invitation`) las genera
+`@better-auth/cli generate` y se fusionan a `packages/db/prisma/schema.prisma`
+**sin** la convención `@map` snake_case (son contrato con la librería). Único
+añadido nuestro: `Organization.businessId` (1:1 con `Business`). El usuario
+`operator` se crea con `scripts/create-operator.ts` (no hay signup público).
 
 ### 8.4 Qué se construye vs qué solo se configura
 
@@ -524,7 +537,7 @@ No es una superficie de v1, pero **la arquitectura lo asume desde F0**:
 | **F0** | ✅ **hecho** (en `main`). **Monorepo** (Turborepo + pnpm, `apps/backend` + `packages/db`) — mergeado y deploy en Railway verificado en verde. **Modelo de datos**: `Business.status`/`chargeMode`/`depositPercentage`/branding, pago parcial en `Appointment`, y `WhatsAppAccount`, `PaymentCredentials`, `SubscriptionPlan`, `OperatorInvoice`, `OperatorPayment` (+ join), `ClientContact`, `AuditLog` — migración `20260903194848_panel_operador_data_model`. **Cifrado de secretos**: `apps/backend/src/utils/crypto.ts` (AES-256-GCM, `SECRETS_ENCRYPTION_KEY`), columnas `*_enc`. Tablas de Better Auth se difieren a F3. | — | ✅ |
 | **F1** | ✅ **hecho** (en `main`). Guard único de `status` (`business-guard.ts`) en reservas web/API, gift cards nuevas y herramientas del agente; suspensión suave (mensaje único) y silencio en WhatsApp. Resolución de tenant del webhook: parser extrae `phone_number_id`, se resuelve por `whatsAppAccountRepository` con fallback al número display (F4 puebla `whatsapp_accounts`). | F0 | ✅ |
 | **F2** | ✅ **hecho** (en `main`). `paymentCredentials.repository` (cifra/descifra), `resolveProviderForBusiness` con fallback a env, `getPaymentProviderForCredentials`. Webhook multi-comercio (`extractWebhookReference` → Payment → credenciales del negocio → valida firma). Branch `TOTAL`/`DEPOSIT` en `createPayment` (split guardado al crear el link), `confirmIfPending` → `DEPOSIT_PAID`, mensajes con abono/saldo en bot/agente/confirmación/`/gracias`/formulario. Script `script:demo-payment-credentials`. | F0 | ✅ |
-| **F3** | **Panel** (`apps/panel`, Next.js + shadcn + Better Auth en Vercel) + endpoints `/admin/*` en el backend (con guard de sesión y filtro de tenant). CRUD de negocios, branding, checklist de onboarding, dashboard de vencimientos e ingresos. | F0, F1 | en paralelo a F2 |
+| **F3** | En progreso. **F3a hecho** (en `main`): Better Auth montado en el **backend** (`/api/auth/*`, `src/auth/better-auth.ts` — plugins `bearer`+`twoFactor`+`organization`), tablas de auth (migración `..._better_auth`, `Organization.businessId` 1:1 con `Business`), guard `requireOperatorSession` en `/admin/*` + `GET /admin/me`, CORS/credentials para `PANEL_URL`, `packages/shared` (Zod/DTOs, build a `dist/`), scripts `create-operator` / `demo-payment-credentials`. **Pendiente**: F3b panel Next.js (`apps/panel`, BFF), F3c CRUD de negocios, F3d branding + onboarding, F3e dashboards. | F0, F1 | en progreso |
 | **F4** | WhatsApp por-tenant: `MetaWhatsAppProvider` toma credenciales del negocio; **integrar Embedded Signup** en el panel (callback, token exchange, suscripción a WABA); gestión de perfil/nombre. | F0, F1, F3, **M0 aprobado** (⇒ M-1) | cuando Meta apruebe |
 | **F5** | Facturación: generación recurrente de facturas, PDF de factura y recibo, auto-`past_due`/`suspended` por mora, reactivación al pagar. | F0, F3 | tras F3 |
 | **F6** | Extras: métricas de uso por cliente (citas, conversaciones, costo WhatsApp), recordatorios automáticos de vencimiento al operador, Google Sheets por-tenant. | F3 | después |

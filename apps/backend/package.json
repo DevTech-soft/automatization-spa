@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "script:demo-payment-credentials": "tsx scripts/set-demo-payment-credentials.ts"
+    "script:demo-payment-credentials": "tsx scripts/set-demo-payment-credentials.ts",
+    "script:create-operator": "tsx scripts/create-operator.ts"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.1",
@@ -23,6 +24,8 @@
     "@fastify/rate-limit": "^10.1.1",
     "@fastify/static": "^10.1.3",
     "@spa/db": "workspace:*",
+    "@spa/shared": "workspace:*",
+    "better-auth": "1.7.2",
     "dotenv": "^16.4.5",
     "fastify": "^5.0.0",
     "google-auth-library": "^11.0.2",

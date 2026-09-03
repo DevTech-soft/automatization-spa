@@ -14,6 +14,8 @@ process.env.WHATSAPP_VERIFY_TOKEN = "test-whatsapp-verify-token";
 // Clave AES-256 (32 bytes en base64) para utils/crypto.ts — cifrado de secretos
 // por-tenant. Valor fijo de test; crypto.test.ts prueba los casos borde aparte.
 process.env.SECRETS_ENCRYPTION_KEY = "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=";
+// Better Auth (panel de operador). Secreto de test, no valida contra nada real.
+process.env.BETTER_AUTH_SECRET = "test-better-auth-secret-0123456789abcdef";
 // Sin valor por defecto salvo que un archivo de test la fije explícitamente (ver
 // gift-card-redeem.test.ts): así el resultado no depende del .env local del dev.
 process.env.STAFF_PIN = "";
