@@ -197,6 +197,38 @@ Lo que **no se puede automatizar** y el panel solo *rastrea*: verificación de
 número por OTP, aprobación de nombre visible por Meta, creación de la cuenta de
 Wompi.
 
+> ✅ **Implementado en F3d.** Cada negocio tiene tres pestañas en el panel:
+> **Datos** (F3c), **Marca** y **Onboarding**.
+>
+> **Marca** (`GET`/`PATCH /admin/businesses/:id/branding`,
+> `admin-branding.service.ts`): `logoUrl` (URL pública — todavía **no** hay
+> carga de archivos), `colorPrimary`/`colorSecondary` (hex validado, con
+> selector de color en el panel) y la **persona del agente** —`agentEnabled` +
+> `agent.*`, las mismas claves que `AgentForwarder` le manda a n8n. Los dos
+> orígenes (columnas de `Business` y el JSON `settings`) se escriben en una sola
+> operación; `""` en un campo lo borra en vez de guardar cadena vacía, y el resto
+> de `settings` nunca se pisa. Audita `business.branding.update`.
+>
+> **Checklist** (`GET`/`PATCH /admin/businesses/:id/onboarding`,
+> `admin-onboarding.service.ts`): los 9 pasos de la tabla de arriba. Se
+> **derivan de la data** (servicios y horarios activos, `WhatsAppAccount`,
+> `PaymentCredentials`, `SubscriptionPlan`, marca completa, contacto del dueño)
+> en vez de guardarse como banderas, para que no se desincronicen si se borra una
+> fila. Excepción: los pasos `manual` que el panel no puede verificar —hoy solo
+> la aprobación del perfil de WhatsApp por Meta— viven en
+> `settings.onboarding`. El Google Sheet es el único paso `required: false`: no
+> bloquea. La marca exige la persona del agente **solo** si `agentEnabled`.
+>
+> **Activación** (`POST /admin/businesses/:id/activate`): `TRIAL` → `ACTIVE`
+> (paso 9). El backend **revalida el checklist completo** —el botón deshabilitado
+> del panel es comodidad, no seguridad— y rechaza desde cualquier estado que no
+> sea `TRIAL`: reactivar un `SUSPENDED` va atado al pago (§6.4, F5). Audita
+> `business.activate`.
+>
+> Los pasos de servicios, horarios, WhatsApp, Wompi y plan **se muestran** pero
+> todavía no tienen editor en el panel: se cargan por la API/DB del backend. Sus
+> pantallas llegan con F4/F5.
+
 ### 6.2 Cobro: `total` vs `abono`
 
 > ✅ **Implementado en F2.** `business.chargeMode` (`TOTAL` | `DEPOSIT`) +
@@ -493,6 +525,17 @@ rechaza requests cross-origin al panel y reescribe el `Origin` al del backend
 Directory `apps/panel`, `vercel.json` (`turbo run build --filter=@spa/panel`).
 Env del panel: `BACKEND_URL` (server-only), `NEXT_PUBLIC_PANEL_URL`.
 
+**Marca y onboarding (F3d):** el detalle de un negocio pasa a
+`app/(app)/businesses/[id]/layout.tsx` (cabecera + pestañas Datos / Marca /
+Onboarding); cada pestaña carga su propia data. Los colores salieron del
+formulario de Datos: ahora viven solo en Marca, para que un campo tenga un único
+dueño. `components/ui/form-field.tsx` (`Field`, `SubmitButton`, `FormAlert`) se
+extrajo de `business-form.tsx` y lo comparten los tres formularios. Backend:
+`admin-branding.service.ts`, `admin-onboarding.service.ts` y
+`business-settings.ts` — el único módulo que interpreta el JSON `Business.settings`
+desde el panel (el runtime del bot lo sigue leyendo por su cuenta en
+`AgentForwarder`).
+
 ### 8.4 Qué se construye vs qué solo se configura
 
 | Parte | Enfoque |
@@ -554,7 +597,7 @@ No es una superficie de v1, pero **la arquitectura lo asume desde F0**:
 | **F0** | ✅ **hecho** (en `main`). **Monorepo** (Turborepo + pnpm, `apps/backend` + `packages/db`) — mergeado y deploy en Railway verificado en verde. **Modelo de datos**: `Business.status`/`chargeMode`/`depositPercentage`/branding, pago parcial en `Appointment`, y `WhatsAppAccount`, `PaymentCredentials`, `SubscriptionPlan`, `OperatorInvoice`, `OperatorPayment` (+ join), `ClientContact`, `AuditLog` — migración `20260903194848_panel_operador_data_model`. **Cifrado de secretos**: `apps/backend/src/utils/crypto.ts` (AES-256-GCM, `SECRETS_ENCRYPTION_KEY`), columnas `*_enc`. Tablas de Better Auth se difieren a F3. | — | ✅ |
 | **F1** | ✅ **hecho** (en `main`). Guard único de `status` (`business-guard.ts`) en reservas web/API, gift cards nuevas y herramientas del agente; suspensión suave (mensaje único) y silencio en WhatsApp. Resolución de tenant del webhook: parser extrae `phone_number_id`, se resuelve por `whatsAppAccountRepository` con fallback al número display (F4 puebla `whatsapp_accounts`). | F0 | ✅ |
 | **F2** | ✅ **hecho** (en `main`). `paymentCredentials.repository` (cifra/descifra), `resolveProviderForBusiness` con fallback a env, `getPaymentProviderForCredentials`. Webhook multi-comercio (`extractWebhookReference` → Payment → credenciales del negocio → valida firma). Branch `TOTAL`/`DEPOSIT` en `createPayment` (split guardado al crear el link), `confirmIfPending` → `DEPOSIT_PAID`, mensajes con abono/saldo en bot/agente/confirmación/`/gracias`/formulario. Script `script:demo-payment-credentials`. | F0 | ✅ |
-| **F3** | En progreso. **F3a + F3b + F3c hechos**. F3a: Better Auth en el **backend** (`/api/auth/*`, plugins `bearer`+`twoFactor`+`organization`), guard `requireOperatorSession` en `/admin/*`, `packages/shared`. F3b: **`apps/panel`** (Next 16 + Tailwind v4 + shadcn a mano) — login, shell protegido, **proxy BFF** `app/api/auth/[...all]` (chequeo same-origin propio; el `Origin` real viaja en `x-forwarded-origin` — el fetch de Next no reenvía `Origin`; el backend lo valida contra `trustedOrigins`). Fix `account.issuer` (CLI 1.4.x < core 1.7.2) → migración `..._better_auth_account_issuer`. F3c: **CRUD de negocios** — `/admin/businesses` (list paginado + `q`, get, POST create → crea `Organization` espejo + `AuditLog`, PATCH update + AuditLog); panel: tabla + form nuevo/editar (`business-form.tsx`, RHF-free con Server Actions + Zod de `@spa/shared`). E2E verificado. **Pendiente**: F3d branding + checklist onboarding (§6.1), F3e dashboards cartera/ingresos. | F0, F1 | en progreso |
+| **F3** | En progreso. **F3a–F3d hechos**. F3a: Better Auth en el **backend** (`/api/auth/*`, plugins `bearer`+`twoFactor`+`organization`), guard `requireOperatorSession` en `/admin/*`, `packages/shared`. F3b: **`apps/panel`** (Next 16 + Tailwind v4 + shadcn a mano) — login, shell protegido, **proxy BFF** `app/api/auth/[...all]` (chequeo same-origin propio; el `Origin` real viaja en `x-forwarded-origin` — el fetch de Next no reenvía `Origin`; el backend lo valida contra `trustedOrigins`). Fix `account.issuer` (CLI 1.4.x < core 1.7.2) → migración `..._better_auth_account_issuer`. F3c: **CRUD de negocios** — `/admin/businesses` (list paginado + `q`, get, POST create → crea `Organization` espejo + `AuditLog`, PATCH update + AuditLog); panel: tabla + form nuevo/editar (`business-form.tsx`, RHF-free con Server Actions + Zod de `@spa/shared`). F3d: **marca + checklist de onboarding** (ver §6.1). **Pendiente**: F3e dashboards cartera/ingresos. | F0, F1 | en progreso |
 | **F4** | WhatsApp por-tenant: `MetaWhatsAppProvider` toma credenciales del negocio; **integrar Embedded Signup** en el panel (callback, token exchange, suscripción a WABA); gestión de perfil/nombre. | F0, F1, F3, **M0 aprobado** (⇒ M-1) | cuando Meta apruebe |
 | **F5** | Facturación: generación recurrente de facturas, PDF de factura y recibo, auto-`past_due`/`suspended` por mora, reactivación al pagar. | F0, F3 | tras F3 |
 | **F6** | Extras: métricas de uso por cliente (citas, conversaciones, costo WhatsApp), recordatorios automáticos de vencimiento al operador, Google Sheets por-tenant. | F3 | después |

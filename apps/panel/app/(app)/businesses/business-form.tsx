@@ -1,18 +1,16 @@
 "use client";
 
 import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import {
   businessStatusValues,
   chargeModeValues,
   type BusinessDetail,
 } from "@spa/shared";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Field, FormAlert, SubmitButton } from "@/components/ui/form-field";
 import { createBusinessAction, updateBusinessAction, type FormState } from "./actions";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -22,39 +20,6 @@ const STATUS_LABEL: Record<string, string> = {
   SUSPENDED: "Suspendido",
   CANCELLED: "Cancelado",
 };
-
-function Field({
-  name,
-  label,
-  errors,
-  children,
-  hint,
-}: {
-  name: string;
-  label: string;
-  errors?: Record<string, string[]>;
-  children: React.ReactNode;
-  hint?: string;
-}) {
-  const err = errors?.[name];
-  return (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={name}>{label}</Label>
-      {children}
-      {hint ? <p className="text-xs text-[var(--color-fg-muted)]">{hint}</p> : null}
-      {err ? <p className="text-xs text-[var(--color-danger)]">{err[0]}</p> : null}
-    </div>
-  );
-}
-
-function SubmitButton({ label }: { label: string }) {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending}>
-      {pending ? "Guardando…" : label}
-    </Button>
-  );
-}
 
 export function BusinessForm({ business }: { business?: BusinessDetail }) {
   const isEdit = Boolean(business);
@@ -66,16 +31,7 @@ export function BusinessForm({ business }: { business?: BusinessDetail }) {
 
   return (
     <form action={formAction} className="flex max-w-xl flex-col gap-5">
-      {state.error ? (
-        <p className="rounded-[var(--radius)] border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {state.error}
-        </p>
-      ) : null}
-      {state.ok ? (
-        <p className="rounded-[var(--radius)] border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
-          Cambios guardados.
-        </p>
-      ) : null}
+      <FormAlert state={state} />
 
       <Field name="name" label="Nombre" errors={errors}>
         <Input id="name" name="name" required defaultValue={business?.name} />
@@ -151,14 +107,6 @@ export function BusinessForm({ business }: { business?: BusinessDetail }) {
               defaultValue={business!.depositPercentage ?? ""}
             />
           </Field>
-          <div className="grid grid-cols-2 gap-4">
-            <Field name="colorPrimary" label="Color primario" errors={errors}>
-              <Input id="colorPrimary" name="colorPrimary" placeholder="#4f46e5" defaultValue={business!.colorPrimary ?? ""} />
-            </Field>
-            <Field name="colorSecondary" label="Color secundario" errors={errors}>
-              <Input id="colorSecondary" name="colorSecondary" defaultValue={business!.colorSecondary ?? ""} />
-            </Field>
-          </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" name="active" defaultChecked={business!.active} className="size-4" />
             Activo (flag legacy)

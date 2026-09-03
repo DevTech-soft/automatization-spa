@@ -35,8 +35,38 @@ const DETAIL_SELECT = {
   organization: { select: { id: true } },
 } satisfies Prisma.BusinessSelect;
 
+/** Marca + el JSON `settings` (de donde salen `agentEnabled` y `agent`). */
+const BRANDING_SELECT = {
+  id: true,
+  logoUrl: true,
+  colorPrimary: true,
+  colorSecondary: true,
+  settings: true,
+} satisfies Prisma.BusinessSelect;
+
+/** Lo que el checklist de onboarding necesita del propio negocio (§6.1). */
+const ONBOARDING_SELECT = {
+  ...BRANDING_SELECT,
+  status: true,
+  name: true,
+  phone: true,
+  email: true,
+  whatsappNumber: true,
+} satisfies Prisma.BusinessSelect;
+
 export type AdminBusinessListRow = Prisma.BusinessGetPayload<{ select: typeof LIST_SELECT }>;
 export type AdminBusinessDetailRow = Prisma.BusinessGetPayload<{ select: typeof DETAIL_SELECT }>;
+export type AdminBusinessBrandingRow = Prisma.BusinessGetPayload<{ select: typeof BRANDING_SELECT }>;
+export type AdminBusinessOnboardingRow = Prisma.BusinessGetPayload<{ select: typeof ONBOARDING_SELECT }>;
+
+/** Conteos de las entidades que el checklist verifica sin abrir cada tabla. */
+export interface OnboardingCounts {
+  services: number;
+  businessHours: number;
+  whatsAppAccounts: number;
+  paymentCredentials: number;
+  subscriptionPlans: number;
+}
 
 interface ListParams {
   skip: number;
@@ -87,5 +117,34 @@ export const adminBusinessRepository = {
 
   update(id: string, data: Prisma.BusinessUpdateInput): Promise<AdminBusinessDetailRow> {
     return prisma.business.update({ where: { id }, data, select: DETAIL_SELECT });
+  },
+
+  findBranding(id: string): Promise<AdminBusinessBrandingRow | null> {
+    return prisma.business.findUnique({ where: { id }, select: BRANDING_SELECT });
+  },
+
+  updateBranding(id: string, data: Prisma.BusinessUpdateInput): Promise<AdminBusinessBrandingRow> {
+    return prisma.business.update({ where: { id }, data, select: BRANDING_SELECT });
+  },
+
+  findOnboarding(id: string): Promise<AdminBusinessOnboardingRow | null> {
+    return prisma.business.findUnique({ where: { id }, select: ONBOARDING_SELECT });
+  },
+
+  /**
+   * Un solo round-trip para todo lo que el checklist verifica por existencia.
+   * Servicios y horarios cuentan solo los `active`: un negocio con todo
+   * desactivado no está listo para atender.
+   */
+  async countOnboardingEntities(businessId: string): Promise<OnboardingCounts> {
+    const [services, businessHours, whatsAppAccounts, paymentCredentials, subscriptionPlans] =
+      await prisma.$transaction([
+        prisma.service.count({ where: { businessId, active: true } }),
+        prisma.businessHour.count({ where: { businessId, active: true } }),
+        prisma.whatsAppAccount.count({ where: { businessId, active: true } }),
+        prisma.paymentCredentials.count({ where: { businessId } }),
+        prisma.subscriptionPlan.count({ where: { businessId } }),
+      ]);
+    return { services, businessHours, whatsAppAccounts, paymentCredentials, subscriptionPlans };
   },
 };
