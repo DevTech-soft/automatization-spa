@@ -389,7 +389,9 @@ spa/
 └── turbo.json
 ```
 
-**Estado**: la reorganización a monorepo está **hecha** (rama `feat/f0-monorepo`):
+**Estado**: F0 está **completa y en `main`** (PR #1 + commits siguientes).
+
+Monorepo:
 
 - `pnpm workspaces + Turborepo`; gestor de paquetes fijado en `packageManager`.
 - Todo el backend movido a `apps/backend/` (incluye `web/`, `tests/`, `.env`,
@@ -401,10 +403,30 @@ spa/
   `@prisma/client` → `@spa/db`.
 - Railway: `railway.json` con `build.dockerfilePath: apps/backend/Dockerfile`
   (contexto de build = raíz). Dockerfile reescrito para pnpm monorepo.
-- Verificado local: `pnpm install --frozen-lockfile`, `db:generate`,
-  `typecheck`, `test` (160/160), `lint`, y smoke test del build (`/health` →
-  `{"status":"ok","db":"ok"}`). **Falta verificar el build/deploy real en
-  Railway** antes de mergear.
+- **Deploy real en Railway verificado en verde** (deploy `1fbe9bb5`): docker
+  build, `pnpm install --frozen-lockfile`, `prisma generate` + build, `prisma
+  migrate deploy`, `/health` → `{"status":"ok","db":"ok"}`, rutas estáticas 200.
+
+Modelo de datos (migración `20260903194848_panel_operador_data_model`):
+
+- `Business`: `+ status` (enum `BusinessStatus`, default `TRIAL`; backfill de los
+  negocios en vivo a `ACTIVE`), `+ chargeMode` (`TOTAL`/`DEPOSIT`),
+  `+ depositPercentage` (CHECK 1–100), `+ colorPrimary`/`colorSecondary`. Se
+  mantiene `active` hasta que F1 migre el guard.
+- `Appointment`: `+ depositAmount`/`pendingBalance`; `PaymentStatus += DEPOSIT_PAID`.
+- Entidades nuevas: `WhatsAppAccount`, `PaymentCredentials`, `SubscriptionPlan`,
+  `OperatorInvoice`, `OperatorPayment` + `OperatorPaymentInvoice` (join N:N),
+  `ClientContact`, `AuditLog`. Secretos en columnas `*_enc`.
+- Tablas de **Better Auth** se difieren a F3 (las genera Better Auth).
+
+Cifrado de secretos por-tenant (§9):
+
+- `apps/backend/src/utils/crypto.ts`: `encryptSecret`/`decryptSecret`/
+  `isEncryptedSecret`, AES-256-GCM autenticado. Formato `v1:<base64(iv|tag|ct)>`.
+- Clave maestra `SECRETS_ENCRYPTION_KEY` (env de Railway, base64 de 32 bytes;
+  `openssl rand -base64 32`). Opcional en el schema de env hasta que F2/F4
+  guarden credenciales; `encryptSecret` lanza si se usa sin configurarla.
+- Rotación de la clave maestra: pendiente (el prefijo `v1:` deja espacio).
 
 `packages/shared` y `packages/ui` se crean en F3, cuando exista el panel y haya
 código que compartir (evita paquetes vacíos).
@@ -467,7 +489,7 @@ No es una superficie de v1, pero **la arquitectura lo asume desde F0**:
 |---|---|---|---|
 | **M-1** | **Formalizarse**: matrícula mercantil (Cámara de Comercio) + RUT, o crear una SAS. Prerrequisito de M0. | — | **ahora** (D7) |
 | **M0** | Verificación de negocio en Meta + App Review (Advanced Access `whatsapp_business_*`) | M-1 | tras M-1 (crítico, semanas de espera) |
-| **F0** | **Monorepo** (Turborepo + pnpm, `apps/backend` + `packages/db`) ✅ hecho — rama `feat/f0-monorepo`, pendiente verificar deploy en Railway. **Modelo de datos** (pendiente): `status`, `WhatsAppAccount`, `PaymentCredentials`, `SubscriptionPlan`, `OperatorInvoice`, `OperatorPayment`, `ClientContact`, `AuditLog`. Cifrado de secretos. | — | ahora |
+| **F0** | ✅ **hecho** (en `main`). **Monorepo** (Turborepo + pnpm, `apps/backend` + `packages/db`) — mergeado y deploy en Railway verificado en verde. **Modelo de datos**: `Business.status`/`chargeMode`/`depositPercentage`/branding, pago parcial en `Appointment`, y `WhatsAppAccount`, `PaymentCredentials`, `SubscriptionPlan`, `OperatorInvoice`, `OperatorPayment` (+ join), `ClientContact`, `AuditLog` — migración `20260903194848_panel_operador_data_model`. **Cifrado de secretos**: `apps/backend/src/utils/crypto.ts` (AES-256-GCM, `SECRETS_ENCRYPTION_KEY`), columnas `*_enc`. Tablas de Better Auth se difieren a F3. | — | ✅ |
 | **F1** | Guard único de `status` en cada entrada + suspensión suave. Migrar resolución de tenant a `phone_number_id`. | F0 | tras F0 |
 | **F2** | Wompi por-tenant: mover llaves a `PaymentCredentials`, webhook multi-comercio, branch `total`/`abono` en reservas, pago parcial en `Appointment`/`Payment`. | F0 | tras F0 |
 | **F3** | **Panel** (`apps/panel`, Next.js + shadcn + Better Auth en Vercel) + endpoints `/admin/*` en el backend (con guard de sesión y filtro de tenant). CRUD de negocios, branding, checklist de onboarding, dashboard de vencimientos e ingresos. | F0, F1 | en paralelo a F2 |

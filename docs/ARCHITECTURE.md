@@ -38,6 +38,15 @@ Payment gateway = fuente de verdad del estado del pago
   > schema Prisma en `packages/db/` (`@spa/db`), y el panel irá en
   > `apps/panel/`. El backend sigue siendo el único con acceso a la base de
   > datos. Ver `docs/PANEL-OPERADOR.md` §8.
+  >
+  > El resto de F0 también está en `main`: el **modelo de datos multi-cliente**
+  > (`Business.status`/`chargeMode`/`depositPercentage`, `WhatsAppAccount`,
+  > `PaymentCredentials`, `SubscriptionPlan`, `OperatorInvoice`/`OperatorPayment`,
+  > `ClientContact`, `AuditLog` — migración `20260903194848_panel_operador_data_model`)
+  > y el **cifrado de secretos por-tenant** (`apps/backend/src/utils/crypto.ts`,
+  > AES-256-GCM con `SECRETS_ENCRYPTION_KEY`). Los tokens de WhatsApp y llaves de
+  > Wompi se guardan en columnas `*_enc`. El wiring (guards, webhooks por-tenant,
+  > panel) llega en F1–F5.
 
 ## Rol de n8n
 

@@ -46,6 +46,15 @@ const envSchema = z.object({
 
   STORAGE_BUCKET: z.string().default("gift-cards"),
 
+  /**
+   * Clave maestra para cifrar secretos por-tenant en reposo (tokens de WhatsApp,
+   * llaves de Wompi) — docs/PANEL-OPERADOR.md §9. Base64 de 32 bytes:
+   * `openssl rand -base64 32`. Opcional hasta que F2/F4 empiecen a guardar
+   * credenciales por negocio; `encryptSecret` (utils/crypto.ts) lanza si se
+   * intenta usar sin configurarla.
+   */
+  SECRETS_ENCRYPTION_KEY: z.string().optional().or(z.literal("")),
+
   STAFF_PIN: z.string().optional().or(z.literal("")),
 
   /** Protege los endpoints /internal/* (llamados por el scheduler in-process, ver Fase 3/9). */

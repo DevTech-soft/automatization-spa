@@ -11,6 +11,9 @@ process.env.SUPABASE_ANON_KEY = "test-anon-key";
 process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
 process.env.INTERNAL_JOBS_TOKEN = "test-internal-jobs-token-0123456789";
 process.env.WHATSAPP_VERIFY_TOKEN = "test-whatsapp-verify-token";
+// Clave AES-256 (32 bytes en base64) para utils/crypto.ts — cifrado de secretos
+// por-tenant. Valor fijo de test; crypto.test.ts prueba los casos borde aparte.
+process.env.SECRETS_ENCRYPTION_KEY = "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=";
 // Sin valor por defecto salvo que un archivo de test la fije explícitamente (ver
 // gift-card-redeem.test.ts): así el resultado no depende del .env local del dev.
 process.env.STAFF_PIN = "";
