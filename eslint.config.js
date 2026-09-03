@@ -8,7 +8,13 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   prettier,
   {
-    ignores: ["dist/**", "node_modules/**", "web/**"],
+    ignores: [
+      "**/dist/**",
+      "**/node_modules/**",
+      "**/.turbo/**",
+      "**/web/**",
+      "packages/db/prisma/migrations/**",
+    ],
   },
   {
     files: ["**/*.ts"],
