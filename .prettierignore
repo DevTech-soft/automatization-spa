@@ -1,4 +1,6 @@
-dist
-node_modules
-web/assets/vendor
-prisma/migrations
+**/dist
+**/node_modules
+**/.turbo
+**/web/assets/vendor
+packages/db/prisma/migrations
+pnpm-lock.yaml

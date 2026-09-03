@@ -1,14 +1,16 @@
-node_modules
-dist
+**/node_modules
+**/dist
+**/.turbo
 .git
-.env
-.env.local
-.env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
 *.log
-coverage
+**/coverage
 .DS_Store
 Thumbs.db
-tests
+**/tests
 .claude
 .vscode
+docs
 Prompt maestro — MVP de reservas, WhatsApp, pagos y Gift Cards para spas.md

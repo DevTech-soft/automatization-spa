@@ -1,0 +1,43 @@
+{
+  "name": "@spa/backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MVP de reservas, WhatsApp, pagos y Gift Cards para spas",
+  "type": "module",
+  "main": "dist/server.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@fastify/cors": "^10.0.1",
+    "@fastify/helmet": "^13.0.0",
+    "@fastify/rate-limit": "^10.1.1",
+    "@fastify/static": "^10.1.3",
+    "@spa/db": "workspace:*",
+    "dotenv": "^16.4.5",
+    "fastify": "^5.0.0",
+    "google-auth-library": "^11.0.2",
+    "luxon": "^3.5.0",
+    "nanoid": "^5.0.7",
+    "node-cron": "^4.6.0",
+    "pino": "^9.4.0",
+    "pino-pretty": "^11.2.2",
+    "puppeteer": "^25.7.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/luxon": "^3.4.2",
+    "@types/node": "^22.7.4",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2",
+    "vitest": "^2.1.1"
+  }
+}
