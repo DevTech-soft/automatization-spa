@@ -7,7 +7,8 @@ import { serviceRepository } from "../repositories/service.repository.js";
 import { businessHourRepository } from "../repositories/businessHour.repository.js";
 import { appointmentRepository } from "../repositories/appointment.repository.js";
 import { whatsappConversationRepository } from "../repositories/whatsappConversation.repository.js";
-import { getWhatsAppProvider } from "../integrations/whatsapp/index.js";
+import { getWhatsAppWebhookReader } from "../integrations/whatsapp/index.js";
+import { resolveWhatsAppProviderForBusiness } from "./whatsapp-provider-resolver.js";
 import type { InteractiveListRow, WhatsAppProvider } from "../integrations/whatsapp/index.js";
 import { forwardToAgent, isAgentEnabled, readAgentSettings } from "../integrations/n8n/AgentForwarder.js";
 import { getAvailability } from "./availability.service.js";
@@ -45,8 +46,9 @@ function formatDateLabel(dateStr: string): string {
  * (sección 18).
  */
 export async function handleIncomingWhatsAppMessage(rawPayload: unknown): Promise<void> {
-  const provider = getWhatsAppProvider();
-  const message = provider.parseIncomingMessage(rawPayload);
+  // El parseo no necesita credenciales; el envío sí, y depende del negocio que
+  // se resuelva más abajo (docs/PANEL-OPERADOR.md §7.2).
+  const message = getWhatsAppWebhookReader().parseIncomingMessage(rawPayload);
   if (message.kind === "ignored") {
     return;
   }
@@ -65,6 +67,9 @@ export async function handleIncomingWhatsAppMessage(rawPayload: unknown): Promis
   }
 
   const phone = normalizePhone(message.from);
+  // A partir de aquí ya se sabe de quién es el número: se responde con sus
+  // credenciales, o con las globales del operador si aún no conectó las suyas.
+  const provider = await resolveWhatsAppProviderForBusiness(business.id);
 
   // F1 — guard de estado (§5). El canal de WhatsApp no responde con 4xx:
   // `SUSPENDED` → un único mensaje de "servicio inactivo" y nada más;

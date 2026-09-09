@@ -27,6 +27,24 @@ export function getWhatsAppProvider(): WhatsAppProvider {
   });
 }
 
+/**
+ * Provider para lo que ocurre **antes** de saber de qué negocio es un mensaje:
+ * validar la firma del webhook y parsear el payload. Ninguna de esas dos
+ * operaciones envía nada, así que no necesita token ni `phone_number_id` — y
+ * exigirlos rompería un despliegue multi-cliente donde las credenciales viven
+ * por negocio y no en env (docs/PANEL-OPERADOR.md §7.2).
+ *
+ * La firma sí usa el `WHATSAPP_APP_SECRET`, que es de **la app** del operador y
+ * por tanto sigue siendo único para todas las WABAs conectadas.
+ */
+export function getWhatsAppWebhookReader(): WhatsAppProvider {
+  return new MetaWhatsAppProvider({
+    accessToken: "",
+    phoneNumberId: "",
+    appSecret: env.WHATSAPP_APP_SECRET || undefined,
+  });
+}
+
 /** Credenciales de la WABA de un negocio, ya descifradas por el repositorio. */
 export interface ResolvedWhatsAppCredentials {
   accessToken: string;

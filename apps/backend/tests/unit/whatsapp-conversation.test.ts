@@ -24,7 +24,10 @@ vi.mock("../../src/repositories/whatsappConversation.repository.js", () => ({
   },
 }));
 vi.mock("../../src/integrations/whatsapp/index.js", () => ({
-  getWhatsAppProvider: vi.fn(),
+  getWhatsAppWebhookReader: vi.fn(),
+}));
+vi.mock("../../src/services/whatsapp-provider-resolver.js", () => ({
+  resolveWhatsAppProviderForBusiness: vi.fn(),
 }));
 vi.mock("../../src/services/availability.service.js", () => ({
   getAvailability: vi.fn(),
@@ -44,7 +47,10 @@ const { appointmentRepository } = await import("../../src/repositories/appointme
 const { whatsappConversationRepository } = await import(
   "../../src/repositories/whatsappConversation.repository.js"
 );
-const { getWhatsAppProvider } = await import("../../src/integrations/whatsapp/index.js");
+const { getWhatsAppWebhookReader } = await import("../../src/integrations/whatsapp/index.js");
+const { resolveWhatsAppProviderForBusiness } = await import(
+  "../../src/services/whatsapp-provider-resolver.js"
+);
 const { getAvailability } = await import("../../src/services/availability.service.js");
 const { createAppointment } = await import("../../src/services/appointment.service.js");
 const { createPayment } = await import("../../src/services/payment.service.js");
@@ -111,7 +117,8 @@ describe("handleIncomingWhatsAppMessage", () => {
   it("ignora eventos que no son mensajes (statuses)", async () => {
     const provider = fakeProvider();
     provider.parseIncomingMessage.mockReturnValue({ kind: "ignored" });
-    vi.mocked(getWhatsAppProvider).mockReturnValue(provider as never);
+    vi.mocked(getWhatsAppWebhookReader).mockReturnValue(provider as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue(provider as never);
 
     await handleIncomingWhatsAppMessage({});
 
@@ -121,7 +128,8 @@ describe("handleIncomingWhatsAppMessage", () => {
   it("no hace nada si el número receptor no pertenece a ningún negocio", async () => {
     const provider = fakeProvider();
     provider.parseIncomingMessage.mockReturnValue({ kind: "text", from: PHONE, to: "000", text: "hola" });
-    vi.mocked(getWhatsAppProvider).mockReturnValue(provider as never);
+    vi.mocked(getWhatsAppWebhookReader).mockReturnValue(provider as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue(provider as never);
     vi.mocked(businessRepository.findByWhatsAppNumber).mockResolvedValue(null);
 
     await handleIncomingWhatsAppMessage({});
@@ -132,7 +140,8 @@ describe("handleIncomingWhatsAppMessage", () => {
   it("suspensión suave: un negocio SUSPENDED recibe un único mensaje y no procesa la conversación", async () => {
     const provider = fakeProvider();
     provider.parseIncomingMessage.mockReturnValue({ kind: "text", from: PHONE, to: BUSINESS_WA_NUMBER, text: "hola" });
-    vi.mocked(getWhatsAppProvider).mockReturnValue(provider as never);
+    vi.mocked(getWhatsAppWebhookReader).mockReturnValue(provider as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue(provider as never);
     vi.mocked(businessRepository.findByWhatsAppNumber).mockResolvedValue({
       id: BUSINESS_ID,
       name: "Demo Spa",
@@ -153,7 +162,8 @@ describe("handleIncomingWhatsAppMessage", () => {
   it("un negocio CANCELLED no recibe ninguna respuesta (silencio total)", async () => {
     const provider = fakeProvider();
     provider.parseIncomingMessage.mockReturnValue({ kind: "text", from: PHONE, to: BUSINESS_WA_NUMBER, text: "hola" });
-    vi.mocked(getWhatsAppProvider).mockReturnValue(provider as never);
+    vi.mocked(getWhatsAppWebhookReader).mockReturnValue(provider as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue(provider as never);
     vi.mocked(businessRepository.findByWhatsAppNumber).mockResolvedValue({
       id: BUSINESS_ID,
       name: "Demo Spa",
@@ -178,7 +188,8 @@ describe("handleIncomingWhatsAppMessage", () => {
       phoneNumberId: "pn-123",
       text: "hola",
     });
-    vi.mocked(getWhatsAppProvider).mockReturnValue(provider as never);
+    vi.mocked(getWhatsAppWebhookReader).mockReturnValue(provider as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue(provider as never);
     vi.mocked(whatsAppAccountRepository.findBusinessByPhoneNumberId).mockResolvedValue({
       id: BUSINESS_ID,
       name: "Demo Spa",
@@ -204,7 +215,8 @@ describe("handleIncomingWhatsAppMessage", () => {
       to: BUSINESS_WA_NUMBER,
       text: "hola",
     });
-    vi.mocked(getWhatsAppProvider).mockReturnValue(provider as never);
+    vi.mocked(getWhatsAppWebhookReader).mockReturnValue(provider as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue(provider as never);
     mockBusinessFound();
     vi.mocked(whatsappConversationRepository.findActive).mockResolvedValue(null);
     vi.mocked(whatsappConversationRepository.createInitial).mockResolvedValue(baseConversation() as never);
@@ -229,7 +241,8 @@ describe("handleIncomingWhatsAppMessage", () => {
       to: BUSINESS_WA_NUMBER,
       text: "hola de nuevo",
     });
-    vi.mocked(getWhatsAppProvider).mockReturnValue(provider as never);
+    vi.mocked(getWhatsAppWebhookReader).mockReturnValue(provider as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue(provider as never);
     mockBusinessFound();
     vi.mocked(whatsappConversationRepository.findActive).mockResolvedValue(
       baseConversation({ state: "CONFIRMED" }) as never,
@@ -251,7 +264,8 @@ describe("handleIncomingWhatsAppMessage", () => {
       to: BUSINESS_WA_NUMBER,
       text: "Cancelar",
     });
-    vi.mocked(getWhatsAppProvider).mockReturnValue(provider as never);
+    vi.mocked(getWhatsAppWebhookReader).mockReturnValue(provider as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue(provider as never);
     mockBusinessFound();
     vi.mocked(whatsappConversationRepository.findActive).mockResolvedValue(
       baseConversation({ state: "SELECTING_TIME" }) as never,
@@ -272,7 +286,8 @@ describe("handleIncomingWhatsAppMessage", () => {
         to: BUSINESS_WA_NUMBER,
         replyId: SERVICE_ID,
       });
-      vi.mocked(getWhatsAppProvider).mockReturnValue(provider as never);
+      vi.mocked(getWhatsAppWebhookReader).mockReturnValue(provider as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue(provider as never);
       mockBusinessFound();
       vi.mocked(whatsappConversationRepository.findActive).mockResolvedValue(baseConversation() as never);
       vi.mocked(serviceRepository.findActiveById).mockResolvedValue({ id: SERVICE_ID, name: "Masaje" } as never);
@@ -295,7 +310,8 @@ describe("handleIncomingWhatsAppMessage", () => {
         to: BUSINESS_WA_NUMBER,
         replyId: "unknown",
       });
-      vi.mocked(getWhatsAppProvider).mockReturnValue(provider as never);
+      vi.mocked(getWhatsAppWebhookReader).mockReturnValue(provider as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue(provider as never);
       mockBusinessFound();
       vi.mocked(whatsappConversationRepository.findActive).mockResolvedValue(baseConversation() as never);
       vi.mocked(serviceRepository.findActiveById).mockResolvedValue(null);
@@ -317,7 +333,8 @@ describe("handleIncomingWhatsAppMessage", () => {
         to: BUSINESS_WA_NUMBER,
         replyId: "2026-01-06",
       });
-      vi.mocked(getWhatsAppProvider).mockReturnValue(provider as never);
+      vi.mocked(getWhatsAppWebhookReader).mockReturnValue(provider as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue(provider as never);
       mockBusinessFound();
       vi.mocked(whatsappConversationRepository.findActive).mockResolvedValue(
         baseConversation({ state: "SELECTING_DATE", serviceId: SERVICE_ID }) as never,
@@ -351,7 +368,8 @@ describe("handleIncomingWhatsAppMessage", () => {
         to: BUSINESS_WA_NUMBER,
         replyId: "2026-01-06",
       });
-      vi.mocked(getWhatsAppProvider).mockReturnValue(provider as never);
+      vi.mocked(getWhatsAppWebhookReader).mockReturnValue(provider as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue(provider as never);
       mockBusinessFound();
       vi.mocked(whatsappConversationRepository.findActive).mockResolvedValue(
         baseConversation({ state: "SELECTING_DATE", serviceId: SERVICE_ID }) as never,
@@ -383,7 +401,8 @@ describe("handleIncomingWhatsAppMessage", () => {
         to: BUSINESS_WA_NUMBER,
         replyId: "10:00",
       });
-      vi.mocked(getWhatsAppProvider).mockReturnValue(provider as never);
+      vi.mocked(getWhatsAppWebhookReader).mockReturnValue(provider as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue(provider as never);
       mockBusinessFound();
       vi.mocked(whatsappConversationRepository.findActive).mockResolvedValue(
         baseConversation({
@@ -412,7 +431,8 @@ describe("handleIncomingWhatsAppMessage", () => {
         to: BUSINESS_WA_NUMBER,
         text: "María Pérez",
       });
-      vi.mocked(getWhatsAppProvider).mockReturnValue(provider as never);
+      vi.mocked(getWhatsAppWebhookReader).mockReturnValue(provider as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue(provider as never);
       mockBusinessFound();
       vi.mocked(whatsappConversationRepository.findActive).mockResolvedValue(
         baseConversation({
@@ -461,7 +481,8 @@ describe("handleIncomingWhatsAppMessage", () => {
         to: BUSINESS_WA_NUMBER,
         text: "María Pérez",
       });
-      vi.mocked(getWhatsAppProvider).mockReturnValue(provider as never);
+      vi.mocked(getWhatsAppWebhookReader).mockReturnValue(provider as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue(provider as never);
       mockBusinessFound();
       vi.mocked(whatsappConversationRepository.findActive).mockResolvedValue(
         baseConversation({
@@ -496,7 +517,8 @@ describe("handleIncomingWhatsAppMessage", () => {
         to: BUSINESS_WA_NUMBER,
         text: "María Pérez",
       });
-      vi.mocked(getWhatsAppProvider).mockReturnValue(provider as never);
+      vi.mocked(getWhatsAppWebhookReader).mockReturnValue(provider as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue(provider as never);
       mockBusinessFound();
       vi.mocked(whatsappConversationRepository.findActive).mockResolvedValue(
         baseConversation({
@@ -532,7 +554,8 @@ describe("handleIncomingWhatsAppMessage", () => {
         to: BUSINESS_WA_NUMBER,
         text: "estado",
       });
-      vi.mocked(getWhatsAppProvider).mockReturnValue(provider as never);
+      vi.mocked(getWhatsAppWebhookReader).mockReturnValue(provider as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue(provider as never);
       mockBusinessFound();
       vi.mocked(whatsappConversationRepository.findActive).mockResolvedValue(
         baseConversation({ state: "WAITING_PAYMENT", appointmentId: APPOINTMENT_ID }) as never,
@@ -558,7 +581,8 @@ describe("handleIncomingWhatsAppMessage", () => {
         to: BUSINESS_WA_NUMBER,
         text: "hola",
       });
-      vi.mocked(getWhatsAppProvider).mockReturnValue(provider as never);
+      vi.mocked(getWhatsAppWebhookReader).mockReturnValue(provider as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue(provider as never);
       mockBusinessFound();
       vi.mocked(whatsappConversationRepository.findActive).mockResolvedValue(
         baseConversation({ state: "WAITING_PAYMENT", appointmentId: APPOINTMENT_ID }) as never,
@@ -583,7 +607,8 @@ describe("handleIncomingWhatsAppMessage", () => {
         to: BUSINESS_WA_NUMBER,
         text: "ya pagué",
       });
-      vi.mocked(getWhatsAppProvider).mockReturnValue(provider as never);
+      vi.mocked(getWhatsAppWebhookReader).mockReturnValue(provider as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue(provider as never);
       mockBusinessFound();
       vi.mocked(whatsappConversationRepository.findActive).mockResolvedValue(
         baseConversation({ state: "WAITING_PAYMENT", appointmentId: APPOINTMENT_ID }) as never,

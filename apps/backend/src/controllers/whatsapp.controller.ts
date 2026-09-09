@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { whatsappVerifyQuerySchema } from "../validators/whatsapp.validator.js";
 import { handleIncomingWhatsAppMessage } from "../services/whatsapp-conversation.service.js";
-import { getWhatsAppProvider } from "../integrations/whatsapp/index.js";
+import { getWhatsAppWebhookReader } from "../integrations/whatsapp/index.js";
 import { env } from "../config/env.js";
 import { WebhookVerificationError } from "../errors/index.js";
 import { logger } from "../utils/logger.js";
@@ -19,7 +19,9 @@ export async function verifyWhatsAppWebhookHandler(request: FastifyRequest, repl
 }
 
 export async function receiveWhatsAppMessageHandler(request: FastifyRequest, reply: FastifyReply): Promise<void> {
-  const provider = getWhatsAppProvider();
+  // Solo valida firma: el envío sale luego con las credenciales del negocio dueño
+  // del número (docs/PANEL-OPERADOR.md §7.2).
+  const provider = getWhatsAppWebhookReader();
   const signatureHeader = request.headers["x-hub-signature-256"];
   const signature = typeof signatureHeader === "string" ? signatureHeader : undefined;
 

@@ -10,14 +10,16 @@ vi.mock("../../src/repositories/giftCard.repository.js", () => ({
 vi.mock("../../src/repositories/notificationLog.repository.js", () => ({
   notificationLogRepository: { create: vi.fn() },
 }));
-vi.mock("../../src/integrations/whatsapp/index.js", () => ({
-  getWhatsAppProvider: vi.fn(),
+vi.mock("../../src/services/whatsapp-provider-resolver.js", () => ({
+  resolveWhatsAppProviderForBusiness: vi.fn(),
 }));
 
 const { appointmentRepository } = await import("../../src/repositories/appointment.repository.js");
 const { giftCardRepository } = await import("../../src/repositories/giftCard.repository.js");
 const { notificationLogRepository } = await import("../../src/repositories/notificationLog.repository.js");
-const { getWhatsAppProvider } = await import("../../src/integrations/whatsapp/index.js");
+const { resolveWhatsAppProviderForBusiness } = await import(
+  "../../src/services/whatsapp-provider-resolver.js"
+);
 const { notifyAppointmentConfirmed, notifyAppointmentReminder, notifyGiftCardCreated } = await import(
   "../../src/services/notification.service.js"
 );
@@ -63,7 +65,7 @@ describe("notifyAppointmentConfirmed", () => {
     vi.mocked(appointmentRepository.findByIdWithDetails).mockResolvedValue(fakeAppointment() as never);
     vi.mocked(notificationLogRepository.create).mockResolvedValue({} as never);
     const sendText = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(getWhatsAppProvider).mockReturnValue({ sendText } as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue({ sendText } as never);
 
     await notifyAppointmentConfirmed(APPOINTMENT_ID);
 
@@ -78,7 +80,7 @@ describe("notifyAppointmentConfirmed", () => {
     );
     vi.mocked(notificationLogRepository.create).mockResolvedValue({} as never);
     const sendText = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(getWhatsAppProvider).mockReturnValue({ sendText } as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue({ sendText } as never);
 
     await notifyAppointmentConfirmed(APPOINTMENT_ID);
 
@@ -90,7 +92,7 @@ describe("notifyAppointmentConfirmed", () => {
     vi.mocked(appointmentRepository.findByIdWithDetails).mockResolvedValue(fakeAppointment() as never);
     vi.mocked(notificationLogRepository.create).mockRejectedValue(duplicateError());
     const sendText = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(getWhatsAppProvider).mockReturnValue({ sendText } as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue({ sendText } as never);
 
     await notifyAppointmentConfirmed(APPOINTMENT_ID);
 
@@ -101,7 +103,7 @@ describe("notifyAppointmentConfirmed", () => {
     vi.mocked(appointmentRepository.findByIdWithDetails).mockResolvedValue(fakeAppointment() as never);
     vi.mocked(notificationLogRepository.create).mockResolvedValue({} as never);
     const sendText = vi.fn().mockRejectedValue(new Error("network error"));
-    vi.mocked(getWhatsAppProvider).mockReturnValue({ sendText } as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue({ sendText } as never);
 
     await expect(notifyAppointmentConfirmed(APPOINTMENT_ID)).resolves.toBeUndefined();
   });
@@ -123,7 +125,7 @@ describe("notifyAppointmentReminder", () => {
     vi.mocked(appointmentRepository.findByIdWithDetails).mockResolvedValue(fakeAppointment() as never);
     vi.mocked(notificationLogRepository.create).mockResolvedValue({} as never);
     const sendText = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(getWhatsAppProvider).mockReturnValue({ sendText } as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue({ sendText } as never);
 
     await notifyAppointmentReminder(APPOINTMENT_ID);
 
@@ -138,7 +140,7 @@ describe("notifyAppointmentReminder", () => {
     vi.mocked(appointmentRepository.findByIdWithDetails).mockResolvedValue(fakeAppointment() as never);
     vi.mocked(notificationLogRepository.create).mockRejectedValue(duplicateError());
     const sendText = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(getWhatsAppProvider).mockReturnValue({ sendText } as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue({ sendText } as never);
 
     await notifyAppointmentReminder(APPOINTMENT_ID);
 
@@ -149,7 +151,7 @@ describe("notifyAppointmentReminder", () => {
     vi.mocked(appointmentRepository.findByIdWithDetails).mockResolvedValue(fakeAppointment() as never);
     vi.mocked(notificationLogRepository.create).mockResolvedValue({} as never);
     const sendText = vi.fn().mockRejectedValue(new Error("network error"));
-    vi.mocked(getWhatsAppProvider).mockReturnValue({ sendText } as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue({ sendText } as never);
 
     await expect(notifyAppointmentReminder(APPOINTMENT_ID)).resolves.toBeUndefined();
   });
@@ -186,7 +188,7 @@ describe("notifyGiftCardCreated", () => {
     vi.mocked(notificationLogRepository.create).mockResolvedValue({} as never);
     const sendDocument = vi.fn().mockResolvedValue(undefined);
     const sendText = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(getWhatsAppProvider).mockReturnValue({ sendDocument, sendText } as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue({ sendDocument, sendText } as never);
 
     await notifyGiftCardCreated(GIFT_CARD_ID, "https://storage.example/gift.png");
 
@@ -204,7 +206,7 @@ describe("notifyGiftCardCreated", () => {
     vi.mocked(notificationLogRepository.create).mockResolvedValue({} as never);
     const sendDocument = vi.fn().mockResolvedValue(undefined);
     const sendText = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(getWhatsAppProvider).mockReturnValue({ sendDocument, sendText } as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue({ sendDocument, sendText } as never);
 
     await notifyGiftCardCreated(GIFT_CARD_ID, null);
 
@@ -220,7 +222,7 @@ describe("notifyGiftCardCreated", () => {
     vi.mocked(notificationLogRepository.create).mockResolvedValue({} as never);
     const sendDocument = vi.fn().mockResolvedValue(undefined);
     const sendText = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(getWhatsAppProvider).mockReturnValue({ sendDocument, sendText } as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue({ sendDocument, sendText } as never);
 
     await notifyGiftCardCreated(GIFT_CARD_ID, "https://storage.example/gift.png");
 
@@ -231,7 +233,7 @@ describe("notifyGiftCardCreated", () => {
     vi.mocked(giftCardRepository.findByIdWithDetails).mockResolvedValue(fakeGiftCard() as never);
     vi.mocked(notificationLogRepository.create).mockRejectedValue(duplicateError());
     const sendDocument = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(getWhatsAppProvider).mockReturnValue({ sendDocument, sendText: vi.fn() } as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue({ sendDocument, sendText: vi.fn() } as never);
 
     await notifyGiftCardCreated(GIFT_CARD_ID, "https://storage.example/gift.png");
 

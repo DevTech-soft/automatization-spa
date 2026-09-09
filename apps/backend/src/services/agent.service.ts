@@ -1,5 +1,5 @@
 import { businessRepository } from "../repositories/business.repository.js";
-import { getWhatsAppProvider } from "../integrations/whatsapp/index.js";
+import { resolveWhatsAppProviderForBusiness } from "./whatsapp-provider-resolver.js";
 import { serviceRepository } from "../repositories/service.repository.js";
 import { appointmentRepository } from "../repositories/appointment.repository.js";
 import { getAvailability } from "./availability.service.js";
@@ -207,7 +207,7 @@ export async function listAgentAppointments(
  */
 export async function sendAgentReply(businessId: string, phone: string, text: string): Promise<void> {
   await requireBusiness(businessId);
-  const provider = getWhatsAppProvider();
+  const provider = await resolveWhatsAppProviderForBusiness(businessId);
   await provider.sendText(normalizePhone(phone), text);
   logger.info({ businessId, phone }, "agent_reply_sent");
 }

@@ -55,7 +55,7 @@ vi.mock("../../src/services/gift-card.service.js", () => ({
   redeemGiftCard: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("../../src/integrations/whatsapp/index.js", () => ({
-  getWhatsAppProvider: vi.fn(() => ({ validateWebhookSignature: vi.fn().mockReturnValue(true) })),
+  getWhatsAppWebhookReader: vi.fn(() => ({ validateWebhookSignature: vi.fn().mockReturnValue(true) })),
 }));
 vi.mock("../../src/db/prisma.js", () => ({
   prisma: { $queryRaw: vi.fn().mockResolvedValue([{ ok: 1 }]) },
@@ -64,7 +64,7 @@ vi.mock("../../src/db/prisma.js", () => ({
 const { buildApp } = await import("../../src/app.js");
 const { createPayment, processPaymentWebhook } = await import("../../src/services/payment.service.js");
 const { handleIncomingWhatsAppMessage } = await import("../../src/services/whatsapp-conversation.service.js");
-const { getWhatsAppProvider } = await import("../../src/integrations/whatsapp/index.js");
+const { getWhatsAppWebhookReader } = await import("../../src/integrations/whatsapp/index.js");
 const { createGiftCard, redeemGiftCard } = await import("../../src/services/gift-card.service.js");
 
 describe("rutas de Fase 2", () => {
@@ -266,7 +266,7 @@ describe("rutas de Fase 6 — WhatsApp", () => {
   });
 
   it("POST /api/webhooks/whatsapp con firma inválida responde 401", async () => {
-    vi.mocked(getWhatsAppProvider).mockReturnValueOnce({
+    vi.mocked(getWhatsAppWebhookReader).mockReturnValueOnce({
       validateWebhookSignature: vi.fn().mockReturnValue(false),
     } as never);
     const app = await buildApp();

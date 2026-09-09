@@ -2,7 +2,7 @@ import type { NotificationType } from "@spa/db";
 import { appointmentRepository } from "../repositories/appointment.repository.js";
 import { giftCardRepository } from "../repositories/giftCard.repository.js";
 import { notificationLogRepository } from "../repositories/notificationLog.repository.js";
-import { getWhatsAppProvider } from "../integrations/whatsapp/index.js";
+import { resolveWhatsAppProviderForBusiness } from "./whatsapp-provider-resolver.js";
 import { dateOnlyFromUTCDate } from "../utils/datetime.js";
 import { isUniqueConstraintViolation } from "../utils/prisma-errors.js";
 import { logger } from "../utils/logger.js";
@@ -71,7 +71,7 @@ export async function notifyAppointmentConfirmed(appointmentId: string): Promise
 
   try {
     if (await claimNotification(business.id, "APPOINTMENT", appointment.id, "APPOINTMENT_CONFIRMATION")) {
-      const provider = getWhatsAppProvider();
+      const provider = await resolveWhatsAppProviderForBusiness(business.id);
       await provider.sendText(
         customer.phone,
         `¡Hola ${customer.name}! Tu reserva en ${business.name} quedó confirmada ✅\n\n` +
@@ -90,7 +90,7 @@ export async function notifyAppointmentConfirmed(appointmentId: string): Promise
 
   try {
     if (await claimNotification(business.id, "APPOINTMENT", appointment.id, "BUSINESS_NEW_APPOINTMENT")) {
-      const provider = getWhatsAppProvider();
+      const provider = await resolveWhatsAppProviderForBusiness(business.id);
       await provider.sendText(
         business.whatsappNumber,
         `Nueva reserva confirmada 📅\n\n` +
@@ -126,7 +126,7 @@ export async function notifyAppointmentReminder(appointmentId: string): Promise<
 
   try {
     if (await claimNotification(business.id, "APPOINTMENT", appointment.id, "APPOINTMENT_REMINDER")) {
-      const provider = getWhatsAppProvider();
+      const provider = await resolveWhatsAppProviderForBusiness(business.id);
       await provider.sendText(
         customer.phone,
         `Hola ${customer.name} ❤️ Te recordamos que el ${dateLabel} tienes tu cita de ${service.name} ` +
@@ -160,7 +160,7 @@ export async function notifyGiftCardCreated(giftCardId: string, pdfUrl: string |
 
   try {
     if (await claimNotification(business.id, "GIFT_CARD", giftCard.id, "GIFT_CARD_DELIVERY")) {
-      const provider = getWhatsAppProvider();
+      const provider = await resolveWhatsAppProviderForBusiness(business.id);
       if (pdfUrl) {
         await provider.sendDocument(
           giftCard.buyerPhone,
@@ -186,7 +186,7 @@ export async function notifyGiftCardCreated(giftCardId: string, pdfUrl: string |
 
   try {
     if (await claimNotification(business.id, "GIFT_CARD", giftCard.id, "BUSINESS_NEW_GIFT_CARD")) {
-      const provider = getWhatsAppProvider();
+      const provider = await resolveWhatsAppProviderForBusiness(business.id);
       await provider.sendText(
         business.whatsappNumber,
         `Nueva Gift Card comprada 🎁\n\nComprador: ${giftCard.buyerName} (${giftCard.buyerPhone})\n` +
