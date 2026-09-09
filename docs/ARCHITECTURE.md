@@ -56,6 +56,70 @@ Payment gateway = fuente de verdad del estado del pago
   > (`@spa/shared`, compila a `dist/`). Tablas de Better Auth: migración
   > `..._better_auth`.
 
+## Superficies de interfaz
+
+El MVP nació como un backend **desatendido**: sin panel, con Google Sheets como
+única vista administrativa y la configuración inicial a mano (sección 42 del
+prompt maestro). Ese supuesto **ya no aplica** — al pasar a multi-cliente el
+sistema tiene tres superficies distintas, cada una con su propia audiencia y su
+propia auth:
+
+| Superficie | Quién entra | Dónde vive | Auth |
+|---|---|---|---|
+| **Páginas públicas** (`/reservar`, `/gracias`, `/validar`) | las clientas del spa, y su staff para canjear | `apps/backend/web/`, estáticos servidos por el backend | ninguna (el canje pide `STAFF_PIN`) |
+| **Panel de operador** | el dueño del software | `apps/panel/` (Next.js en Vercel) | Better Auth, rol `operator` |
+| **Portal de cliente** (dashboard del spa) | el dueño de cada negocio y su equipo | la misma app `apps/panel/`, con guard por rol | Better Auth, roles `client_owner` / `client_staff` |
+
+Las tres consumen la API del backend; **ninguna toca Postgres directo** (D10 de
+`docs/PANEL-OPERADOR.md`). Lo que cambia entre el panel y el portal no es el
+stack ni las rutas, sino el alcance: el operador ve todos los negocios, el
+cliente ve **el suyo**.
+
+### Panel de operador — hecho
+
+Es el puesto de mando del negocio del operador:
+
+- **Clientes**: alta, marca, checklist de onboarding y activación, y la máquina
+  de estados (`trial → active → past_due → suspended → cancelled`) con motivo
+  obligatorio y bitácora.
+- **Cartera**: plan de suscripción por negocio, cuentas de cobro con
+  consecutivo propio, pagos recibidos, recibos y cuentas en PDF, y el ciclo
+  diario que emite, marca en mora y suspende solo.
+- **Consumo**: citas, conversaciones, gift cards y volumen transaccionado por
+  cada cliente — el argumento de la renovación.
+- **Integraciones por negocio**: número de WhatsApp y llaves de Wompi, cifradas
+  en reposo y siempre enmascaradas de vuelta.
+- **Bitácora**: toda acción sensible con actor, momento y valores.
+
+Detalle de rutas en `docs/API.md`; decisiones y fases en `docs/PANEL-OPERADOR.md`.
+
+### Portal de cliente — la arquitectura ya lo asume
+
+El siguiente paso (F7) es que **cada spa entre a su propio dashboard**: sus
+citas del día, las conversaciones de su bot, sus gift cards, sus métricas y sus
+ajustes de negocio. No hay que rehacer nada para llegar ahí, y esa es la razón
+de tres decisiones ya tomadas:
+
+1. **Los DTO de actividad y métricas viven en `packages/shared`**, no en el
+   backend: el portal pinta exactamente los mismos objetos que hoy pinta el
+   panel (`AppointmentRow`, `ConversationRow`, `BusinessUsage`…).
+2. **Todos los endpoints por negocio nacen filtrados por `businessId`**
+   (`/admin/businesses/:id/appointments`, `.../conversations`, `.../usage`…).
+   No existe un listado "de todos los negocios" que haya que restringir después:
+   activar el portal es cambiar quién puede pedir qué `businessId`, no
+   reescribir consultas.
+3. **Better Auth trae `organization` desde el primer commit**, con
+   `Organization.businessId` espejo de cada negocio. El tenant ya está modelado;
+   F7 enciende los roles `client_owner` / `client_staff` y hace que
+   `requireOperatorSession` derive el `businessId` de la sesión en vez de
+   dejarlo abierto.
+
+Lo que sí falta construir en F7: los roles y sus invitaciones, el guard por
+rol, la navegación del portal, y —si se quiere ver la conversación y no solo su
+estado— una tabla de mensajes de WhatsApp, que hoy **no existe**:
+`whatsapp_conversations` guarda el estado de la máquina de conversación
+(sección 18), no la transcripción.
+
 ## Rol de n8n
 
 **Actualización de Fase 4/6/7** (corrige el plan original de Fase 0 de abajo):
@@ -121,28 +185,37 @@ recibió, que se compara contra `businesses.whatsapp_number`. Ver
 > aplica suspensión suave (mensaje único) / silencio. Máquina de estados del
 > negocio: `docs/PANEL-OPERADOR.md` §5.
 
-### Pendiente para la fase SaaS: onboarding de WhatsApp por cliente
+### WhatsApp por cliente
 
-Hoy `WHATSAPP_ACCESS_TOKEN`/`WHATSAPP_PHONE_NUMBER_ID` son variables de
-entorno globales de un solo negocio — asumen una única app de Meta Developer
-configurada a mano (ver `docs/DEPLOYMENT.md`). Eso no escala a multi-tenant:
-cada cliente nuevo no debería tener que crear su propia app en Meta for
-Developers, que es un proceso técnico y poco amigable para un dueño de spa.
+**Hecho (F4, primera mitad).** El envío ya no depende de las env globales:
+`resolveWhatsAppProviderForBusiness` (`src/services/whatsapp-provider-resolver.ts`)
+busca el número conectado del negocio en `whatsapp_accounts` —con su
+`access_token` cifrado— y construye el provider con **esas** credenciales. Si el
+negocio todavía no conectó el suyo, cae a `WHATSAPP_ACCESS_TOKEN`/
+`WHATSAPP_PHONE_NUMBER_ID`, que pasan de ser "la configuración" a ser el
+fallback del operador. Es el mismo patrón que F2 usó para las llaves de Wompi.
 
-La solución estándar es **Embedded Signup** (el flujo oficial de Meta para
-"Tech Providers"): la plataforma mantiene **una sola** app de Meta, y cada
-cliente conecta su número de WhatsApp Business con un flujo corto tipo
-"Continuar con Facebook", sin pasar por Meta for Developers. Requiere:
+Todo lo que envía —notificaciones, bot de menús, respuestas del agente— pasa por
+ese resolver. Lo que ocurre **antes** de saber de qué negocio es un mensaje
+(validar la firma del webhook y parsear el payload) usa
+`getWhatsAppWebhookReader()`, que no exige credenciales: la firma
+`X-Hub-Signature-256` la calcula Meta con el **app secret**, que es de la app del
+operador y sigue siendo único para todas las WABAs conectadas.
 
-- Guardar `access_token` y `phone_number_id` **por `business_id`** (columnas
-  nuevas en `businesses`, no env vars globales) — probablemente cifradas en
-  reposo, no solo protegidas por RLS.
-  `MetaWhatsAppProvider`/`WhatsAppProvider` (Fase 6, sección 26) ya están
-  abstraídos por interfaz, así que el cambio es en cómo se resuelven las
-  credenciales por negocio antes de instanciar el provider, no en la lógica
-  de envío/parseo de mensajes.
-- Implementar el flujo de Embedded Signup (SDK de Facebook Login para
-  Business + intercambio de código por token de larga duración).
+**Falta (F4, segunda mitad): Embedded Signup.** Hoy el operador da de alta el
+número de cada cliente a mano desde el panel (WABA ID, `phone_number_id` y
+token), con el número viviendo bajo su propia WABA — el puente de
+`docs/PANEL-OPERADOR.md` §7.3. Funciona y no escala: tiene tope de números y de
+mensajería mientras el negocio del operador no esté verificado en Meta.
+
+La solución definitiva es **Embedded Signup** (el flujo oficial de Meta para
+"Tech Providers"): la plataforma mantiene **una sola** app, y cada cliente
+conecta su propio número con un "Continuar con Facebook", sin pasar por Meta for
+Developers. El backend ya tiene el lado que importa —credenciales por negocio,
+cifradas, y un único punto de alta (`connectWhatsAppAccount`)—; falta el flujo de
+Facebook Login for Business y el intercambio de código por token de larga
+duración, y sobre todo lo que lo bloquea: la verificación de negocio en Meta,
+que exige que el operador se formalice (M-1/M0 del plan).
 
 Alternativa a evaluar en su momento: un BSP (360dialog, Twilio, Gupshup) que
 envuelve el mismo Embedded Signup con una API más simple y soporte, a cambio
@@ -250,10 +323,11 @@ notificación en cada tabla.
 
 ### El MVP (secciones 1–42 del prompt maestro) — hecho
 
-Backend Fastify sin UI propia: reservas web + WhatsApp (bot determinístico y
-agente n8n), pagos Wompi, Gift Cards, recordatorios, sincronización a Google
-Sheets. Un solo negocio. El panel de operador (post-MVP) es una app aparte que
-consume la API `/admin/*`; el backend nunca sirve su propia interfaz.
+Backend Fastify: reservas web + WhatsApp (bot determinístico y agente n8n),
+pagos Wompi, Gift Cards, recordatorios, sincronización a Google Sheets. Un solo
+negocio. Sus únicas páginas propias son las públicas de `web/` (`/reservar`,
+`/gracias`, `/validar`); las interfaces de gestión viven en `apps/panel/` y
+consumen la API `/admin/*` — ver "Superficies de interfaz" más arriba.
 
 ### Post-MVP: multi-cliente + panel de operador + CRM — en curso
 
@@ -265,14 +339,19 @@ estado por fase en su §10. En construcción / hecho:
   con guard en cada entrada, resolución de tenant de WhatsApp por
   `phone_number_id`, credenciales de Wompi cifradas por negocio, webhook
   multi-comercio, modo de cobro `total`/`abono`.
-- **Panel de operador + CRM** (F3, F7): app Next.js en `apps/panel/` (Vercel),
-  API `/admin/*` en el backend con Better Auth (sesión + filtro de tenant). El
+- **Panel de operador** (F3, hecho): app Next.js en `apps/panel/` (Vercel), API
+  `/admin/*` en el backend con Better Auth (sesión + filtro de tenant). El
   backend **sigue siendo el único con acceso a Postgres** — el panel nunca lo
-  toca directo. CRUD de negocios, branding, onboarding, y a mediano plazo un
-  portal donde cada spa ve las conversaciones de su bot, citas y métricas.
-- **Suscripciones y cobro interno** (F5): planes con vencimiento, cuentas de
-  cobro + recibos en PDF, auto-suspensión por mora. Es cobro **del operador a
-  sus clientes**, no membresías de las clientas del spa.
+  toca directo. Alta y marca de negocios, onboarding, cambio de estado, cartera,
+  consumo por cliente, integraciones y bitácora. Ver "Superficies de interfaz".
+- **Suscripciones y cobro interno** (F5, hecho): planes con vencimiento, cuentas
+  de cobro + recibos en PDF, auto-suspensión por mora con ciclo diario. Es cobro
+  **del operador a sus clientes**, no membresías de las clientas del spa.
+- **WhatsApp por-tenant** (F4, a medias): el envío ya sale con las credenciales
+  del negocio; falta el Embedded Signup, bloqueado por la verificación en Meta.
+- **Portal de cliente / CRM** (F7, siguiente): cada spa entra a ver sus citas,
+  las conversaciones de su bot, sus métricas y sus ajustes. El modelo de tenant,
+  los DTO y los endpoints ya están diseñados para eso.
 
 ### Fuera de alcance (sigue sin construirse)
 

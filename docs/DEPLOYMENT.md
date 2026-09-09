@@ -153,9 +153,9 @@ Si el negocio de producción no existe todavía en la base de datos de
 producción, correr el seed una vez contra ese `DATABASE_URL`/`DIRECT_URL`
 (`npm run prisma:seed` local, apuntando el `.env` a producción — o
 `railway run npm run prisma:seed` si preferís ejecutarlo en el entorno de
-Railway). El seed crea "Demo Spa" — para el primer cliente real, reemplazar
-esos datos en Supabase directamente (sección 42 del prompt maestro: sin
-dashboard admin todavía, la configuración inicial es manual).
+Railway). El seed crea "Demo Spa" — para un cliente real, darlo de alta desde el
+**panel de operador** (`apps/panel`, ver `docs/PANEL-OPERADOR.md`), que crea el
+negocio, su marca, su plan y sus integraciones sin tocar Supabase a mano.
 
 ## 6. Qué monitorear después de desplegar
 
@@ -164,12 +164,14 @@ dashboard admin todavía, la configuración inicial es manual).
 - Logs estructurados (`src/utils/logger.ts`) — buscar `unhandled_error`
   (nunca debería aparecer en operación normal, ver `docs/TESTING.md`
   hallazgo #3) y `client_error`/`cron_*_failed`.
-- El scheduler (Fase 9) loguea `cron_expired_appointments` y
-  `cron_reminders_sent` solo cuando hay algo que hacer — silencio ahí es
-  normal, no un problema.
+- El scheduler (Fase 9) loguea `cron_expired_appointments`,
+  `cron_reminders_sent` y `cron_billing_cycle` solo cuando hay algo que hacer —
+  silencio ahí es normal, no un problema. `cron_billing_cycle` corre a las 6:00
+  de `APP_TIMEZONE` y es lo que emite las cuentas de cobro y suspende por mora.
 
 ## Qué falta / fuera de este documento
 
-- Sin dashboard administrativo (sección 4/42 del prompt maestro): cambios de
-  configuración del negocio (precios, horarios, diseños) siguen siendo
-  manuales en Supabase.
+- El panel de operador cubre alta de negocios, marca, estado, cartera e
+  integraciones, pero **no** el catálogo de cada negocio todavía: servicios,
+  horarios y diseños de gift card siguen cargándose por la API del backend o en
+  Supabase. El editor vive en el portal de cliente (F7).

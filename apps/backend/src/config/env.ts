@@ -48,8 +48,9 @@ const envSchema = z.object({
   /**
    * La sección 38 del prompt maestro pide GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET
    * (OAuth), pero eso requiere un login manual para obtener un refresh token —
-   * no encaja con un backend desatendido sin dashboard (sección 42). Se usa en
-   * su lugar una Service Account (decisión de Fase 7, ver docs/GOOGLE-SHEETS.md).
+   * no encaja con un proceso desatendido: la sincronización a Sheets corre desde
+   * un cron del backend, sin nadie que complete el consentimiento de Google. Se
+   * usa una Service Account (decisión de Fase 7, ver docs/GOOGLE-SHEETS.md).
    */
   GOOGLE_SERVICE_ACCOUNT_EMAIL: z.string().optional().or(z.literal("")),
   GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: z.string().optional().or(z.literal("")),

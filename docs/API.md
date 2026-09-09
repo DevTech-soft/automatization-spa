@@ -335,3 +335,88 @@ duplicar recordatorios entre corridas con ventanas solapadas) la da
 - Requiere header `Authorization: Bearer <INTERNAL_JOBS_TOKEN>`.
 - `401 UNAUTHORIZED` si falta o no coincide el token.
 - `200 { "data": { "remindersSent": number } }`.
+
+## Panel de operador — `/admin/*`
+
+Superficie del panel (`apps/panel`, ver `docs/PANEL-OPERADOR.md` §8). Todas
+comparten las mismas reglas:
+
+- **Auth**: sesión de Better Auth validada en **cada** request
+  (`requireOperatorSession`), por cookie o `Authorization: Bearer`. `401` sin
+  sesión. Solo se montan si `BETTER_AUTH_SECRET` está configurada.
+- **Envoltorio**: `{ "data": ... }`, igual que el resto de la API.
+- **Paginación**: `?page&pageSize&sort&order&q` en todos los listados; la
+  respuesta es `{ items, page, pageSize, total, totalPages }`. Se pagina en
+  Postgres, no en el panel (D10).
+- **Montos**: números (no strings), en la moneda que indica cada recurso.
+- **Fechas de calendario**: `YYYY-MM-DD` (vigencias, períodos, fechas de cita).
+  Los timestamps van en ISO completo.
+- **Secretos**: entran completos, salen **siempre** enmascarados (`••••1234`).
+
+### Negocios
+
+| Ruta | Qué hace |
+|---|---|
+| `GET /admin/me` | quién es el operador de la sesión |
+| `GET /admin/businesses` | listado paginado, `q` busca por nombre o slug |
+| `POST /admin/businesses` | alta; nace en `TRIAL` y crea su `Organization` espejo → `201` |
+| `GET`/`PATCH /admin/businesses/:id` | detalle y edición |
+| `POST /admin/businesses/:id/status` | transición de estado — body `{ status, reason }`. Valida la máquina de estados (§5) y exige motivo; `TRIAL → ACTIVE` se rechaza aquí (va por el onboarding) |
+| `GET`/`PATCH /admin/businesses/:id/branding` | logo, colores y persona del agente |
+| `GET`/`PATCH /admin/businesses/:id/onboarding` | checklist derivado de la data + marcas manuales |
+| `POST /admin/businesses/:id/activate` | `TRIAL → ACTIVE`; revalida el checklist completo en el servidor |
+| `GET`/`POST /admin/businesses/:id/contacts` · `PATCH`/`DELETE .../contacts/:contactId` | contactos del dueño (CRM) |
+
+### Suscripción y cartera
+
+| Ruta | Qué hace |
+|---|---|
+| `GET /admin/businesses/:id/subscription` | `{ plan, suggested }` — `suggested` trae los defaults (D8) cuando aún no hay plan |
+| `PUT /admin/businesses/:id/subscription` | crea o reemplaza el plan |
+| `POST /admin/businesses/:id/subscription/extend` | corre `validUntil` sin cobrar — `{ days, reason? }`. Si el plan venció, cuenta desde hoy |
+| `GET /admin/businesses/:id/billing` | resumen: plan, pendientes, últimas cuentas y pagos |
+| `GET /admin/businesses/:id/invoices/outstanding` | cuentas sin pagar de ese negocio |
+| `POST /admin/businesses/:id/invoices` | emite una cuenta → `201`. Sin `items` la arma del plan (cobra el ciclo siguiente); sin plan y sin `items`, `400` |
+| `POST /admin/businesses/:id/payments` | registra un pago → `201`. En una transacción: salda las cuentas indicadas, extiende `validUntil` y reactiva al negocio en mora o suspendido |
+| `GET /admin/invoices` | listado global; filtros `status`, `businessId`, `outstanding` |
+| `GET /admin/invoices/:id` | detalle con líneas y pagos aplicados |
+| `POST /admin/invoices/:id/status` | `{ action: "send" \| "void", reason? }` |
+| `POST /admin/invoices/:id/pdf` · `POST /admin/payments/:id/pdf` | genera el PDF (Puppeteer → Storage) y devuelve `{ pdfUrl }` |
+| `GET /admin/payments` | pagos recibidos, filtrables por `businessId` |
+| `POST /admin/billing/run` | corrida manual del ciclo diario; devuelve qué emitió, venció y suspendió |
+
+### Métricas, consumo y actividad
+
+| Ruta | Qué hace |
+|---|---|
+| `GET /admin/metrics/overview?days=30` | cartera del operador (MRR, cobrado del mes y del anterior, pendiente, vencido), clientes por estado, próximos vencimientos y consumo agregado |
+| `GET /admin/businesses/:id/usage?days=30` | consumo de un cliente: citas por estado y canal, volumen transaccionado, abonos, conversaciones, gift cards, serie diaria y top de servicios |
+| `GET /admin/businesses/:id/appointments` | citas; filtros `from`, `to`, `status`, `q` |
+| `GET /admin/businesses/:id/transactions` | pagos **del negocio** (los de sus clientas). Se llama así para no confundirlo con `/admin/payments`, que son los pagos que el operador recibe |
+| `GET /admin/businesses/:id/conversations` | estado de las conversaciones del bot. **No hay transcripción**: `whatsapp_conversations` guarda el estado de la máquina, no los mensajes |
+| `GET /admin/businesses/:id/gift-cards` | gift cards del negocio |
+| `GET /admin/audit-logs` | bitácora; `action` filtra por **prefijo** (`business.`, `billing.`…) |
+
+### Integraciones por negocio
+
+| Ruta | Qué hace |
+|---|---|
+| `GET /admin/businesses/:id/whatsapp` | números conectados, con el token enmascarado |
+| `POST /admin/businesses/:id/whatsapp` | conecta un número → `201`. Reconectar el mismo `phone_number_id` rota su token; si pertenece a otro negocio, `400` |
+| `PATCH /admin/businesses/:id/whatsapp/:accountId` | nombre visible, número visible, `active`, o rotar el token |
+| `DELETE /admin/businesses/:id/whatsapp/:accountId` | desconecta → `204` |
+| `POST /admin/businesses/:id/whatsapp/:accountId/verify` | consulta la Graph API y persiste calidad y tier de mensajería. Un fallo de Meta vuelve como `{ ok: false, detail }`, no como error HTTP |
+| `GET /admin/businesses/:id/payment-credentials` | estado de las llaves de Wompi; `usingGlobalFallback: true` cuando el negocio todavía cobra con las del operador |
+| `PUT /admin/businesses/:id/payment-credentials` | guarda las 4 llaves cifradas |
+| `DELETE /admin/businesses/:id/payment-credentials` | vuelve al fallback global |
+
+### `POST /internal/jobs/billing-cycle`
+
+Endpoint interno (no público, `Authorization: Bearer <INTERNAL_JOBS_TOKEN>`).
+Corre el ciclo de facturación: emite las cuentas del próximo período 5 días
+antes del vencimiento, marca `OVERDUE` las enviadas que ya vencieron, pasa los
+negocios a `PAST_DUE` y los suspende al agotarse la gracia. Lo dispara el
+scheduler a las 6:00 de `APP_TIMEZONE`; es idempotente, así que repetirlo el
+mismo día no duplica nada.
+
+- `200 { "data": { runDate, invoicesCreated, invoicesOverdue, businessesPastDue, businessesSuspended, notes } }`.

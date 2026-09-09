@@ -4,6 +4,15 @@ Fase 6 del roadmap. Ver `docs/ARCHITECTURE.md` para el porqué de las
 decisiones y `src/integrations/whatsapp/` + `src/services/whatsapp-conversation.service.ts`
 para el código.
 
+> **Actualización F4 (`docs/PANEL-OPERADOR.md` §7):** este documento describe el
+> montaje de **un** número con las env `WHATSAPP_*`, que hoy son el **fallback
+> del operador**, no "la" configuración. Cada negocio puede tener el suyo en
+> `whatsapp_accounts` (token cifrado), conectado desde el panel; el envío lo
+> resuelve `resolveWhatsAppProviderForBusiness`. La firma del webhook sigue
+> usando `WHATSAPP_APP_SECRET`, que es de la app del operador y es único para
+> todas las WABAs.
+
+
 ## Principio (sección 18 del prompt maestro)
 
 El bot es **determinístico**, no usa un LLM. Toda la conversación es una

@@ -1,7 +1,8 @@
 # Panel de operador y evolución multi-cliente
 
-Plan de desarrollo. **Todavía no hay código**: este documento fija decisiones,
-modelo conceptual, flujos y fases antes de tocar el repo.
+Plan de desarrollo y bitácora de decisiones. Nació antes de escribir código, con
+el modelo conceptual, los flujos y las fases; hoy F0–F3 y F5 están en `main` y
+F4 va a medias. El estado por fase, en §10.
 
 Contexto: hoy el sistema atiende **un** negocio. El objetivo es que el operador
 (dueño de la automatización) pueda **vender el servicio a varios spas/salones**,
@@ -74,16 +75,17 @@ pero las integraciones **no lo son**. Eso es el grueso del trabajo:
 
 | Integración | Hoy | Debe pasar a |
 |---|---|---|
-| WhatsApp | `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` (env únicas) | tabla `WhatsAppAccount` por negocio: `wabaId`, `phoneNumberId`, token cifrado |
+| WhatsApp | `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` (env únicas) | ✅ **F4 (envío)**: `WhatsAppAccount` por negocio (`wabaId`, `phoneNumberId`, token cifrado) resuelto por `resolveWhatsAppProviderForBusiness`, con fallback a las env. Falta el Embedded Signup (alta manual por ahora, §7.3) |
 | Wompi | `PAYMENT_API_KEY`, `PAYMENT_PUBLIC_KEY`, `PAYMENT_INTEGRITY_SECRET`, `PAYMENT_WEBHOOK_SECRET` (env únicas) | ✅ **F2**: tabla `PaymentCredentials` por negocio, cifrada (con fallback a las env) |
 | Google Sheets | `GOOGLE_*` + `GOOGLE_SHEET_ID` (env únicas) | config por negocio (opcional, fase tardía) |
 | Agente n8n | `SPA_AGENT_TOKEN` compartido, negocio se resuelve por `businessId` | ✅ ya sirve, no cambia |
 | Resolución de tenant en el webhook de WhatsApp | por `display_phone_number` | ✅ **F1**: por `phone_number_id` (`whatsAppAccountRepository`) con fallback al número |
 
-> **Nota de arquitectura**: `ARCHITECTURE.md` dice que el backend es "desatendido,
-> sin dashboard (sección 42)". Este plan es una **desviación deliberada** de ese
-> principio. Además el repo pasa de un solo paquete a **monorepo** (§8.3).
-> Actualizar `ARCHITECTURE.md` al implementar F0/F3.
+> **Nota de arquitectura**: este plan es una **desviación deliberada** del
+> "backend desatendido, sin dashboard" de la sección 42 del prompt maestro.
+> ✅ `ARCHITECTURE.md` ya está actualizado: tiene una sección "Superficies de
+> interfaz" que describe las tres (páginas públicas, panel de operador, portal
+> de cliente) y el monorepo de §8.3.
 
 ---
 
@@ -396,12 +398,28 @@ bot de menús  /  forwardToAgent (n8n)
   cliente con la tarjeta de su WABA (D2). Revisar el pricing vigente de Meta al
   implementar.
 
-### 7.3 Interino sin verificación (opcional, puente)
+### 7.3 Interino sin verificación (el puente, ✅ construido)
 
-Si hace falta arrancar con 1–2 clientes antes de que Meta apruebe: el operador
-añade a mano el número de cada cliente **bajo su propia WABA**. Funciona hoy con
-el modelo actual extendido a `WhatsAppAccount`, pero el operador posee todo y el
-cliente no "hace login" en nada. Tratarlo como puente, no como destino.
+Mientras Meta no apruebe, el operador añade a mano el número de cada cliente
+**bajo su propia WABA**. Está implementado en el panel (pestaña *Integraciones*
+de cada negocio):
+
+- **Conectar**: WABA ID, `phone_number_id`, número y nombre visibles, y el token
+  —que se guarda cifrado y solo vuelve como máscara—. La llave natural es el
+  `phone_number_id`: reconectar el mismo número rota su token, y si pertenece a
+  otro negocio el alta se rechaza en vez de robarle las conversaciones.
+- **Verificar**: consulta la Graph API con el token guardado y trae de vuelta la
+  calidad del número y su tier de mensajería, que se persisten.
+- **Desconectar**: el negocio vuelve a las credenciales globales del operador.
+
+`connectWhatsAppAccount` es el **punto único de alta**: cuando M0 desbloquee el
+Embedded Signup, su callback llamará a esa misma función con lo que devuelva el
+token exchange, en vez de con lo que escribió el operador. Nada del envío ni de
+la resolución de tenant cambia.
+
+Sigue siendo un puente, no el destino: el operador posee la WABA, el cliente no
+"hace login" en nada, y los topes de un negocio no verificado (típicamente 2
+números / 250 destinatarios por día) mandan.
 
 ---
 
@@ -597,11 +615,11 @@ No es una superficie de v1, pero **la arquitectura lo asume desde F0**:
 | **F0** | ✅ **hecho** (en `main`). **Monorepo** (Turborepo + pnpm, `apps/backend` + `packages/db`) — mergeado y deploy en Railway verificado en verde. **Modelo de datos**: `Business.status`/`chargeMode`/`depositPercentage`/branding, pago parcial en `Appointment`, y `WhatsAppAccount`, `PaymentCredentials`, `SubscriptionPlan`, `OperatorInvoice`, `OperatorPayment` (+ join), `ClientContact`, `AuditLog` — migración `20260903194848_panel_operador_data_model`. **Cifrado de secretos**: `apps/backend/src/utils/crypto.ts` (AES-256-GCM, `SECRETS_ENCRYPTION_KEY`), columnas `*_enc`. Tablas de Better Auth se difieren a F3. | — | ✅ |
 | **F1** | ✅ **hecho** (en `main`). Guard único de `status` (`business-guard.ts`) en reservas web/API, gift cards nuevas y herramientas del agente; suspensión suave (mensaje único) y silencio en WhatsApp. Resolución de tenant del webhook: parser extrae `phone_number_id`, se resuelve por `whatsAppAccountRepository` con fallback al número display (F4 puebla `whatsapp_accounts`). | F0 | ✅ |
 | **F2** | ✅ **hecho** (en `main`). `paymentCredentials.repository` (cifra/descifra), `resolveProviderForBusiness` con fallback a env, `getPaymentProviderForCredentials`. Webhook multi-comercio (`extractWebhookReference` → Payment → credenciales del negocio → valida firma). Branch `TOTAL`/`DEPOSIT` en `createPayment` (split guardado al crear el link), `confirmIfPending` → `DEPOSIT_PAID`, mensajes con abono/saldo en bot/agente/confirmación/`/gracias`/formulario. Script `script:demo-payment-credentials`. | F0 | ✅ |
-| **F3** | En progreso. **F3a–F3d hechos**. F3a: Better Auth en el **backend** (`/api/auth/*`, plugins `bearer`+`twoFactor`+`organization`), guard `requireOperatorSession` en `/admin/*`, `packages/shared`. F3b: **`apps/panel`** (Next 16 + Tailwind v4 + shadcn a mano) — login, shell protegido, **proxy BFF** `app/api/auth/[...all]` (chequeo same-origin propio; el `Origin` real viaja en `x-forwarded-origin` — el fetch de Next no reenvía `Origin`; el backend lo valida contra `trustedOrigins`). Fix `account.issuer` (CLI 1.4.x < core 1.7.2) → migración `..._better_auth_account_issuer`. F3c: **CRUD de negocios** — `/admin/businesses` (list paginado + `q`, get, POST create → crea `Organization` espejo + `AuditLog`, PATCH update + AuditLog); panel: tabla + form nuevo/editar (`business-form.tsx`, RHF-free con Server Actions + Zod de `@spa/shared`). F3d: **marca + checklist de onboarding** (ver §6.1). **Pendiente**: F3e dashboards cartera/ingresos. | F0, F1 | en progreso |
-| **F4** | WhatsApp por-tenant: `MetaWhatsAppProvider` toma credenciales del negocio; **integrar Embedded Signup** en el panel (callback, token exchange, suscripción a WABA); gestión de perfil/nombre. | F0, F1, F3, **M0 aprobado** (⇒ M-1) | cuando Meta apruebe |
-| **F5** | Facturación: generación recurrente de facturas, PDF de factura y recibo, auto-`past_due`/`suspended` por mora, reactivación al pagar. | F0, F3 | tras F3 |
-| **F6** | Extras: métricas de uso por cliente (citas, conversaciones, costo WhatsApp), recordatorios automáticos de vencimiento al operador, Google Sheets por-tenant. | F3 | después |
-| **F7** | **Portal de cliente / CRM**: activar roles `client_owner` / `client_staff` en Better Auth, invitaciones, vista de conversaciones del bot en vivo (SSE), citas y métricas por negocio. Tests de aislamiento de tenant. | F3, F6 | cuando el panel del operador esté sólido |
+| **F3** | ✅ **hecho** (en `main`). F3a: Better Auth en el **backend** (`/api/auth/*`, plugins `bearer`+`twoFactor`+`organization`), guard `requireOperatorSession` en `/admin/*`, `packages/shared`. F3b: **`apps/panel`** (Next 16 + Tailwind v4 + shadcn a mano) — login, shell protegido, **proxy BFF** `app/api/auth/[...all]` (chequeo same-origin propio; el `Origin` real viaja en `x-forwarded-origin` — el fetch de Next no reenvía `Origin`; el backend lo valida contra `trustedOrigins`). Fix `account.issuer` (CLI 1.4.x < core 1.7.2) → migración `..._better_auth_account_issuer`. F3c: **CRUD de negocios** + `Organization` espejo + `AuditLog`. F3d: **marca + checklist de onboarding** (§6.1). F3e: **dashboards y control de clientes** — `/admin/metrics/overview` (MRR, cobrado, pendiente, vencido, vencimientos, consumo agregado), `.../usage` por negocio, listados de actividad (citas, pagos, conversaciones, gift cards), contactos (CRM), bitácora `/admin/audit-logs`, y transiciones de estado con motivo (`POST .../status`). | F0, F1 | ✅ |
+| **F4** | 🟡 **a medias**. ✅ Envío por-tenant: `resolveWhatsAppProviderForBusiness` toma las credenciales del negocio (`whatsapp_accounts`, token cifrado) con fallback a las env; lo usan notificaciones, bot de menús y agente. `getWhatsAppWebhookReader` valida firma y parsea sin exigir credenciales globales. ✅ Alta manual del número desde el panel (puente §7.3) con rotación de token, verificación contra la Graph API (calidad y límite de mensajería) y desconexión. ⏳ Falta **Embedded Signup** (callback, token exchange, suscripción a WABA) y la gestión de perfil/nombre — bloqueado por M0. | F0, F1, F3, **M0 aprobado** (⇒ M-1) | 🟡 el resto, cuando Meta apruebe |
+| **F5** | ✅ **hecho** (en `main`). `SubscriptionPlan` por negocio (alta, edición, extensión de vigencia). Cuentas de cobro con consecutivo `CC-<año>-NNN` bajo advisory lock, armadas desde el plan o con líneas manuales; enviar/anular con motivo. Pagos recibidos en una transacción que salda cuentas, extiende `validUntil` y reactiva al moroso. PDF de cuenta y recibo (Puppeteer → Storage, marca del operador en `OPERATOR_*`). Ciclo diario idempotente (`billing-cycle.service`): emite 5 días antes, marca vencidas, pasa a mora y suspende al agotarse la gracia — cron 6:00 en `APP_TIMEZONE` + `POST /internal/jobs/billing-cycle`. | F0, F3 | ✅ |
+| **F6** | 🟡 **a medias**. ✅ Métricas de uso por cliente (citas por estado y canal, volumen transaccionado, abonos, conversaciones, gift cards, serie diaria, top de servicios) en `/admin/businesses/:id/usage` y la pestaña Consumo. ⏳ Falta: recordatorios automáticos de vencimiento al operador y Google Sheets por-tenant. | F3 | 🟡 |
+| **F7** | **Portal de cliente / CRM**: activar roles `client_owner` / `client_staff` en Better Auth, invitaciones, guard por rol sobre los endpoints que ya nacen filtrados por `businessId`, navegación del portal, y —para ver la conversación y no solo su estado— una tabla de mensajes de WhatsApp (hoy no existe). Tests de aislamiento de tenant. | F3, F6 | siguiente |
 
 ---
 
@@ -630,8 +648,8 @@ No es una superficie de v1, pero **la arquitectura lo asume desde F0**:
 - **DIAN**: los "recibos internos" no son facturas legales. Si el operador debe
   facturar formalmente empresa-a-empresa, en algún momento entra facturación
   electrónica (Alegra, Siigo, Factus…). Fuera de v1.
-- **`ARCHITECTURE.md`** contradice este plan ("sin dashboard") y asume un solo
-  paquete. Actualizarlo al hacer F0.
+- ~~**`ARCHITECTURE.md`** contradice este plan ("sin dashboard") y asume un solo
+  paquete.~~ Resuelto: documenta el monorepo y las tres superficies de interfaz.
 - **Migración a monorepo (F0)**: toca imports en todo el backend y el
   build/start command del servicio de Railway. Riesgo bajo pero hay que hacerlo
   de golpe y verificar el deploy antes de seguir.
