@@ -1,6 +1,10 @@
 import type { FastifyInstance } from "fastify";
 import { requireInternalToken } from "../middlewares/internal-auth.js";
-import { expireAppointmentsHandler, sendRemindersHandler } from "../controllers/internal.controller.js";
+import {
+  billingCycleHandler,
+  expireAppointmentsHandler,
+  sendRemindersHandler,
+} from "../controllers/internal.controller.js";
 
 /**
  * Endpoints internos, no expuestos al público. Los dispara el scheduler
@@ -15,4 +19,5 @@ export async function internalRoutes(app: FastifyInstance): Promise<void> {
     expireAppointmentsHandler,
   );
   app.post("/internal/jobs/send-reminders", { preHandler: requireInternalToken }, sendRemindersHandler);
+  app.post("/internal/jobs/billing-cycle", { preHandler: requireInternalToken }, billingCycleHandler);
 }

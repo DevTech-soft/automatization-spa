@@ -11,6 +11,10 @@ export interface AuditEntry {
   metadata?: Prisma.InputJsonValue | undefined;
 }
 
+const LIST_INCLUDE = { business: { select: { name: true } } } satisfies Prisma.AuditLogInclude;
+
+export type AuditLogListRow = Prisma.AuditLogGetPayload<{ include: typeof LIST_INCLUDE }>;
+
 export const auditLogRepository = {
   record(entry: AuditEntry, db: Prisma.TransactionClient | typeof prisma = prisma) {
     return db.auditLog.create({
@@ -23,5 +27,17 @@ export const auditLogRepository = {
         metadata: entry.metadata,
       },
     });
+  },
+
+  /** Bitácora paginada para el panel (`GET /admin/audit-logs`). */
+  async list(
+    where: Prisma.AuditLogWhereInput,
+    { skip, take }: { skip: number; take: number },
+  ): Promise<{ rows: AuditLogListRow[]; total: number }> {
+    const [rows, total] = await prisma.$transaction([
+      prisma.auditLog.findMany({ where, orderBy: { createdAt: "desc" }, skip, take, include: LIST_INCLUDE }),
+      prisma.auditLog.count({ where }),
+    ]);
+    return { rows, total };
   },
 };

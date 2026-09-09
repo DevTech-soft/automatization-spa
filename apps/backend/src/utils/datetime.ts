@@ -51,6 +51,19 @@ export function daysBetween(from: string, date: string): number {
   return parseCalendarDate(date).diff(parseCalendarDate(from), "days").days;
 }
 
+/**
+ * Suma (o resta, con `days` negativo) días a una fecha de calendario
+ * "YYYY-MM-DD". Aritmética pura de calendario: sin DST ni zonas de por medio,
+ * que es justo lo que necesita la vigencia de un plan (docs/PANEL-OPERADOR.md §6.5).
+ */
+export function addCalendarDays(date: string, days: number): string {
+  const result = parseCalendarDate(date).plus({ days }).toISODate();
+  if (!result) {
+    throw new Error(`No se pudo sumar ${days} días a la fecha "${date}".`);
+  }
+  return result;
+}
+
 /** Convierte una fecha "YYYY-MM-DD" al `Date` usado para columnas `@db.Date` de Prisma. */
 export function dateOnlyToUTCDate(date: string): Date {
   return parseCalendarDate(date).toJSDate();

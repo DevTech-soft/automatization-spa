@@ -1,5 +1,7 @@
 import { schedule } from "node-cron";
 import { expireStalePendingAppointments, sendUpcomingAppointmentReminders } from "../services/appointment.service.js";
+import { runBillingCycle } from "../services/billing-cycle.service.js";
+import { env } from "../config/env.js";
 import { logger } from "../utils/logger.js";
 
 /**
@@ -30,6 +32,24 @@ export function startScheduledJobs(): void {
       })
       .catch((error: unknown) => logger.error({ error }, "cron_send_reminders_failed"));
   });
+
+  // Cada día a las 6:00 (hora del operador): ciclo de facturación —emite las
+  // cuentas del próximo período, marca vencidas y suspende por mora
+  // (docs/PANEL-OPERADOR.md §6.4). Es idempotente, así que una corrida repetida
+  // tras un reinicio no duplica nada.
+  schedule(
+    "0 6 * * *",
+    () => {
+      void runBillingCycle()
+        .then((result) => {
+          if (result.invoicesCreated + result.invoicesOverdue + result.businessesSuspended > 0) {
+            logger.info(result, "cron_billing_cycle");
+          }
+        })
+        .catch((error: unknown) => logger.error({ error }, "cron_billing_cycle_failed"));
+    },
+    { timezone: env.APP_TIMEZONE },
+  );
 
   logger.info("scheduled_jobs_started");
 }

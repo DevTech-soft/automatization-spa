@@ -59,4 +59,19 @@ export const paymentCredentialsRepository = {
       update: data,
     });
   },
+
+  /**
+   * Fila cruda (secretos aún cifrados) para el panel: solo necesita saber si
+   * existen, de qué entorno son y desde cuándo. Nunca las descifra — el panel
+   * muestra máscaras, y la máscara se calcula sobre el valor descifrado solo en
+   * `admin-payment-credentials.service`.
+   */
+  findRowByBusinessId(businessId: string) {
+    return prisma.paymentCredentials.findUnique({ where: { businessId } });
+  },
+
+  /** Borra las llaves propias: el negocio vuelve al fallback de las env globales. */
+  delete(businessId: string) {
+    return prisma.paymentCredentials.delete({ where: { businessId } });
+  },
 };

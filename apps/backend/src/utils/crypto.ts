@@ -83,3 +83,22 @@ export function decryptSecret(payload: string): string {
 export function isEncryptedSecret(value: string): boolean {
   return value.startsWith(`${VERSION}:`);
 }
+
+/**
+ * Máscara para mostrar un secreto en el panel: `••••1234`, con los últimos 4
+ * caracteres del valor real. Acepta directamente la columna `*_enc` y descifra
+ * puertas adentro — el valor completo nunca sale del backend.
+ *
+ * Si la clave maestra falta o el texto cifrado no se puede leer, devuelve una
+ * máscara neutra en vez de lanzar: el panel debe poder listar credenciales
+ * incluso cuando algo anda mal con el cifrado, para poder arreglarlas.
+ */
+export function maskSecret(encrypted: string): string {
+  try {
+    const plaintext = isEncryptedSecret(encrypted) ? decryptSecret(encrypted) : encrypted;
+    const tail = plaintext.slice(-4);
+    return tail.length === 4 ? `••••${tail}` : "••••";
+  } catch {
+    return "•••• (ilegible)";
+  }
+}

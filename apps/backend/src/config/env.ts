@@ -66,6 +66,25 @@ const envSchema = z.object({
    */
   SECRETS_ENCRYPTION_KEY: z.string().optional().or(z.literal("")),
 
+  /**
+   * Datos del operador que van impresos en las cuentas de cobro y los recibos
+   * (docs/PANEL-OPERADOR.md §6.5). Son de marca, no secretos, pero cambian de
+   * un despliegue a otro, así que viven en env y no hardcodeados en el template.
+   * Con todo vacío el PDF sale igual, solo sin encabezado ni datos de pago.
+   */
+  OPERATOR_NAME: z.string().default("Operador"),
+  OPERATOR_DOCUMENT: z.string().optional().or(z.literal("")),
+  OPERATOR_EMAIL: z.string().optional().or(z.literal("")),
+  OPERATOR_PHONE: z.string().optional().or(z.literal("")),
+  OPERATOR_ADDRESS: z.string().optional().or(z.literal("")),
+  /** Cómo pagarle: "Nequi 300 123 4567 · Bancolombia ahorros 123-456789-00". */
+  OPERATOR_PAYMENT_INFO: z.string().optional().or(z.literal("")),
+  /** Acento de la cuenta de cobro (naranja de la plantilla de referencia). */
+  OPERATOR_BRAND_COLOR: z
+    .string()
+    .regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/)
+    .default("#e07a3f"),
+
   STAFF_PIN: z.string().optional().or(z.literal("")),
 
   /** Protege los endpoints /internal/* (llamados por el scheduler in-process, ver Fase 3/9). */

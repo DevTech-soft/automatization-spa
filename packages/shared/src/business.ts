@@ -76,3 +76,32 @@ export const updateBusinessSchema = z
     { message: "El modo abono requiere un porcentaje (1–99).", path: ["depositPercentage"] },
   );
 export type UpdateBusinessInput = z.infer<typeof updateBusinessSchema>;
+
+/**
+ * `POST /admin/businesses/:id/status` — transiciones explícitas de la máquina de
+ * estados (docs/PANEL-OPERADOR.md §5). Separado del PATCH genérico a propósito:
+ * suspender o cancelar un negocio corta el servicio a un cliente real, así que
+ * pasa por su propio endpoint, exige motivo y queda en `AuditLog`.
+ */
+export const changeStatusSchema = z.object({
+  status: z.enum(["ACTIVE", "PAST_DUE", "SUSPENDED", "CANCELLED"]),
+  reason: z.string().trim().min(3, "Escribe el motivo.").max(300),
+});
+export type ChangeStatusInput = z.infer<typeof changeStatusSchema>;
+
+/** Transiciones permitidas desde cada estado (§5). El backend las revalida. */
+export const ALLOWED_STATUS_TRANSITIONS: Record<BusinessStatus, BusinessStatus[]> = {
+  TRIAL: ["ACTIVE", "CANCELLED"],
+  ACTIVE: ["PAST_DUE", "SUSPENDED", "CANCELLED"],
+  PAST_DUE: ["ACTIVE", "SUSPENDED", "CANCELLED"],
+  SUSPENDED: ["ACTIVE", "CANCELLED"],
+  CANCELLED: ["ACTIVE"],
+};
+
+export const BUSINESS_STATUS_LABEL: Record<BusinessStatus, string> = {
+  TRIAL: "Prueba",
+  ACTIVE: "Activo",
+  PAST_DUE: "En mora",
+  SUSPENDED: "Suspendido",
+  CANCELLED: "Cancelado",
+};

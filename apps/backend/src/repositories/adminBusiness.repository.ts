@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Prisma } from "@spa/db";
+import type { BusinessStatus, Prisma } from "@spa/db";
 import { prisma } from "../db/prisma.js";
 
 /**
@@ -117,6 +117,20 @@ export const adminBusinessRepository = {
 
   update(id: string, data: Prisma.BusinessUpdateInput): Promise<AdminBusinessDetailRow> {
     return prisma.business.update({ where: { id }, data, select: DETAIL_SELECT });
+  },
+
+  /**
+   * Cambia solo el estado. Acepta un `tx` porque la reactivación por pago
+   * (docs/PANEL-OPERADOR.md §6.4) tiene que ocurrir en la misma transacción que
+   * el `OperatorPayment`: un pago registrado con el negocio aún suspendido
+   * sería peor que no registrarlo.
+   */
+  updateStatus(
+    id: string,
+    status: BusinessStatus,
+    db: Prisma.TransactionClient | typeof prisma = prisma,
+  ) {
+    return db.business.update({ where: { id }, data: { status }, select: { id: true, status: true } });
   },
 
   findBranding(id: string): Promise<AdminBusinessBrandingRow | null> {

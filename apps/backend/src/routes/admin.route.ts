@@ -1,10 +1,12 @@
 import type { FastifyInstance } from "fastify";
 import {
+  changeStatusSchema,
   createBusinessSchema,
   onboardingManualSchema,
   paginationQuerySchema,
   updateBrandingSchema,
   updateBusinessSchema,
+  upsertContactSchema,
 } from "@spa/shared";
 import type { AdminMeResponse } from "@spa/shared";
 import { z } from "zod";
@@ -21,16 +23,29 @@ import {
   getOnboardingChecklist,
   updateOnboardingManual,
 } from "../services/admin-onboarding.service.js";
+import { changeBusinessStatus } from "../services/admin-status.service.js";
+import {
+  createContact,
+  deleteContact,
+  listContacts,
+  updateContact,
+} from "../services/admin-contact.service.js";
+import { adminBillingRoutes } from "./admin-billing.route.js";
+import { adminActivityRoutes } from "./admin-activity.route.js";
+import { adminIntegrationsRoutes } from "./admin-integrations.route.js";
 
 const idParamSchema = z.object({ id: z.string().uuid() });
+const contactParamsSchema = z.object({ id: z.string().uuid(), contactId: z.string().uuid() });
 
 /**
  * API del panel de operador (docs/PANEL-OPERADOR.md §8). Todas las rutas pasan
  * por `requireOperatorSession`. El panel (Vercel) las consume vía BFF —
  * sus route handlers / server components de Next reenvían aquí con la sesión.
  *
- * F3c: `/admin/me` + CRUD de negocios. F3d: marca y checklist de onboarding
- * (§6.1). Los dashboards de cartera/ingresos llegan en F3e.
+ * Este módulo tiene el guard y el CRUD del negocio; el resto se registra como
+ * plugins hijos dentro del mismo scope (y por tanto bajo el mismo guard):
+ * cartera (`admin-billing`), métricas y actividad (`admin-activity`) e
+ * integraciones por-tenant (`admin-integrations`).
  */
 export async function adminRoutes(app: FastifyInstance): Promise<void> {
   app.register(async (admin) => {
@@ -70,6 +85,17 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       return { data: await updateBusiness(id, body, request.operator!.userId) };
     });
 
+    /**
+     * Transiciones de la máquina de estados (§5): suspender, reactivar,
+     * cancelar. Separado del PATCH porque corta el servicio a un cliente real y
+     * exige motivo (§9).
+     */
+    admin.post("/admin/businesses/:id/status", async (request) => {
+      const { id } = idParamSchema.parse(request.params);
+      const body = changeStatusSchema.parse(request.body);
+      return { data: await changeBusinessStatus(id, body, request.operator!.userId) };
+    });
+
     // — Marca (§6.1 paso 2) —
 
     admin.get("/admin/businesses/:id/branding", async (request) => {
@@ -100,5 +126,36 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       const { id } = idParamSchema.parse(request.params);
       return { data: await activateBusiness(id, request.operator!.userId) };
     });
+
+    // — Contactos del cliente (§4, lado CRM) —
+
+    admin.get("/admin/businesses/:id/contacts", async (request) => {
+      const { id } = idParamSchema.parse(request.params);
+      return { data: await listContacts(id) };
+    });
+
+    admin.post("/admin/businesses/:id/contacts", async (request, reply) => {
+      const { id } = idParamSchema.parse(request.params);
+      const body = upsertContactSchema.parse(request.body);
+      const contact = await createContact(id, body, request.operator!.userId);
+      reply.status(201);
+      return { data: contact };
+    });
+
+    admin.patch("/admin/businesses/:id/contacts/:contactId", async (request) => {
+      const { id, contactId } = contactParamsSchema.parse(request.params);
+      const body = upsertContactSchema.parse(request.body);
+      return { data: await updateContact(id, contactId, body, request.operator!.userId) };
+    });
+
+    admin.delete("/admin/businesses/:id/contacts/:contactId", async (request, reply) => {
+      const { id, contactId } = contactParamsSchema.parse(request.params);
+      await deleteContact(id, contactId, request.operator!.userId);
+      reply.status(204);
+    });
+
+    await admin.register(adminBillingRoutes);
+    await admin.register(adminActivityRoutes);
+    await admin.register(adminIntegrationsRoutes);
   });
 }
