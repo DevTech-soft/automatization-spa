@@ -56,9 +56,9 @@ export async function adminGet<T>(path: string): Promise<T> {
   return body.data as T;
 }
 
-/** POST/PATCH a `/admin/*` con JSON. Lanza `ApiError` (con `fieldErrors` si el backend los da). */
+/** POST/PATCH/PUT a `/admin/*` con JSON. Lanza `ApiError` (con `fieldErrors` si el backend los da). */
 export async function adminMutate<T>(
-  method: "POST" | "PATCH",
+  method: "POST" | "PATCH" | "PUT",
   path: string,
   payload: unknown,
 ): Promise<T> {
@@ -76,4 +76,14 @@ export async function adminMutate<T>(
     );
   }
   return body.data as T;
+}
+
+/** DELETE a `/admin/*`. Tolera el 204 sin cuerpo que devuelven las bajas. */
+export async function adminDelete(path: string): Promise<void> {
+  const res = await backendFetch(path, { method: "DELETE" });
+  if (res.ok) {
+    return;
+  }
+  const body = await res.json().catch(() => ({}));
+  throw new ApiError(res.status, body?.error?.message ?? "No se pudo eliminar.");
 }

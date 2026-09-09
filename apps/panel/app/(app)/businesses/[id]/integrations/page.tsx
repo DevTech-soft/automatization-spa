@@ -1,0 +1,34 @@
+import type { PaymentCredentialsDto, WhatsAppAccountDto } from "@spa/shared";
+import { adminGet } from "@/lib/backend";
+import { WhatsAppSection } from "./whatsapp-section";
+import { WompiForm } from "./wompi-form";
+
+/**
+ * Integraciones por-tenant de un cliente: su número de WhatsApp
+ * (docs/PANEL-OPERADOR.md §7) y sus llaves de Wompi (§D3). Son las dos cosas
+ * que dejaron de ser variables de entorno globales al pasar a multi-cliente (§3).
+ */
+export default async function IntegrationsPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+
+  const [accounts, credentials] = await Promise.all([
+    adminGet<WhatsAppAccountDto[]>(`/admin/businesses/${id}/whatsapp`),
+    adminGet<PaymentCredentialsDto>(`/admin/businesses/${id}/payment-credentials`),
+  ]);
+
+  return (
+    <div className="flex flex-col gap-8">
+      <WhatsAppSection businessId={id} accounts={accounts} />
+      <section className="flex flex-col gap-3 border-t border-[var(--color-border)] pt-6">
+        <div>
+          <h2 className="text-base font-semibold">Pagos (Wompi)</h2>
+          <p className="text-sm text-[var(--color-fg-muted)]">
+            Las llaves del comercio del cliente: su plata entra directo a su cuenta. Se guardan
+            cifradas y nunca se vuelven a mostrar completas.
+          </p>
+        </div>
+        <WompiForm businessId={id} credentials={credentials} />
+      </section>
+    </div>
+  );
+}

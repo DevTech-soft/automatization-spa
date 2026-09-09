@@ -47,7 +47,11 @@ export function SubmitButton({
   );
 }
 
-export function FormAlert({ state }: { state: { ok: boolean; error?: string | undefined } }) {
+export function FormAlert({
+  state,
+}: {
+  state: { ok: boolean; error?: string | undefined; message?: string | undefined };
+}) {
   if (state.error) {
     return (
       <p className="rounded-[var(--radius)] border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -58,7 +62,7 @@ export function FormAlert({ state }: { state: { ok: boolean; error?: string | un
   if (state.ok) {
     return (
       <p className="rounded-[var(--radius)] border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
-        Cambios guardados.
+        {state.message ?? "Cambios guardados."}
       </p>
     );
   }

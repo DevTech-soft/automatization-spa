@@ -29,7 +29,7 @@ export default async function BusinessLayout({
   }
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-5">
+    <div className="mx-auto flex max-w-5xl flex-col gap-5">
       <Link
         href="/businesses"
         className="inline-flex items-center gap-1 text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"

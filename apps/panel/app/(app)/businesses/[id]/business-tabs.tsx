@@ -8,6 +8,11 @@ const TABS = [
   { segment: "", label: "Datos" },
   { segment: "branding", label: "Marca" },
   { segment: "onboarding", label: "Onboarding" },
+  { segment: "subscription", label: "Suscripción" },
+  { segment: "integrations", label: "Integraciones" },
+  { segment: "activity", label: "Actividad" },
+  { segment: "usage", label: "Consumo" },
+  { segment: "contacts", label: "Contactos" },
 ];
 
 export function BusinessTabs({ businessId }: { businessId: string }) {
@@ -16,7 +21,7 @@ export function BusinessTabs({ businessId }: { businessId: string }) {
   const current = pathname.startsWith(base) ? pathname.slice(base.length).replace(/^\//, "") : "";
 
   return (
-    <nav className="flex gap-1 border-b border-[var(--color-border)]">
+    <nav className="flex flex-wrap gap-1 border-b border-[var(--color-border)]">
       {TABS.map((tab) => {
         const active = current === tab.segment;
         return (

@@ -4,20 +4,33 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   agentFieldOrder,
+  changeStatusSchema,
+  connectWhatsAppSchema,
   createBusinessSchema,
+  extendSubscriptionSchema,
   onboardingManualSchema,
   updateBrandingSchema,
   updateBusinessSchema,
+  upsertContactSchema,
+  upsertPaymentCredentialsSchema,
+  upsertSubscriptionSchema,
   type BusinessBranding,
   type BusinessDetail,
+  type ClientContactDto,
   type OnboardingChecklist,
+  type PaymentCredentialsDto,
+  type SubscriptionPlanDto,
+  type WhatsAppAccountDto,
+  type WhatsAppHealth,
 } from "@spa/shared";
-import { adminMutate, ApiError } from "@/lib/backend";
+import { adminDelete, adminMutate, ApiError } from "@/lib/backend";
 
 export interface FormState {
   ok: boolean;
   error?: string;
   fieldErrors?: Record<string, string[]>;
+  /** Texto de éxito a medida; sin él, `FormAlert` muestra "Cambios guardados." */
+  message?: string;
 }
 
 /**
@@ -34,11 +47,26 @@ function zodToFieldErrors(issues: { path: (string | number)[]; message: string }
   return out;
 }
 
-/** Revalida las tres pestañas del negocio + el listado. */
+/**
+ * Revalida todas las pestañas del negocio + el listado. Se revalida en bloque a
+ * propósito: casi todo cambio cruza pestañas (guardar el plan mueve el
+ * checklist de onboarding; conectar WhatsApp también), y son páginas baratas.
+ */
+const BUSINESS_TABS = [
+  "",
+  "/branding",
+  "/onboarding",
+  "/subscription",
+  "/integrations",
+  "/activity",
+  "/usage",
+  "/contacts",
+];
+
 function revalidateBusiness(id: string): void {
-  revalidatePath(`/businesses/${id}`);
-  revalidatePath(`/businesses/${id}/branding`);
-  revalidatePath(`/businesses/${id}/onboarding`);
+  for (const tab of BUSINESS_TABS) {
+    revalidatePath(`/businesses/${id}${tab}`);
+  }
   revalidatePath("/businesses");
 }
 
@@ -153,6 +181,218 @@ export async function activateBusinessAction(
   } catch (e) {
     if (e instanceof ApiError) return { ok: false, error: e.message };
     return { ok: false, error: "No se pudo activar el negocio." };
+  }
+
+  revalidateBusiness(id);
+  return { ok: true };
+}
+
+// — Estado del negocio (§5) —
+
+/** Suspender, reactivar o cancelar. Exige motivo y queda en la bitácora. */
+export async function changeStatusAction(id: string, _prev: FormState, formData: FormData): Promise<FormState> {
+  const parsed = changeStatusSchema.safeParse({
+    status: formData.get("status"),
+    reason: formData.get("reason") ?? "",
+  });
+  if (!parsed.success) {
+    return { ok: false, error: "Escribe el motivo del cambio.", fieldErrors: zodToFieldErrors(parsed.error.issues) };
+  }
+
+  try {
+    await adminMutate<BusinessDetail>("POST", `/admin/businesses/${id}/status`, parsed.data);
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, error: e.message };
+    return { ok: false, error: "No se pudo cambiar el estado." };
+  }
+
+  revalidateBusiness(id);
+  revalidatePath("/dashboard");
+  return { ok: true, message: "Estado actualizado." };
+}
+
+// — Plan de suscripción (§6.5) —
+
+export async function upsertSubscriptionAction(id: string, _prev: FormState, formData: FormData): Promise<FormState> {
+  const parsed = upsertSubscriptionSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return { ok: false, error: "Revisa los campos.", fieldErrors: zodToFieldErrors(parsed.error.issues) };
+  }
+
+  try {
+    await adminMutate<SubscriptionPlanDto>("PUT", `/admin/businesses/${id}/subscription`, parsed.data);
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, error: e.message, fieldErrors: e.fieldErrors };
+    return { ok: false, error: "No se pudo guardar el plan." };
+  }
+
+  revalidateBusiness(id);
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+/** Corre la vigencia sin cobrar (cortesías, extender la prueba). */
+export async function extendSubscriptionAction(id: string, _prev: FormState, formData: FormData): Promise<FormState> {
+  const parsed = extendSubscriptionSchema.safeParse({
+    days: formData.get("days"),
+    reason: formData.get("reason") ?? "",
+  });
+  if (!parsed.success) {
+    return { ok: false, error: "Indica cuántos días.", fieldErrors: zodToFieldErrors(parsed.error.issues) };
+  }
+
+  try {
+    const plan = await adminMutate<SubscriptionPlanDto>(
+      "POST",
+      `/admin/businesses/${id}/subscription/extend`,
+      parsed.data,
+    );
+    revalidateBusiness(id);
+    revalidatePath("/dashboard");
+    return { ok: true, message: `Nueva vigencia: ${plan.validUntil}.` };
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, error: e.message };
+    return { ok: false, error: "No se pudo extender la vigencia." };
+  }
+}
+
+// — Integraciones (§7 y §D3) —
+
+export async function connectWhatsAppAction(id: string, _prev: FormState, formData: FormData): Promise<FormState> {
+  const parsed = connectWhatsAppSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return { ok: false, error: "Revisa los datos de Meta.", fieldErrors: zodToFieldErrors(parsed.error.issues) };
+  }
+
+  try {
+    await adminMutate<WhatsAppAccountDto>("POST", `/admin/businesses/${id}/whatsapp`, parsed.data);
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, error: e.message, fieldErrors: e.fieldErrors };
+    return { ok: false, error: "No se pudo conectar el número." };
+  }
+
+  revalidateBusiness(id);
+  return { ok: true, message: "Número conectado." };
+}
+
+/** Consulta la Graph API y guarda calidad y límite de mensajería del número. */
+export async function verifyWhatsAppAction(
+  id: string,
+  accountId: string,
+  _prev: FormState,
+  _formData: FormData,
+): Promise<FormState> {
+  try {
+    const health = await adminMutate<WhatsAppHealth>(
+      "POST",
+      `/admin/businesses/${id}/whatsapp/${accountId}/verify`,
+      {},
+    );
+    revalidateBusiness(id);
+    return health.ok ? { ok: true, message: health.detail } : { ok: false, error: health.detail };
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, error: e.message };
+    return { ok: false, error: "No se pudo verificar el número." };
+  }
+}
+
+export async function disconnectWhatsAppAction(
+  id: string,
+  accountId: string,
+  _prev: FormState,
+  _formData: FormData,
+): Promise<FormState> {
+  try {
+    await adminDelete(`/admin/businesses/${id}/whatsapp/${accountId}`);
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, error: e.message };
+    return { ok: false, error: "No se pudo desconectar el número." };
+  }
+
+  revalidateBusiness(id);
+  return { ok: true, message: "Número desconectado." };
+}
+
+export async function upsertPaymentCredentialsAction(
+  id: string,
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const parsed = upsertPaymentCredentialsSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return { ok: false, error: "Revisa las llaves.", fieldErrors: zodToFieldErrors(parsed.error.issues) };
+  }
+
+  try {
+    await adminMutate<PaymentCredentialsDto>(
+      "PUT",
+      `/admin/businesses/${id}/payment-credentials`,
+      parsed.data,
+    );
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, error: e.message, fieldErrors: e.fieldErrors };
+    return { ok: false, error: "No se pudieron guardar las llaves." };
+  }
+
+  revalidateBusiness(id);
+  return { ok: true, message: "Llaves guardadas y cifradas." };
+}
+
+export async function deletePaymentCredentialsAction(
+  id: string,
+  _prev: FormState,
+  _formData: FormData,
+): Promise<FormState> {
+  try {
+    await adminDelete(`/admin/businesses/${id}/payment-credentials`);
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, error: e.message };
+    return { ok: false, error: "No se pudieron eliminar las llaves." };
+  }
+
+  revalidateBusiness(id);
+  return { ok: true, message: "El negocio vuelve a las llaves globales." };
+}
+
+// — Contactos del cliente (§4) —
+
+export async function saveContactAction(
+  id: string,
+  contactId: string | null,
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const parsed = upsertContactSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return { ok: false, error: "Revisa los campos.", fieldErrors: zodToFieldErrors(parsed.error.issues) };
+  }
+
+  try {
+    if (contactId) {
+      await adminMutate<ClientContactDto>("PATCH", `/admin/businesses/${id}/contacts/${contactId}`, parsed.data);
+    } else {
+      await adminMutate<ClientContactDto>("POST", `/admin/businesses/${id}/contacts`, parsed.data);
+    }
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, error: e.message, fieldErrors: e.fieldErrors };
+    return { ok: false, error: "No se pudo guardar el contacto." };
+  }
+
+  revalidateBusiness(id);
+  return { ok: true };
+}
+
+export async function deleteContactAction(
+  id: string,
+  contactId: string,
+  _prev: FormState,
+  _formData: FormData,
+): Promise<FormState> {
+  try {
+    await adminDelete(`/admin/businesses/${id}/contacts/${contactId}`);
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, error: e.message };
+    return { ok: false, error: "No se pudo eliminar el contacto." };
   }
 
   revalidateBusiness(id);

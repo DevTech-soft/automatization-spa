@@ -19,15 +19,19 @@ import { activateBusinessAction, setOnboardingFlagAction, type FormState } from 
 const STEP_LINK: Partial<Record<OnboardingStepKey, { href: string; label: string }>> = {
   basics: { href: "", label: "Ir a Datos" },
   branding: { href: "/branding", label: "Ir a Marca" },
+  whatsapp: { href: "/integrations", label: "Conectar" },
+  whatsappProfile: { href: "/integrations", label: "Ver número" },
+  payment: { href: "/integrations", label: "Cargar llaves" },
+  plan: { href: "/subscription", label: "Definir plan" },
 };
 
 const STEP_NOTE: Partial<Record<OnboardingStepKey, string>> = {
   services: "Se cargan por la API de servicios del backend; el editor llega después.",
   schedule: "Horarios de atención del negocio en la base de datos.",
-  whatsapp: "Se conecta con Embedded Signup (F4). Puente manual mientras Meta aprueba.",
-  payment: "Llaves de Wompi del negocio, cifradas (F2).",
+  whatsapp: "Alta manual del número mientras Meta aprueba el Embedded Signup.",
+  payment: "Sin llaves propias el negocio cobra con las del operador.",
   googleSheet: "Opcional: `settings.googleSheetId`.",
-  plan: "Plan y vigencia del cobro al cliente (F5).",
+  plan: "Plan y vigencia del cobro al cliente.",
 };
 
 function StepIcon({ step }: { step: OnboardingStep }) {
