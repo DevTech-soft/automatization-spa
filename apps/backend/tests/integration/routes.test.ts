@@ -57,6 +57,16 @@ vi.mock("../../src/services/gift-card.service.js", () => ({
 vi.mock("../../src/integrations/whatsapp/index.js", () => ({
   getWhatsAppWebhookReader: vi.fn(() => ({ validateWebhookSignature: vi.fn().mockReturnValue(true) })),
 }));
+vi.mock("../../src/services/whatsapp-signup.service.js", () => ({
+  getSignupInvite: vi.fn().mockResolvedValue({
+    businessName: "Spa Demo",
+    status: "PENDING",
+    expiresAt: "2026-09-11T00:00:00.000Z",
+    unavailableReason: null,
+    config: { enabled: true, appId: "app-1", configId: "config-1", graphVersion: "v21.0" },
+  }),
+  completeSignupFromInvite: vi.fn().mockResolvedValue({ account: { id: "wa-1" }, steps: [] }),
+}));
 vi.mock("../../src/db/prisma.js", () => ({
   prisma: { $queryRaw: vi.fn().mockResolvedValue([{ ok: 1 }]) },
 }));
@@ -66,6 +76,7 @@ const { createPayment, processPaymentWebhook } = await import("../../src/service
 const { handleIncomingWhatsAppMessage } = await import("../../src/services/whatsapp-conversation.service.js");
 const { getWhatsAppWebhookReader } = await import("../../src/integrations/whatsapp/index.js");
 const { createGiftCard, redeemGiftCard } = await import("../../src/services/gift-card.service.js");
+const { getSignupInvite } = await import("../../src/services/whatsapp-signup.service.js");
 
 describe("rutas de Fase 2", () => {
   it("GET /api/business/:slug responde 200 con los datos del negocio", async () => {
@@ -401,6 +412,66 @@ describe("rutas de Fase 8 — Gift Cards", () => {
     }
 
     expect(lastResponse!.statusCode).toBe(429);
+    await app.close();
+  });
+});
+
+/**
+ * Embedded Signup (docs/PANEL-OPERADOR.md §7.4). Lo que se prueba acá es la
+ * superficie pública: son las únicas rutas del flujo sin sesión, así que lo
+ * interesante es qué acepta y con qué política de contenido sirve la página.
+ */
+describe("auto-conexión de WhatsApp", () => {
+  const TOKEN = "P5rGgBtFa0kQ5rHhV2jWn8LmXcYdTgUiOpAsDfGhJkL";
+
+  it("GET /conectar/:token sirve la página y afloja la CSP solo para Facebook", async () => {
+    const app = await buildApp();
+    const response = await app.inject({ method: "GET", url: `/conectar/${TOKEN}` });
+
+    expect(response.statusCode).toBe(200);
+    const csp = response.headers["content-security-policy"] as string;
+    expect(csp).toContain("https://connect.facebook.net");
+    expect(csp).toContain("frame-src https://www.facebook.com");
+    await app.close();
+  });
+
+  it("la CSP de las demás páginas sigue sin permitir scripts de terceros", async () => {
+    const app = await buildApp();
+    const response = await app.inject({ method: "GET", url: "/reservar" });
+
+    expect(response.headers["content-security-policy"]).not.toContain("facebook");
+    await app.close();
+  });
+
+  it("GET /api/whatsapp/signup/:token devuelve la portada del enlace", async () => {
+    const app = await buildApp();
+    const response = await app.inject({ method: "GET", url: `/api/whatsapp/signup/${TOKEN}` });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data.businessName).toBe("Spa Demo");
+    expect(getSignupInvite).toHaveBeenCalledWith(TOKEN);
+    await app.close();
+  });
+
+  it("un token con forma inválida se rechaza sin consultar la base", async () => {
+    const app = await buildApp();
+    vi.mocked(getSignupInvite).mockClear();
+    const response = await app.inject({ method: "GET", url: "/api/whatsapp/signup/nope" });
+
+    expect(response.statusCode).toBe(400);
+    expect(getSignupInvite).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("POST /api/whatsapp/signup/:token exige los tres datos del popup", async () => {
+    const app = await buildApp();
+    const response = await app.inject({
+      method: "POST",
+      url: `/api/whatsapp/signup/${TOKEN}`,
+      payload: { code: "AQDxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" },
+    });
+
+    expect(response.statusCode).toBe(400);
     await app.close();
   });
 });

@@ -226,6 +226,38 @@ responde `200` si la firma es válida, para que Meta no reintente.
 - `401 WEBHOOK_VERIFICATION_ERROR` si la firma no es válida (y hay
   `WHATSAPP_APP_SECRET` configurado — ver docs/WHATSAPP.md).
 
+### Embedded Signup de WhatsApp (público, sin sesión)
+
+Las dos únicas rutas del flujo sin autenticación: las abre el dueño del spa con
+el enlace que le mandó el operador. La autorización es el token del enlace, y su
+poder es exactamente uno: conectar **un** número a **un** negocio. Límite de tasa
+propio, 20/min. Ver docs/PANEL-OPERADOR.md §7.4.
+
+#### `GET /api/whatsapp/signup/:token`
+
+Portada del enlace: `businessName`, `status`, `expiresAt`, `unavailableReason`
+(texto listo para mostrar cuando ya no sirve) y la config pública del popup.
+
+- `400` si el token no tiene la forma esperada (no se consulta la base).
+- `404` si no existe **o** si venció — a propósito responden igual, para no
+  volver el endpoint un oráculo de tokens válidos.
+
+#### `POST /api/whatsapp/signup/:token`
+
+Body: `code`, `wabaId`, `phoneNumberId`, `businessPortfolioId?`. Canjea el
+código, suscribe la app a la WABA, registra el número en Cloud API y devuelve
+`{ account, steps }`.
+
+- `400` si el enlace ya se usó, fue cancelado o venció.
+- `400` si ese `phone_number_id` ya pertenece a otro negocio.
+- `502 META_GRAPH_ERROR` si Meta rechaza alguno de los pasos. El enlace **sigue
+  sirviendo**: el motivo queda en `last_error` y se puede reintentar.
+
+### `GET /conectar/:token`
+
+La página que abre el cliente (HTML estático del backend, como `/reservar`).
+Lleva una CSP propia, ampliada solo con los orígenes de Facebook.
+
 ## Fase 8 — Gift Cards
 
 Ver `docs/GIFT-CARDS.md` para el detalle del flujo completo (creación → pago
@@ -406,6 +438,11 @@ comparten las mismas reglas:
 | `PATCH /admin/businesses/:id/whatsapp/:accountId` | nombre visible, número visible, `active`, o rotar el token |
 | `DELETE /admin/businesses/:id/whatsapp/:accountId` | desconecta → `204` |
 | `POST /admin/businesses/:id/whatsapp/:accountId/verify` | consulta la Graph API y persiste calidad y tier de mensajería. Un fallo de Meta vuelve como `{ ok: false, detail }`, no como error HTTP |
+| `GET /admin/whatsapp/embedded-signup` | si el Embedded Signup está habilitado en este despliegue (`enabled`, `appId`, `configId`, `graphVersion`). Con `enabled: false` el panel oculta el botón de Facebook — docs/PANEL-OPERADOR.md §7.4 |
+| `GET /admin/businesses/:id/whatsapp/signup-links` | enlaces de auto-conexión del negocio. `url` siempre viene `null`: de la base solo se puede recuperar el hash del token |
+| `POST /admin/businesses/:id/whatsapp/signup-links` | genera un enlace de un solo uso → `201`. **La `url` con el token viene solo en esta respuesta.** Revoca los pendientes del negocio |
+| `DELETE /admin/businesses/:id/whatsapp/signup-links/:sessionId` | cancela un enlace pendiente → `204` |
+| `POST /admin/businesses/:id/whatsapp/embedded-signup` | completa el signup con el `code` del popup abierto en el panel → `201` con `{ account, steps }` |
 | `GET /admin/businesses/:id/payment-credentials` | estado de las llaves de Wompi; `usingGlobalFallback: true` cuando el negocio todavía cobra con las del operador |
 | `PUT /admin/businesses/:id/payment-credentials` | guarda las 4 llaves cifradas |
 | `DELETE /admin/businesses/:id/payment-credentials` | vuelve al fallback global |

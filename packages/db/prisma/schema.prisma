@@ -152,6 +152,7 @@ model Business {
   notificationLogs      NotificationLog[]
   whatsAppConversations WhatsAppConversation[]
   whatsAppAccounts      WhatsAppAccount[]
+  whatsAppSignupSessions WhatsAppSignupSession[]
   paymentCredentials    PaymentCredentials?
   subscriptionPlan      SubscriptionPlan?
   operatorInvoices      OperatorInvoice[]
@@ -382,6 +383,15 @@ model WhatsAppAccount {
   qualityRating      String?  @map("quality_rating")
   /// Tier de mensajería de Meta: TIER_250 | TIER_1K | TIER_10K | ...
   messagingLimit     String?  @map("messaging_limit")
+  /// Cómo llegó el número: alta manual del operador (puente §7.3) o Embedded Signup (§7).
+  onboardingSource   WhatsAppOnboardingSource @default(MANUAL) @map("onboarding_source")
+  /// Business portfolio del cliente en Meta; lo devuelve el Embedded Signup.
+  businessPortfolioId String? @map("business_portfolio_id")
+  /// PIN de verificación en dos pasos con el que se registró el número en Cloud API.
+  /// Cifrado (§9): sin él no se puede volver a registrar el número si Meta lo desactiva.
+  registrationPinEnc String?  @map("registration_pin_enc")
+  /// Cuándo se completó POST /{phone_number_id}/register contra Cloud API.
+  registeredAt       DateTime? @map("registered_at")
   active             Boolean  @default(true)
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
@@ -679,4 +689,55 @@ model Invitation {
   @@index([organizationId])
   @@index([email])
   @@map("invitation")
+}
+
+/// Cómo se dio de alta un número de WhatsApp (docs/PANEL-OPERADOR.md §7).
+enum WhatsAppOnboardingSource {
+  /// El operador escribió los identificadores a mano — el puente de §7.3.
+  MANUAL
+  /// El cliente hizo login con Facebook y Meta devolvió el code (§7.4).
+  EMBEDDED_SIGNUP
+}
+
+/// Estado del enlace de auto-conexión que el operador le manda al cliente (§7.4).
+enum WhatsAppSignupSessionStatus {
+  PENDING
+  COMPLETED
+  REVOKED
+  EXPIRED
+}
+
+/// Enlace de un solo uso para que el **cliente** conecte su propio WhatsApp con
+/// Embedded Signup (docs/PANEL-OPERADOR.md §7.4).
+///
+/// Existe porque el Embedded Signup lo tiene que completar el dueño de la WABA
+/// con **su** cuenta de Facebook y **su** tarjeta (D2): el operador no puede
+/// hacerlo por él desde el panel. El operador genera el enlace, se lo manda por
+/// WhatsApp, y el cliente lo abre y hace un solo login.
+///
+/// El token en claro nunca se guarda: solo su SHA-256, igual que un enlace de
+/// recuperación de contraseña. Se muestra una vez, al crearlo.
+model WhatsAppSignupSession {
+  id            String                      @id @default(uuid())
+  businessId    String                      @map("business_id")
+  /// SHA-256 (hex) del token del enlace.
+  tokenHash     String                      @unique @map("token_hash")
+  status        WhatsAppSignupSessionStatus @default(PENDING)
+  expiresAt     DateTime                    @map("expires_at")
+  /// Operador que generó el enlace (userId de Better Auth).
+  createdBy     String                      @map("created_by")
+  completedAt   DateTime?                   @map("completed_at")
+  /// Cuenta creada al completar; NULL mientras el enlace siga pendiente.
+  accountId     String?                     @map("account_id")
+  wabaId        String?                     @map("waba_id")
+  phoneNumberId String?                     @map("phone_number_id")
+  /// Último error de Meta, para que el operador vea por qué falló sin entrar a los logs.
+  lastError     String?                     @map("last_error")
+  createdAt     DateTime                    @default(now()) @map("created_at")
+  updatedAt     DateTime                    @updatedAt @map("updated_at")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, status])
+  @@map("whatsapp_signup_sessions")
 }

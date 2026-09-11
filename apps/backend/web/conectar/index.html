@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Conectar WhatsApp</title>
+    <meta name="description" content="Conecta el WhatsApp de tu negocio en un solo paso." />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <div class="shell" style="max-width: 520px;">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand__mark">Spa</span>
+          <span class="brand__tag">Conectar WhatsApp</span>
+        </div>
+      </header>
+
+      <main>
+        <!-- Mientras se resuelve el enlace contra el backend. -->
+        <section class="panel" id="loadingPanel">
+          <p class="panel__eyebrow">Un momento</p>
+          <h1 class="panel__title">Abriendo tu enlace…</h1>
+          <p class="panel__hint">Estamos verificando que siga vigente.</p>
+        </section>
+
+        <!-- Enlace vencido, cancelado o ya usado: no hay nada que hacer aquí. -->
+        <section class="panel" id="unavailablePanel" hidden>
+          <p class="panel__eyebrow">Enlace no disponible</p>
+          <h1 class="panel__title" id="unavailableTitle">Este enlace ya no sirve</h1>
+          <p class="panel__hint" id="unavailableReason"></p>
+        </section>
+
+        <!-- El caso normal: el enlace sirve y falta que el dueño autorice. -->
+        <section class="panel" id="readyPanel" hidden>
+          <p class="panel__eyebrow" id="readyBusiness"></p>
+          <h1 class="panel__title">Conecta tu WhatsApp</h1>
+          <p class="panel__hint">
+            Vas a entrar con tu cuenta de Facebook y autorizar el número de WhatsApp con el que tu
+            negocio le responde a sus clientas. La cuenta de WhatsApp Business queda a tu nombre:
+            nosotros solo quedamos autorizados para enviar y recibir los mensajes del sistema de
+            reservas.
+          </p>
+
+          <div class="receipt">
+            <div class="receipt__row">
+              <span class="receipt__label">1</span>
+              <span>Inicias sesión con tu Facebook.</span>
+            </div>
+            <div class="receipt__row">
+              <span class="receipt__label">2</span>
+              <span>Eliges (o creas) tu cuenta de WhatsApp Business y tu número.</span>
+            </div>
+            <div class="receipt__row">
+              <span class="receipt__label">3</span>
+              <span>Confirmas el número con el código que te llega.</span>
+            </div>
+          </div>
+
+          <div id="readyError"></div>
+          <div class="actions">
+            <button type="button" class="btn btn-primary btn-block" id="connectButton">
+              Continuar con Facebook
+            </button>
+          </div>
+          <p class="panel__hint" style="margin-top: 0.9rem;">
+            Ten a la mano el teléfono del número que vas a conectar: Meta te va a mandar un código
+            de verificación.
+          </p>
+        </section>
+
+        <!-- El popup ya devolvió el código; el backend está hablando con Meta. -->
+        <section class="panel" id="workingPanel" hidden>
+          <p class="panel__eyebrow">Conectando</p>
+          <h1 class="panel__title">Terminando de configurar…</h1>
+          <p class="panel__hint">
+            Estamos registrando tu número. No cierres esta página; toma unos segundos.
+          </p>
+        </section>
+
+        <!-- Listo. -->
+        <section class="panel" id="donePanel" hidden>
+          <p class="panel__eyebrow">Listo</p>
+          <h1 class="panel__title">Tu WhatsApp quedó conectado</h1>
+          <div class="receipt" id="doneSteps"></div>
+          <p class="panel__hint">
+            Ya puedes cerrar esta página. Si algo no funciona, escríbele a quien te envió el enlace.
+          </p>
+        </section>
+
+        <!-- El flujo se cayó, pero el enlace sigue sirviendo. -->
+        <section class="panel" id="failedPanel" hidden>
+          <p class="panel__eyebrow">No se pudo conectar</p>
+          <h1 class="panel__title">Algo falló en el último paso</h1>
+          <div id="failedError"></div>
+          <p class="panel__hint">
+            El enlace sigue siendo válido: puedes intentarlo otra vez. Si vuelve a fallar,
+            reenvíale este mensaje a quien te lo compartió.
+          </p>
+          <div class="actions">
+            <button type="button" class="btn btn-primary btn-block" id="retryButton">
+              Intentar de nuevo
+            </button>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="/js/conectar.js"></script>
+  </body>
+</html>

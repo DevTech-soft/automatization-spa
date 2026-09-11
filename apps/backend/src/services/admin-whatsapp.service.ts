@@ -6,6 +6,7 @@ import type {
 } from "@spa/shared";
 import type { Prisma, WhatsAppAccount } from "@spa/db";
 import { whatsAppAccountRepository } from "../repositories/whatsAppAccount.repository.js";
+import { whatsAppSignupSessionRepository } from "../repositories/whatsAppSignupSession.repository.js";
 import { adminBusinessRepository } from "../repositories/adminBusiness.repository.js";
 import { auditLogRepository } from "../repositories/auditLog.repository.js";
 import { NotFoundError, ValidationError } from "../errors/index.js";
@@ -29,7 +30,12 @@ import { logger } from "../utils/logger.js";
 
 const GRAPH_API_BASE = "https://graph.facebook.com/v21.0";
 
-function toDto(row: WhatsAppAccount): WhatsAppAccountDto {
+/**
+ * Fila → DTO del panel. Exportado porque `whatsapp-signup.service.ts` devuelve
+ * la misma forma cuando el número entra por Embedded Signup: es la misma cuenta,
+ * solo cambia la puerta por la que llegó.
+ */
+export function toWhatsAppAccountDto(row: WhatsAppAccount): WhatsAppAccountDto {
   return {
     id: row.id,
     businessId: row.businessId,
@@ -41,11 +47,16 @@ function toDto(row: WhatsAppAccount): WhatsAppAccountDto {
     subscriptionStatus: row.subscriptionStatus,
     qualityRating: row.qualityRating,
     messagingLimit: row.messagingLimit,
+    onboardingSource: row.onboardingSource,
+    businessPortfolioId: row.businessPortfolioId,
+    registered: row.registeredAt !== null,
     active: row.active,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
 }
+
+const toDto = toWhatsAppAccountDto;
 
 async function requireBusiness(businessId: string): Promise<void> {
   const business = await adminBusinessRepository.findDetail(businessId);
@@ -93,6 +104,10 @@ export async function connectWhatsAppAccount(
     accessToken: input.accessToken,
   });
   const dto = toDto(row);
+
+  // Si había un enlace de auto-conexión esperando (§7.4), ya no aplica: el
+  // número entró por otra puerta y el cliente no debería poder abrirlo después.
+  await whatsAppSignupSessionRepository.revokePending(businessId);
 
   await auditLogRepository.record({
     actor,

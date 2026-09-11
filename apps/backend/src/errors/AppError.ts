@@ -55,3 +55,14 @@ export class UnauthorizedError extends AppError {
   readonly statusCode = 401;
   readonly code = "UNAUTHORIZED";
 }
+
+/**
+ * Meta rechazó una llamada a la Graph API durante el Embedded Signup
+ * (docs/PANEL-OPERADOR.md §7.4). 502 y no 400: el que falló fue un tercero, no
+ * quien nos llamó. `details` lleva el error crudo de Meta (`code`,
+ * `error_subcode`, `fbtrace_id`) para poder diagnosticar sin los logs.
+ */
+export class MetaGraphError extends AppError {
+  readonly statusCode = 502;
+  readonly code = "META_GRAPH_ERROR";
+}

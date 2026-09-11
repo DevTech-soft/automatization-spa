@@ -1,4 +1,4 @@
-import type { Prisma, WhatsAppAccount } from "@spa/db";
+import type { Prisma, WhatsAppAccount, WhatsAppOnboardingSource } from "@spa/db";
 import { prisma } from "../db/prisma.js";
 import { decryptSecret, encryptSecret } from "../utils/crypto.js";
 
@@ -25,6 +25,15 @@ export interface UpsertWhatsAppAccountInput {
   displayPhoneNumber?: string | null;
   displayName?: string | null;
   accessToken: string;
+  /** Solo lo manda el Embedded Signup (§7.4); el alta manual deja el default MANUAL. */
+  onboardingSource?: WhatsAppOnboardingSource;
+  businessPortfolioId?: string | null;
+  /** PIN de dos pasos en claro; se cifra acá, igual que el token. */
+  registrationPin?: string | null;
+  registeredAt?: Date | null;
+  subscriptionStatus?: string | null;
+  qualityRating?: string | null;
+  messagingLimit?: string | null;
 }
 
 export const whatsAppAccountRepository = {
@@ -92,6 +101,22 @@ export const whatsAppAccountRepository = {
       displayName: input.displayName ?? null,
       accessTokenEnc: encryptSecret(input.accessToken),
       active: true,
+      // Los campos del Embedded Signup son opcionales: en el alta manual no se
+      // tocan, y reconectar por el panel un número que vino del signup no debe
+      // borrar su PIN ni fingir que se dio de alta a mano.
+      ...(input.onboardingSource ? { onboardingSource: input.onboardingSource } : {}),
+      ...(input.businessPortfolioId !== undefined
+        ? { businessPortfolioId: input.businessPortfolioId }
+        : {}),
+      ...(input.registrationPin
+        ? { registrationPinEnc: encryptSecret(input.registrationPin) }
+        : {}),
+      ...(input.registeredAt !== undefined ? { registeredAt: input.registeredAt } : {}),
+      ...(input.subscriptionStatus !== undefined
+        ? { subscriptionStatus: input.subscriptionStatus }
+        : {}),
+      ...(input.qualityRating !== undefined ? { qualityRating: input.qualityRating } : {}),
+      ...(input.messagingLimit !== undefined ? { messagingLimit: input.messagingLimit } : {}),
     };
     return prisma.whatsAppAccount.upsert({
       where: { phoneNumberId: input.phoneNumberId },

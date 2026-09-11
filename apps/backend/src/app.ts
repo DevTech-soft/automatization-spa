@@ -19,6 +19,7 @@ import { paymentRoutes } from "./routes/payment.route.js";
 import { giftCardRoutes } from "./routes/giftCard.route.js";
 import { webRoutes } from "./routes/web.route.js";
 import { whatsappRoutes } from "./routes/whatsapp.route.js";
+import { whatsappSignupRoutes } from "./routes/whatsapp-signup.route.js";
 import { authRoutes } from "./routes/auth.route.js";
 import { adminRoutes } from "./routes/admin.route.js";
 import { isPanelAuthEnabled } from "./auth/better-auth.js";
@@ -89,6 +90,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(paymentRoutes);
   await app.register(giftCardRoutes);
   await app.register(whatsappRoutes);
+  await app.register(whatsappSignupRoutes);
   await app.register(webRoutes);
 
   return app;

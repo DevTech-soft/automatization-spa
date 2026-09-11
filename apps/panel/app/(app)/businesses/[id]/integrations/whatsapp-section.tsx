@@ -1,10 +1,15 @@
 "use client";
 
 import { useActionState } from "react";
-import type { WhatsAppAccountDto } from "@spa/shared";
+import type {
+  EmbeddedSignupConfigDto,
+  WhatsAppAccountDto,
+  WhatsAppSignupSessionDto,
+} from "@spa/shared";
 import { Input } from "@/components/ui/input";
 import { Field, FormAlert, SubmitButton } from "@/components/ui/form-field";
 import { formatDateTime } from "@/lib/format";
+import { EmbeddedSignupPanel } from "./embedded-signup";
 import {
   connectWhatsAppAction,
   disconnectWhatsAppAction,
@@ -15,18 +20,27 @@ import {
 /**
  * Conexión del número de WhatsApp del cliente (docs/PANEL-OPERADOR.md §7).
  *
- * Hoy es una alta manual: el Embedded Signup —el flujo de "continuar con
- * Facebook" que evita todo esto— exige la verificación de negocio en Meta, que
- * a su vez exige la formalización pendiente (D7/M-1). Mientras tanto se usa el
- * puente de §7.3: el número del cliente vive bajo la WABA del operador y aquí
- * se registran sus identificadores.
+ * Hay dos puertas y las dos terminan en la misma fila de `whatsapp_accounts`:
+ *
+ * - **Embedded Signup** (§7.4): el cliente entra con su Facebook y la WABA queda
+ *   a su nombre. Es el destino, y requiere la app de Meta aprobada (§7.1).
+ * - **Alta manual** (§7.3): el operador escribe los identificadores y el número
+ *   vive bajo *su* WABA. Es el puente mientras Meta no apruebe, y sigue siendo
+ *   la salida cuando el signup falla.
+ *
+ * Por eso se muestran las dos, en ese orden, en vez de esconder la manual: el
+ * puente no sobra el día que el signup se habilite.
  */
 export function WhatsAppSection({
   businessId,
   accounts,
+  signupConfig,
+  signupSessions,
 }: {
   businessId: string;
   accounts: WhatsAppAccountDto[];
+  signupConfig: EmbeddedSignupConfigDto;
+  signupSessions: WhatsAppSignupSessionDto[];
 }) {
   return (
     <section className="flex flex-col gap-4">
@@ -52,6 +66,12 @@ export function WhatsAppSection({
           <code className="mx-1 font-mono text-xs">phone_number_id</code>.
         </p>
       )}
+
+      <EmbeddedSignupPanel
+        businessId={businessId}
+        config={signupConfig}
+        sessions={signupSessions}
+      />
 
       <ConnectForm businessId={businessId} hasAccounts={accounts.length > 0} />
     </section>

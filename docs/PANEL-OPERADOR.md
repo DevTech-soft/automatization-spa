@@ -75,7 +75,7 @@ pero las integraciones **no lo son**. Eso es el grueso del trabajo:
 
 | Integración | Hoy | Debe pasar a |
 |---|---|---|
-| WhatsApp | `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` (env únicas) | ✅ **F4 (envío)**: `WhatsAppAccount` por negocio (`wabaId`, `phoneNumberId`, token cifrado) resuelto por `resolveWhatsAppProviderForBusiness`, con fallback a las env. Falta el Embedded Signup (alta manual por ahora, §7.3) |
+| WhatsApp | `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` (env únicas) | ✅ **F4 (envío)**: `WhatsAppAccount` por negocio (`wabaId`, `phoneNumberId`, token cifrado) resuelto por `resolveWhatsAppProviderForBusiness`, con fallback a las env. ✅ **Embedded Signup construido** (§7.4), apagado hasta el App Review; el alta manual de §7.3 queda como puente y como salida de emergencia |
 | Wompi | `PAYMENT_API_KEY`, `PAYMENT_PUBLIC_KEY`, `PAYMENT_INTEGRITY_SECRET`, `PAYMENT_WEBHOOK_SECRET` (env únicas) | ✅ **F2**: tabla `PaymentCredentials` por negocio, cifrada (con fallback a las env) |
 | Google Sheets | `GOOGLE_*` + `GOOGLE_SHEET_ID` (env únicas) | config por negocio (opcional, fase tardía) |
 | Agente n8n | `SPA_AGENT_TOKEN` compartido, negocio se resuelve por `businessId` | ✅ ya sirve, no cambia |
@@ -188,7 +188,7 @@ El panel muestra un **checklist con estado** por negocio; el negocio queda en
 | 1. Datos básicos (nombre, slug, timezone, moneda) + contacto del dueño | operador | panel |
 | 2. Marca: logo, colores, persona del agente (`settings.agent`) | operador | panel |
 | 3. Servicios + horarios de atención | operador | panel |
-| 4. **WhatsApp**: el cliente hace Embedded Signup (login FB → elige/crea WABA y número → autoriza). El backend intercambia el código por token, registra el número y suscribe la app a la WABA | cliente + backend (automático) | panel (botón) → Meta |
+| 4. **WhatsApp**: el cliente hace Embedded Signup (login FB → elige/crea WABA y número → autoriza). El backend intercambia el código por token, registra el número y suscribe la app a la WABA (✅ §7.4) | cliente + backend (automático) | enlace de auto-conexión, o botón del panel → Meta |
 | 5. Aprobar nombre visible de WhatsApp y foto de perfil | operador (envía a revisión de Meta) | panel → API de Meta |
 | 6. **Wompi**: el operador crea la cuenta en Wompi, pega las 4 llaves, el sistema configura el webhook de Wompi apuntando al backend | operador | panel + dashboard de Wompi |
 | 7. Google Sheet (opcional) | operador | panel |
@@ -412,14 +412,105 @@ de cada negocio):
   calidad del número y su tier de mensajería, que se persisten.
 - **Desconectar**: el negocio vuelve a las credenciales globales del operador.
 
-`connectWhatsAppAccount` es el **punto único de alta**: cuando M0 desbloquee el
-Embedded Signup, su callback llamará a esa misma función con lo que devuelva el
-token exchange, en vez de con lo que escribió el operador. Nada del envío ni de
-la resolución de tenant cambia.
+`connectWhatsAppAccount` era el **punto único de alta**, y sigue siéndolo en lo
+que importa: el Embedded Signup (§7.4) escribe la misma fila por el mismo
+repositorio, solo que con lo que devuelve el token exchange en vez de con lo que
+escribió el operador. Nada del envío ni de la resolución de tenant cambia.
 
 Sigue siendo un puente, no el destino: el operador posee la WABA, el cliente no
 "hace login" en nada, y los topes de un negocio no verificado (típicamente 2
 números / 250 destinatarios por día) mandan.
+
+### 7.4 Embedded Signup (✅ construido, apagado hasta el App Review)
+
+El destino de §7.3. El cliente hace **un** login con Facebook y el backend deja
+el número listo para operar sin que nadie copie identificadores a mano.
+
+**Está implementado y probado, pero llega apagado**: sin `META_APP_ID` y
+`META_EMBEDDED_SIGNUP_CONFIG_ID` el panel oculta el botón y solo ofrece el alta
+manual, en vez de mostrar un botón que va a fallar. El día que Meta apruebe la
+app (§7.1) se llenan las dos variables y el flujo queda vivo sin desplegar nada
+nuevo.
+
+#### Las dos mitades
+
+La mitad del **browser** la maneja el SDK de Facebook y devuelve el resultado
+por dos canales distintos, que hay que juntar: `postMessage`
+(`WA_EMBEDDED_SIGNUP`) trae `waba_id` y `phone_number_id`, y el callback de
+`FB.login` trae el `code`. Ninguno de los dos trae todo.
+
+La mitad de **servidor** (`integrations/whatsapp/embedded-signup.ts`) es la que
+convierte eso en un número que puede mandar mensajes, en este orden y no otro:
+
+| # | Llamada | Por qué ahí |
+|---|---|---|
+| 1 | `POST /oauth/access_token` (canje del `code`) | El `code` es de un solo uso y de vida corta. Meta devuelve un *business integration system user access token*: **no expira** y es lo único que se guarda (cifrado, §9). |
+| 2 | `POST /{waba_id}/subscribed_apps` | Sin esto el webhook **nunca** recibe nada. Es el gotcha que `docs/WHATSAPP.md` documenta a mano; aquí es obligatorio y automático, y si falla se aborta el alta en vez de dejar una cuenta muda. |
+| 3 | `POST /{phone_number_id}/register` | Habilita el número en Cloud API con un PIN de dos pasos generado al vuelo y guardado cifrado (hace falta para re-registrar si Meta lo desactiva). Un número ya registrado (error 133006) se trata como éxito idempotente. |
+| 4 | `GET /{phone_number_id}` | Nombre visible, calidad y tier, para el panel. |
+
+La fila de `whatsapp_accounts` se escribe **al final**: esa fila significa "este
+negocio puede mandar y recibir por acá", y hasta el paso 3 eso no es cierto. Si
+algo falla, el negocio se queda como estaba —con el fallback a las credenciales
+globales del operador— en vez de quedar a medio conectar.
+
+El resultado es idéntico al del alta manual salvo por `onboarding_source`, así
+que `resolveWhatsAppProviderForBusiness`, el webhook multi-WABA y el checklist
+de onboarding siguen funcionando sin cambios.
+
+#### Dos puertas al mismo flujo
+
+El signup lo tiene que completar el dueño de la WABA con **su** Facebook y **su**
+tarjeta (D2): el operador no puede hacerlo por él. De ahí las dos entradas:
+
+- **Enlace de auto-conexión** (lo normal). El operador genera una URL de un solo
+  uso desde el panel y se la manda al cliente por WhatsApp; el cliente la abre
+  en su teléfono (`/conectar/:token`, una página vanilla más del backend) y hace
+  el login. El token se guarda **hasheado** (SHA-256) —no cifrado: nunca hay que
+  volver a leerlo, solo compararlo— y la URL se muestra una única vez, al
+  crearla. Vence (`WHATSAPP_SIGNUP_LINK_TTL_HOURS`, 72h por defecto), es de un
+  solo uso, y generar uno nuevo revoca los pendientes: en un hilo de WhatsApp
+  con varios enlaces el cliente casi seguro abre el que no toca.
+- **Botón en el panel**, para cuando el operador está con el cliente o
+  compartiendo pantalla.
+
+Si Meta falla a mitad de camino, el enlace **sigue PENDING** a propósito: casi
+todos esos errores (número con otro PIN de dos pasos, permisos que faltan) se
+arreglan y se reintentan con el mismo enlace. El motivo se guarda en
+`last_error` y el panel lo muestra, para no tener que pedirle una captura al
+cliente.
+
+#### Superficie pública y su blindaje
+
+`GET`/`POST /api/whatsapp/signup/:token` son las **únicas** rutas del flujo sin
+sesión: las abre alguien que no tiene —ni va a tener— usuario en el panel. Lo
+que las protege:
+
+- El token es la autorización: 32 bytes aleatorios en base64url. Su poder es
+  deliberadamente mínimo —conectar **un** número a **un** negocio— porque viaja
+  en la URL y por tanto queda en los logs del proxy.
+- Un token inexistente y uno vencido responden **igual** (404), para no volver
+  el endpoint un oráculo de tokens válidos.
+- La portada solo revela el nombre del negocio; nada del operador ni de otros
+  clientes.
+- Límite de tasa propio (20/min) más estricto que el global.
+- `/conectar` lleva una **CSP propia**, ampliada solo con los orígenes de
+  Facebook (el Embedded Signup *es* el SDK de Meta: no hay forma de hacerlo con
+  un `fetch` nuestro). Las páginas de reserva y gift cards —donde hay datos de
+  clientas y montos— siguen sin poder cargar scripts de terceros.
+- Un `phone_number_id` que ya es de otro negocio se rechaza antes de hablar con
+  Meta: es la llave con la que el webhook resuelve el tenant, y robárselo a otro
+  negocio le cortaría las conversaciones en vivo.
+
+#### Variables de entorno
+
+| Variable | Qué es |
+|---|---|
+| `META_APP_ID` | App ID del operador. No es secreto (viaja al browser), pero cambia por despliegue, así que lo sirve el backend en vez de vivir en un `NEXT_PUBLIC_*`. |
+| `META_EMBEDDED_SIGNUP_CONFIG_ID` | El *configuration ID* del flujo de Facebook Login for Business. |
+| `WHATSAPP_APP_SECRET` | El `client_secret` del canje. Es el **mismo** App Secret que firma los webhooks: no hay una segunda llave. |
+| `META_GRAPH_VERSION` | Versión de la Graph API del signup y del SDK (`v21.0`). |
+| `WHATSAPP_SIGNUP_LINK_TTL_HOURS` | Vida del enlace de auto-conexión (72h; máx 720). |
 
 ---
 
@@ -560,7 +651,7 @@ desde el panel (el runtime del bot lo sigue leyendo por su cuenta en
 |---|---|
 | CRUD de negocios, branding, checklist de onboarding, dashboards de cartera e ingresos | **construir** en `apps/panel` (Next.js + shadcn + TanStack Table) contra `/admin/*` |
 | Acciones con lógica (suspender en cascada, aprovisionar negocio, aprobar nombre WA) | **construir**: endpoints `/admin/*` en el backend Fastify |
-| Callback de Embedded Signup (token exchange, registro de número, suscripción a WABA) | **construir**: endpoint en el backend |
+| Callback de Embedded Signup (token exchange, registro de número, suscripción a WABA) | ✅ **construido** (§7.4): `integrations/whatsapp/embedded-signup.ts` + `whatsapp-signup.service.ts`, con enlace de auto-conexión para el cliente |
 | Generación de PDF de cuentas de cobro / recibos | **construir**: reutilizar el pipeline Puppeteer de Gift Cards |
 | Auth, organizaciones, invitaciones, roles, 2FA | **configurar** Better Auth (no construir) |
 | Automatizaciones (recordatorio de vencimiento, auto-suspensión) | **configurar**: n8n (ya está) o cron in-process |
@@ -616,7 +707,7 @@ No es una superficie de v1, pero **la arquitectura lo asume desde F0**:
 | **F1** | ✅ **hecho** (en `main`). Guard único de `status` (`business-guard.ts`) en reservas web/API, gift cards nuevas y herramientas del agente; suspensión suave (mensaje único) y silencio en WhatsApp. Resolución de tenant del webhook: parser extrae `phone_number_id`, se resuelve por `whatsAppAccountRepository` con fallback al número display (F4 puebla `whatsapp_accounts`). | F0 | ✅ |
 | **F2** | ✅ **hecho** (en `main`). `paymentCredentials.repository` (cifra/descifra), `resolveProviderForBusiness` con fallback a env, `getPaymentProviderForCredentials`. Webhook multi-comercio (`extractWebhookReference` → Payment → credenciales del negocio → valida firma). Branch `TOTAL`/`DEPOSIT` en `createPayment` (split guardado al crear el link), `confirmIfPending` → `DEPOSIT_PAID`, mensajes con abono/saldo en bot/agente/confirmación/`/gracias`/formulario. Script `script:demo-payment-credentials`. | F0 | ✅ |
 | **F3** | ✅ **hecho** (en `main`). F3a: Better Auth en el **backend** (`/api/auth/*`, plugins `bearer`+`twoFactor`+`organization`), guard `requireOperatorSession` en `/admin/*`, `packages/shared`. F3b: **`apps/panel`** (Next 16 + Tailwind v4 + shadcn a mano) — login, shell protegido, **proxy BFF** `app/api/auth/[...all]` (chequeo same-origin propio; el `Origin` real viaja en `x-forwarded-origin` — el fetch de Next no reenvía `Origin`; el backend lo valida contra `trustedOrigins`). Fix `account.issuer` (CLI 1.4.x < core 1.7.2) → migración `..._better_auth_account_issuer`. F3c: **CRUD de negocios** + `Organization` espejo + `AuditLog`. F3d: **marca + checklist de onboarding** (§6.1). F3e: **dashboards y control de clientes** — `/admin/metrics/overview` (MRR, cobrado, pendiente, vencido, vencimientos, consumo agregado), `.../usage` por negocio, listados de actividad (citas, pagos, conversaciones, gift cards), contactos (CRM), bitácora `/admin/audit-logs`, y transiciones de estado con motivo (`POST .../status`). | F0, F1 | ✅ |
-| **F4** | 🟡 **a medias**. ✅ Envío por-tenant: `resolveWhatsAppProviderForBusiness` toma las credenciales del negocio (`whatsapp_accounts`, token cifrado) con fallback a las env; lo usan notificaciones, bot de menús y agente. `getWhatsAppWebhookReader` valida firma y parsea sin exigir credenciales globales. ✅ Alta manual del número desde el panel (puente §7.3) con rotación de token, verificación contra la Graph API (calidad y límite de mensajería) y desconexión. ⏳ Falta **Embedded Signup** (callback, token exchange, suscripción a WABA) y la gestión de perfil/nombre — bloqueado por M0. | F0, F1, F3, **M0 aprobado** (⇒ M-1) | 🟡 el resto, cuando Meta apruebe |
+| **F4** | 🟡 **a medias**. ✅ Envío por-tenant: `resolveWhatsAppProviderForBusiness` toma las credenciales del negocio (`whatsapp_accounts`, token cifrado) con fallback a las env; lo usan notificaciones, bot de menús y agente. `getWhatsAppWebhookReader` valida firma y parsea sin exigir credenciales globales. ✅ Alta manual del número desde el panel (puente §7.3) con rotación de token, verificación contra la Graph API (calidad y límite de mensajería) y desconexión. ✅ **Embedded Signup construido** (§7.4): canje del `code`, suscripción a la WABA, registro en Cloud API y enlace de auto-conexión de un solo uso para el cliente (`/conectar/:token`) — llega apagado y se enciende con `META_APP_ID` + `META_EMBEDDED_SIGNUP_CONFIG_ID` cuando Meta apruebe. ⏳ Falta la gestión de perfil/nombre visible — bloqueado por M0. | F0, F1, F3, **M0 aprobado** (⇒ M-1) | 🟡 el resto, cuando Meta apruebe |
 | **F5** | ✅ **hecho** (en `main`). `SubscriptionPlan` por negocio (alta, edición, extensión de vigencia). Cuentas de cobro con consecutivo `CC-<año>-NNN` bajo advisory lock, armadas desde el plan o con líneas manuales; enviar/anular con motivo. Pagos recibidos en una transacción que salda cuentas, extiende `validUntil` y reactiva al moroso. PDF de cuenta y recibo (Puppeteer → Storage, marca del operador en `OPERATOR_*`). Ciclo diario idempotente (`billing-cycle.service`): emite 5 días antes, marca vencidas, pasa a mora y suspende al agotarse la gracia — cron 6:00 en `APP_TIMEZONE` + `POST /internal/jobs/billing-cycle`. | F0, F3 | ✅ |
 | **F6** | 🟡 **a medias**. ✅ Métricas de uso por cliente (citas por estado y canal, volumen transaccionado, abonos, conversaciones, gift cards, serie diaria, top de servicios) en `/admin/businesses/:id/usage` y la pestaña Consumo. ⏳ Falta: recordatorios automáticos de vencimiento al operador y Google Sheets por-tenant. | F3 | 🟡 |
 | **F7** | **Portal de cliente / CRM**: activar roles `client_owner` / `client_staff` en Better Auth, invitaciones, guard por rol sobre los endpoints que ya nacen filtrados por `businessId`, navegación del portal, y —para ver la conversación y no solo su estado— una tabla de mensajes de WhatsApp (hoy no existe). Tests de aislamiento de tenant. | F3, F6 | siguiente |

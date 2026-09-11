@@ -23,10 +23,18 @@ export interface WhatsAppAccountDto {
   subscriptionStatus: string | null;
   qualityRating: string | null;
   messagingLimit: string | null;
+  /** Cómo se dio de alta el número: a mano por el operador o por Embedded Signup. */
+  onboardingSource: WhatsAppOnboardingSource;
+  businessPortfolioId: string | null;
+  /** `true` si Cloud API ya tiene el número registrado (§7.4, paso 3). */
+  registered: boolean;
   active: boolean;
   createdAt: string;
   updatedAt: string;
 }
+
+export const whatsAppOnboardingSourceValues = ["MANUAL", "EMBEDDED_SIGNUP"] as const;
+export type WhatsAppOnboardingSource = (typeof whatsAppOnboardingSourceValues)[number];
 
 const metaId = z
   .string()
@@ -72,6 +80,80 @@ export interface WhatsAppHealth {
   verifiedName?: string | null;
   qualityRating?: string | null;
   messagingLimit?: string | null;
+}
+
+// ── WhatsApp · Embedded Signup (§7.4) ───────────────────────────────────────
+
+/**
+ * Lo que el browser necesita para abrir el popup de Facebook. Nada de esto es
+ * secreto —el App ID es público por diseño y el config ID no da acceso a nada—,
+ * pero cambia por despliegue, así que lo sirve el backend en vez de vivir en un
+ * `NEXT_PUBLIC_*` del panel.
+ *
+ * `enabled: false` significa que el operador todavía no pasó el App Review de
+ * Meta (§7.1): el panel oculta el botón y deja solo el alta manual.
+ */
+export interface EmbeddedSignupConfigDto {
+  enabled: boolean;
+  appId: string | null;
+  configId: string | null;
+  graphVersion: string | null;
+}
+
+/**
+ * Los tres datos que devuelve el popup de Facebook al terminar. `code` es de un
+ * solo uso y de vida corta: se canjea en el backend apenas llega.
+ */
+export const embeddedSignupCallbackSchema = z.object({
+  code: z.string().trim().min(10, "El código de autorización de Meta es más largo.").max(2000),
+  wabaId: metaId,
+  phoneNumberId: metaId,
+  /** El business portfolio del cliente; Meta lo manda pero no siempre. */
+  businessPortfolioId: metaId.optional().or(z.literal("")),
+});
+
+export type EmbeddedSignupCallbackInput = z.infer<typeof embeddedSignupCallbackSchema>;
+
+/** Resultado de un signup completado, para contarle al usuario qué pasó. */
+export interface EmbeddedSignupResult {
+  account: WhatsAppAccountDto;
+  /** Traza legible de los pasos server-to-server (canje, suscripción, registro). */
+  steps: { label: string; detail: string }[];
+}
+
+export const whatsAppSignupSessionStatusValues = [
+  "PENDING",
+  "COMPLETED",
+  "REVOKED",
+  "EXPIRED",
+] as const;
+export type WhatsAppSignupSessionStatus = (typeof whatsAppSignupSessionStatusValues)[number];
+
+/** Un enlace de auto-conexión, tal como lo lista el panel. */
+export interface WhatsAppSignupSessionDto {
+  id: string;
+  businessId: string;
+  status: WhatsAppSignupSessionStatus;
+  expiresAt: string;
+  completedAt: string | null;
+  phoneNumberId: string | null;
+  lastError: string | null;
+  createdAt: string;
+  /**
+   * La URL completa con el token — **solo** al crearlo. Al listar es `null`:
+   * del token guardado solo queda el hash, así que no se puede reconstruir.
+   */
+  url: string | null;
+}
+
+/** Lo que ve el cliente al abrir el enlace, antes de darle a "conectar". */
+export interface WhatsAppSignupInviteDto {
+  businessName: string;
+  status: WhatsAppSignupSessionStatus;
+  expiresAt: string;
+  /** Mensaje listo para mostrar cuando el enlace ya no sirve. */
+  unavailableReason: string | null;
+  config: EmbeddedSignupConfigDto;
 }
 
 // ── Wompi ───────────────────────────────────────────────────────────────────

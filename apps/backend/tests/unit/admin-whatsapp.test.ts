@@ -12,6 +12,11 @@ vi.mock("../../src/repositories/whatsAppAccount.repository.js", () => ({
     delete: vi.fn(),
   },
 }));
+// El alta manual revoca los enlaces de auto-conexión pendientes (§7.4): sin
+// mockearlo el test saldría a buscar Postgres.
+vi.mock("../../src/repositories/whatsAppSignupSession.repository.js", () => ({
+  whatsAppSignupSessionRepository: { revokePending: vi.fn().mockResolvedValue({ count: 0 }) },
+}));
 vi.mock("../../src/repositories/adminBusiness.repository.js", () => ({
   adminBusinessRepository: { findDetail: vi.fn() },
 }));

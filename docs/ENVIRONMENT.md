@@ -39,6 +39,16 @@ Ver `docs/WHATSAPP.md` para el flujo completo.
 | `WHATSAPP_PHONE_NUMBER_ID` | sí | Meta for Developers → WhatsApp → API Setup. |
 | `WHATSAPP_VERIFY_TOKEN` | sí | Lo inventás vos (cualquier string). Se usa en el handshake `GET` cuando configurás la URL del webhook en Meta — tiene que coincidir con lo que pongas ahí. |
 | `WHATSAPP_APP_SECRET` | recomendada en producción | Meta for Developers → tu app → Configuración básica → App Secret. Sin esto el webhook funciona pero sin validar `X-Hub-Signature-256` (sección 29 — no usar así en producción). |
+| `META_APP_ID` | solo para Embedded Signup | Meta for Developers → tu app → Configuración básica → App ID. No es secreto: viaja al browser para inicializar el SDK de Facebook. |
+| `META_EMBEDDED_SIGNUP_CONFIG_ID` | solo para Embedded Signup | Meta for Developers → tu app → Facebook Login for Business → Configuraciones. Es el *configuration ID* del flujo de WhatsApp que creaste ahí. |
+| `META_GRAPH_VERSION` | no (default `v21.0`) | La versión de la Graph API que usan el signup y el SDK. Formato `v<mayor>.<menor>`. |
+| `WHATSAPP_SIGNUP_LINK_TTL_HOURS` | no (default `72`) | Cuántas horas vive el enlace de auto-conexión que el operador le manda al cliente. Máximo 720. |
+
+> **Embedded Signup** (docs/PANEL-OPERADOR.md §7.4): con `META_APP_ID` o
+> `META_EMBEDDED_SIGNUP_CONFIG_ID` vacías el flujo queda **deshabilitado** y el
+> panel solo ofrece el alta manual del número (§7.3). El `client_secret` del
+> canje de código es `WHATSAPP_APP_SECRET`: es el mismo App Secret que firma los
+> webhooks, no hay una segunda llave que conseguir.
 
 ## Pagos (Wompi)
 

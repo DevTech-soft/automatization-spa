@@ -8,4 +8,5 @@ export {
   WebhookVerificationError,
   GiftCardAlreadyRedeemedError,
   UnauthorizedError,
+  MetaGraphError,
 } from "./AppError.js";

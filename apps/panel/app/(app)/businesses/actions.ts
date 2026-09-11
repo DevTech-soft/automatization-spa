@@ -7,6 +7,7 @@ import {
   changeStatusSchema,
   connectWhatsAppSchema,
   createBusinessSchema,
+  embeddedSignupCallbackSchema,
   extendSubscriptionSchema,
   onboardingManualSchema,
   updateBrandingSchema,
@@ -20,8 +21,11 @@ import {
   type OnboardingChecklist,
   type PaymentCredentialsDto,
   type SubscriptionPlanDto,
+  type EmbeddedSignupCallbackInput,
+  type EmbeddedSignupResult,
   type WhatsAppAccountDto,
   type WhatsAppHealth,
+  type WhatsAppSignupSessionDto,
 } from "@spa/shared";
 import { adminDelete, adminMutate, ApiError } from "@/lib/backend";
 
@@ -31,6 +35,15 @@ export interface FormState {
   fieldErrors?: Record<string, string[]>;
   /** Texto de éxito a medida; sin él, `FormAlert` muestra "Cambios guardados." */
   message?: string;
+}
+
+/**
+ * `FormState` + la URL del enlace recién creado (§7.4). Va aparte porque es el
+ * único dato del panel que no se puede volver a consultar: al listar, los
+ * enlaces vienen sin token.
+ */
+export interface SignupLinkState extends FormState {
+  url?: string | null;
 }
 
 /**
@@ -294,6 +307,83 @@ export async function verifyWhatsAppAction(
     if (e instanceof ApiError) return { ok: false, error: e.message };
     return { ok: false, error: "No se pudo verificar el número." };
   }
+}
+
+/**
+ * Genera el enlace de auto-conexión (§7.4) y lo devuelve **en el estado del
+ * formulario**, no en la página: la URL con el token solo existe en esta
+ * respuesta, así que si se pierde hay que generar otra.
+ */
+export async function createSignupLinkAction(
+  id: string,
+  _prev: SignupLinkState,
+  _formData: FormData,
+): Promise<SignupLinkState> {
+  let session: WhatsAppSignupSessionDto;
+  try {
+    session = await adminMutate<WhatsAppSignupSessionDto>(
+      "POST",
+      `/admin/businesses/${id}/whatsapp/signup-links`,
+      {},
+    );
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, error: e.message };
+    return { ok: false, error: "No se pudo generar el enlace." };
+  }
+
+  revalidateBusiness(id);
+  return { ok: true, message: "Enlace generado. Cópialo ahora: no se vuelve a mostrar.", url: session.url };
+}
+
+export async function revokeSignupLinkAction(
+  id: string,
+  sessionId: string,
+  _prev: FormState,
+  _formData: FormData,
+): Promise<FormState> {
+  try {
+    await adminDelete(`/admin/businesses/${id}/whatsapp/signup-links/${sessionId}`);
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, error: e.message };
+    return { ok: false, error: "No se pudo cancelar el enlace." };
+  }
+
+  revalidateBusiness(id);
+  return { ok: true, message: "Enlace cancelado." };
+}
+
+/**
+ * El signup hecho desde el panel: el popup de Facebook se abrió en el browser
+ * del operador (con el cliente al lado) y devolvió estos tres datos. El `code`
+ * se manda al backend sin tocar: canjearlo exige el App Secret, que no baja
+ * nunca al navegador.
+ */
+export async function completeEmbeddedSignupAction(
+  id: string,
+  input: EmbeddedSignupCallbackInput,
+): Promise<FormState> {
+  const parsed = embeddedSignupCallbackSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "Meta no devolvió los datos completos del número." };
+  }
+
+  let result: EmbeddedSignupResult;
+  try {
+    result = await adminMutate<EmbeddedSignupResult>(
+      "POST",
+      `/admin/businesses/${id}/whatsapp/embedded-signup`,
+      parsed.data,
+    );
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, error: e.message };
+    return { ok: false, error: "No se pudo completar la conexión con Meta." };
+  }
+
+  revalidateBusiness(id);
+  return {
+    ok: true,
+    message: `${result.account.displayPhoneNumber ?? "El número"} quedó conectado.`,
+  };
 }
 
 export async function disconnectWhatsAppAction(

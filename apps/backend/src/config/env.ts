@@ -39,6 +39,28 @@ const envSchema = z.object({
    *  se agregó en Fase 6 para validación de firma — ver docs/WHATSAPP.md. */
   WHATSAPP_APP_SECRET: z.string().optional().or(z.literal("")),
 
+  /**
+   * Embedded Signup de WhatsApp (docs/PANEL-OPERADOR.md §7.4): el cliente hace
+   * login con **su** Facebook y Meta devuelve un `code` que este backend
+   * cambia por un token de la WABA del cliente.
+   *
+   * - `META_APP_ID`: el App ID del operador. No es secreto (viaja al browser
+   *   para inicializar el SDK de Facebook), pero cambia por despliegue.
+   * - `META_EMBEDDED_SIGNUP_CONFIG_ID`: el "configuration ID" del flujo de
+   *   Facebook Login for Business que se creó en el App Dashboard.
+   * - El `client_secret` del intercambio de code es `WHATSAPP_APP_SECRET` —
+   *   es el mismo App Secret que firma los webhooks, no hay una segunda llave.
+   *
+   * Con cualquiera de las dos vacías el Embedded Signup queda deshabilitado y el
+   * panel solo ofrece el alta manual (el puente de §7.3).
+   */
+  META_APP_ID: z.string().optional().or(z.literal("")),
+  META_EMBEDDED_SIGNUP_CONFIG_ID: z.string().optional().or(z.literal("")),
+  /** Versión de la Graph API para las llamadas del signup y del SDK de Facebook. */
+  META_GRAPH_VERSION: z.string().regex(/^v\d+\.\d+$/, "Formato esperado: v21.0").default("v21.0"),
+  /** Cuántas horas vive el enlace de auto-conexión que se le manda al cliente. */
+  WHATSAPP_SIGNUP_LINK_TTL_HOURS: z.coerce.number().int().positive().max(720).default(72),
+
   PAYMENT_PROVIDER: z.enum(["wompi", "mercadopago"]).default("wompi"),
   PAYMENT_API_KEY: z.string().optional().or(z.literal("")),
   PAYMENT_PUBLIC_KEY: z.string().optional().or(z.literal("")),

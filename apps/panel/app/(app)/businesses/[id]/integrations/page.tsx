@@ -1,4 +1,9 @@
-import type { PaymentCredentialsDto, WhatsAppAccountDto } from "@spa/shared";
+import type {
+  EmbeddedSignupConfigDto,
+  PaymentCredentialsDto,
+  WhatsAppAccountDto,
+  WhatsAppSignupSessionDto,
+} from "@spa/shared";
 import { adminGet } from "@/lib/backend";
 import { WhatsAppSection } from "./whatsapp-section";
 import { WompiForm } from "./wompi-form";
@@ -11,14 +16,21 @@ import { WompiForm } from "./wompi-form";
 export default async function IntegrationsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const [accounts, credentials] = await Promise.all([
+  const [accounts, credentials, signupConfig, signupSessions] = await Promise.all([
     adminGet<WhatsAppAccountDto[]>(`/admin/businesses/${id}/whatsapp`),
     adminGet<PaymentCredentialsDto>(`/admin/businesses/${id}/payment-credentials`),
+    adminGet<EmbeddedSignupConfigDto>("/admin/whatsapp/embedded-signup"),
+    adminGet<WhatsAppSignupSessionDto[]>(`/admin/businesses/${id}/whatsapp/signup-links`),
   ]);
 
   return (
     <div className="flex flex-col gap-8">
-      <WhatsAppSection businessId={id} accounts={accounts} />
+      <WhatsAppSection
+        businessId={id}
+        accounts={accounts}
+        signupConfig={signupConfig}
+        signupSessions={signupSessions}
+      />
       <section className="flex flex-col gap-3 border-t border-[var(--color-border)] pt-6">
         <div>
           <h2 className="text-base font-semibold">Pagos (Wompi)</h2>
