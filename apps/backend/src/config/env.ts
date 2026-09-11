@@ -2,6 +2,20 @@ import "dotenv/config";
 import { z } from "zod";
 
 /**
+ * URL de entorno tolerante al copy/paste: recorta espacios y la barra final
+ * antes de validar. Un ` https://panel...` (espacio al inicio, facilísimo de
+ * dejar al pegar el valor en Railway) SÍ pasaba `z.string().url()` —el parser
+ * de URL del estándar ignora los espacios de los extremos— pero después no
+ * coincidía con el `Origin` del browser en `trustedOrigins` ni en CORS, y el
+ * login del panel devolvía 403 `Invalid origin` sin ninguna pista en el log.
+ */
+const urlEnv = () =>
+  z.preprocess(
+    (value) => (typeof value === "string" ? value.trim().replace(/\/+$/, "") : value),
+    z.string().url(),
+  );
+
+/**
  * Variables requeridas para arrancar el backend en esta fase. Las variables de
  * integraciones que aún no existen (WhatsApp, pagos, Google, storage) se validan
  * como opcionales aquí y se vuelven obligatorias cuando se implementa cada Fase
@@ -10,14 +24,14 @@ import { z } from "zod";
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().positive().default(3000),
-  APP_URL: z.string().url(),
+  APP_URL: urlEnv(),
   APP_TIMEZONE: z.string().min(1).default("America/Bogota"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
 
   DATABASE_URL: z.string().min(1, "DATABASE_URL es requerida"),
   DIRECT_URL: z.string().min(1, "DIRECT_URL es requerida"),
 
-  SUPABASE_URL: z.string().url(),
+  SUPABASE_URL: urlEnv(),
   SUPABASE_ANON_KEY: z.string().min(1),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 
@@ -29,8 +43,8 @@ const envSchema = z.object({
    * `PANEL_URL`: origen del panel (Vercel) — CORS + trustedOrigins de Better Auth.
    */
   BETTER_AUTH_SECRET: z.string().min(32, "BETTER_AUTH_SECRET debe tener al menos 32 caracteres.").optional().or(z.literal("")),
-  BETTER_AUTH_URL: z.string().url().optional().or(z.literal("")),
-  PANEL_URL: z.string().url().optional().or(z.literal("")),
+  BETTER_AUTH_URL: urlEnv().optional().or(z.literal("")),
+  PANEL_URL: urlEnv().optional().or(z.literal("")),
 
   WHATSAPP_ACCESS_TOKEN: z.string().optional().or(z.literal("")),
   WHATSAPP_PHONE_NUMBER_ID: z.string().optional().or(z.literal("")),
@@ -119,7 +133,7 @@ const envSchema = z.object({
    * de menús — el agente es opt-in por negocio vía `business.settings.agentEnabled`.
    * En Railway apunta a la red privada: http://n8n.railway.internal:5678/webhook/<id>
    */
-  N8N_AGENT_WEBHOOK_URL: z.string().url().optional().or(z.literal("")),
+  N8N_AGENT_WEBHOOK_URL: urlEnv().optional().or(z.literal("")),
   /**
    * Secreto compartido con n8n. Viaja en `X-Agent-Token` en el reenvío hacia
    * n8n, y de vuelta como `Authorization: Bearer` en /internal/agent/*. Si no
