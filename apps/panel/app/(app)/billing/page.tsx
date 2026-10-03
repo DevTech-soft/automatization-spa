@@ -32,7 +32,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Sear
   ]);
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="Cartera"
         description="Cuentas de cobro emitidas a tus clientes y pagos recibidos."

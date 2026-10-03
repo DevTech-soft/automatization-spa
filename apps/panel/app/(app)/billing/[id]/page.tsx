@@ -22,7 +22,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   }
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6">
+    <div className="flex max-w-3xl flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <Breadcrumbs items={[{ href: "/billing", label: "Cartera" }]} />

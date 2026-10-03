@@ -45,7 +45,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
   const logs = await adminGet<PaginatedResponse<AuditLogRow>>(`/admin/audit-logs?${query}`);
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-5">
+    <div className="flex flex-col gap-5">
       <PageHeader
         title="Bitácora"
         description="Todo cambio sensible queda registrado con actor, momento y valores. No se puede editar."

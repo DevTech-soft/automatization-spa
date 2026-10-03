@@ -68,7 +68,7 @@ export default async function PortalLayout({ children }: { children: React.React
         user={{ name: viewer.name, email: viewer.email, roleLabel: owner ? "Dueño(a)" : "Equipo" }}
         banner={banner}
       >
-        <div className="mx-auto max-w-7xl">{children}</div>
+        <div>{children}</div>
       </AppShell>
     </div>
   );

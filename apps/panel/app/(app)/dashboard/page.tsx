@@ -35,7 +35,7 @@ export default async function DashboardPage() {
   const urgent = overview.renewals.filter((row) => row.daysRemaining <= 7 || row.outstanding > 0);
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="Inicio"
         description={`Tu cartera y el uso de tus clientes en los últimos ${overview.usage.rangeDays} días.`}

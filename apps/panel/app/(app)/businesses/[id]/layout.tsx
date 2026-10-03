@@ -28,7 +28,7 @@ export default async function BusinessLayout({
   }
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-5">
+    <div className="flex flex-col gap-5">
       <PageHeader
         breadcrumbs={[{ href: "/businesses", label: "Negocios" }]}
         title={

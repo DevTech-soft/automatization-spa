@@ -22,7 +22,7 @@ export default async function BusinessesPage({ searchParams }: { searchParams: S
   const data = await adminGet<PaginatedResponse<BusinessListItem>>(`/admin/businesses?${query}`);
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-5">
+    <div className="flex flex-col gap-5">
       <div>
         <PageHeader
           title="Negocios"
