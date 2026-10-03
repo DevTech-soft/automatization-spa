@@ -534,6 +534,9 @@ export async function parseAppointmentActionForm(formData: FormData) {
 export async function appointmentActionFeedback(result: AppointmentActionResult): Promise<FormState> {
   const notice = result.customerNotice;
   if (!notice) return { ok: true };
+  if (notice.via === "agent") {
+    return { ok: true, message: "Cita cancelada. El asistente de WhatsApp le va a escribir a la clienta." };
+  }
   if (notice.sent) return { ok: true, message: "Cita cancelada. Le avisamos a la clienta por WhatsApp." };
   return {
     ok: true,

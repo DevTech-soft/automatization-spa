@@ -26,6 +26,25 @@ export interface AgentSettings {
   [key: string]: unknown;
 }
 
+/**
+ * Algo que pasó en el backend y que el agente tiene que contarle a la clienta
+ * (hoy: el negocio le canceló la cita). Viaja por el mismo webhook que los
+ * mensajes; el workflow lo pone en el prompt del sistema, así que solo el
+ * backend puede originarlo — una clienta que escriba "aviso del sistema" no.
+ */
+export interface AgentEvent {
+  type: "appointment_cancelled";
+  /** Qué tiene que decirle el agente, en español, listo para el prompt. */
+  instruccion: string;
+  cita: {
+    codigo: string;
+    servicio: string;
+    fecha: string;
+    inicio: string;
+    estadoPago: string;
+  };
+}
+
 export interface AgentForwardPayload {
   businessId: string;
   businessName: string;
@@ -34,8 +53,13 @@ export interface AgentForwardPayload {
   /** Número normalizado de quien escribe (wa_id de Meta). */
   phone: string;
   contactName?: string | undefined;
+  /**
+   * Lo que escribió la clienta. En un evento lleva la misma instrucción con un
+   * prefijo, para que un workflow que todavía no lee `event` igual funcione.
+   */
   text: string;
   agent: AgentSettings;
+  event?: AgentEvent | undefined;
 }
 
 interface BusinessSettingsShape {

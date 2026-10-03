@@ -13,6 +13,11 @@ vi.mock("../../src/repositories/notificationLog.repository.js", () => ({
 vi.mock("../../src/services/whatsapp-provider-resolver.js", () => ({
   resolveWhatsAppProviderForBusiness: vi.fn(),
 }));
+vi.mock("../../src/integrations/n8n/AgentForwarder.js", () => ({
+  forwardToAgent: vi.fn(),
+  isAgentEnabled: vi.fn().mockReturnValue(false),
+  readAgentSettings: vi.fn().mockReturnValue({ nombreAgente: "Valentina" }),
+}));
 
 const { appointmentRepository } = await import("../../src/repositories/appointment.repository.js");
 const { giftCardRepository } = await import("../../src/repositories/giftCard.repository.js");
@@ -20,6 +25,7 @@ const { notificationLogRepository } = await import("../../src/repositories/notif
 const { resolveWhatsAppProviderForBusiness } = await import(
   "../../src/services/whatsapp-provider-resolver.js"
 );
+const { forwardToAgent, isAgentEnabled } = await import("../../src/integrations/n8n/AgentForwarder.js");
 const { notifyAppointmentCancelled, notifyAppointmentConfirmed, notifyAppointmentReminder, notifyGiftCardCreated } =
   await import(
   "../../src/services/notification.service.js"
@@ -123,6 +129,7 @@ describe("notifyAppointmentCancelled", () => {
     vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue({ sendText } as never);
 
     await expect(notifyAppointmentCancelled(APPOINTMENT_ID)).resolves.toEqual({
+      via: "direct",
       sent: true,
       phone: "+573001112233",
     });
@@ -154,9 +161,52 @@ describe("notifyAppointmentCancelled", () => {
     vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue({ sendText } as never);
 
     await expect(notifyAppointmentCancelled(APPOINTMENT_ID)).resolves.toEqual({
+      via: "direct",
       sent: false,
       phone: "+573001112233",
     });
+  });
+
+  it("con el agente activo, le encarga el aviso al bot y no envía directo", async () => {
+    vi.mocked(isAgentEnabled).mockReturnValueOnce(true);
+    vi.mocked(forwardToAgent).mockResolvedValueOnce(true);
+    vi.mocked(appointmentRepository.findByIdWithDetails).mockResolvedValue(
+      fakeAppointment({ paymentStatus: "PAID", notes: "Cancelada desde el panel: no pagó" }) as never,
+    );
+
+    await expect(notifyAppointmentCancelled(APPOINTMENT_ID)).resolves.toEqual({
+      via: "agent",
+      sent: true,
+      phone: "+573001112233",
+    });
+
+    const payload = vi.mocked(forwardToAgent).mock.calls[0]![0];
+    expect(payload).toMatchObject({
+      businessId: "biz-1",
+      // Mismo formato que el `wa_id` entrante: misma memoria de conversación.
+      phone: "573001112233",
+      agent: { nombreAgente: "Valentina" },
+      event: { type: "appointment_cancelled", cita: { codigo: "APT-ABC12345", estadoPago: "PAID" } },
+    });
+    expect(payload.event!.instruccion).toContain("pago que hizo");
+    expect(payload.event!.instruccion).not.toContain("no pagó");
+    expect(payload.text.startsWith("[Aviso del sistema]")).toBe(true);
+    expect(resolveWhatsAppProviderForBusiness).not.toHaveBeenCalled();
+  });
+
+  it("si n8n no recibe el evento, lo envía el backend directo", async () => {
+    vi.mocked(isAgentEnabled).mockReturnValueOnce(true);
+    vi.mocked(forwardToAgent).mockResolvedValueOnce(false);
+    vi.mocked(appointmentRepository.findByIdWithDetails).mockResolvedValue(fakeAppointment() as never);
+    const sendText = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue({ sendText } as never);
+
+    await expect(notifyAppointmentCancelled(APPOINTMENT_ID)).resolves.toEqual({
+      via: "direct",
+      sent: true,
+      phone: "+573001112233",
+    });
+    expect(sendText).toHaveBeenCalledTimes(1);
   });
 
   it("devuelve null si la cita ya no existe", async () => {

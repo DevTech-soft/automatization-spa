@@ -3,7 +3,9 @@ import { appointmentRepository } from "../repositories/appointment.repository.js
 import { giftCardRepository } from "../repositories/giftCard.repository.js";
 import { notificationLogRepository } from "../repositories/notificationLog.repository.js";
 import { resolveWhatsAppProviderForBusiness } from "./whatsapp-provider-resolver.js";
+import { forwardToAgent, isAgentEnabled, readAgentSettings } from "../integrations/n8n/AgentForwarder.js";
 import { dateOnlyFromUTCDate } from "../utils/datetime.js";
+import { digitsOnly } from "../utils/phone.js";
 import { isUniqueConstraintViolation } from "../utils/prisma-errors.js";
 import { logger } from "../utils/logger.js";
 
@@ -139,20 +141,32 @@ export async function notifyAppointmentReminder(appointmentId: string): Promise<
   }
 }
 
+export interface CancellationNotice {
+  /**
+   * `agent`: se le encargó al bot de n8n. El webhook responde al recibir, así
+   * que solo se sabe que lo aceptó, no que el WhatsApp llegó.
+   * `direct`: lo envió el backend y `sent` dice si Meta lo aceptó.
+   */
+  via: "agent" | "direct";
+  sent: boolean;
+  phone: string;
+}
+
 /**
  * Aviso a la clienta de que el negocio le canceló la cita (acción "Cancelar"
  * del panel y del portal). A diferencia de las demás no pasa por
  * `notification_log`: la transición a CANCELLED es atómica y no tiene vuelta
  * atrás, así que no hay reproceso que deduplicar.
  *
- * Devuelve si el mensaje salió, para que quien canceló sepa si tiene que
- * avisarle por otro medio. Lo más común es que no salga por la ventana de 24 h
- * de WhatsApp: el texto libre solo se entrega si la clienta escribió en el
- * último día. Nunca lanza: la cita ya quedó cancelada.
+ * Si el negocio usa el agente de n8n, el aviso lo redacta y lo envía el bot:
+ * queda en su memoria de la conversación y, si la clienta responde "¿y para
+ * cuándo hay?", ya sabe de qué cita le hablan. Si n8n no recibe el evento, o
+ * el negocio sigue con el bot de menús, lo envía el backend directo.
+ *
+ * En los dos caminos es texto libre: fuera de la ventana de 24 h de WhatsApp
+ * Meta no lo entrega. Nunca lanza: la cita ya quedó cancelada.
  */
-export async function notifyAppointmentCancelled(
-  appointmentId: string,
-): Promise<{ sent: boolean; phone: string } | null> {
+export async function notifyAppointmentCancelled(appointmentId: string): Promise<CancellationNotice | null> {
   const appointment = await appointmentRepository.findByIdWithDetails(appointmentId);
   if (!appointment) {
     logger.error({ appointmentId }, "notify_appointment_cancelled_appointment_missing");
@@ -164,25 +178,59 @@ export async function notifyAppointmentCancelled(
   // Cancelar no reembolsa (eso lo hace el negocio en su Wompi): no se promete
   // devolución, solo que el negocio la contactará.
   const paid = appointment.paymentStatus === "PAID" || appointment.paymentStatus === "DEPOSIT_PAID";
-  const paymentLine = paid ? `
 
-Sobre el pago que hiciste, ${business.name} se pondrá en contacto contigo.` : "";
+  if (isAgentEnabled(business.settings)) {
+    const instruccion =
+      `El negocio canceló la cita ${appointment.appointmentCode} de ${service.name} del ${dateLabel} ` +
+      `a las ${appointment.startTime}. La clienta todavía no lo sabe. Escríbele un mensaje corto avisándole` +
+      (paid ? " y dile que el equipo se pondrá en contacto con ella por el pago que hizo (no prometas reembolso)." : ".") +
+      " No menciones ni inventes el motivo. Ofrécele agendar otra fecha si quiere.";
 
+    const forwarded = await forwardToAgent({
+      businessId: business.id,
+      businessName: business.name,
+      timezone: business.timezone,
+      currency: business.currency,
+      // Solo dígitos, como el `wa_id` de los mensajes entrantes: la memoria del
+      // agente se indexa por `businessId:phone` y un "+" la mandaría a otra
+      // conversación.
+      phone: digitsOnly(customer.phone),
+      contactName: customer.name,
+      text: `[Aviso del sistema] ${instruccion}`,
+      agent: readAgentSettings(business.settings),
+      event: {
+        type: "appointment_cancelled",
+        instruccion,
+        cita: {
+          codigo: appointment.appointmentCode,
+          servicio: service.name,
+          fecha: dateLabel,
+          inicio: appointment.startTime,
+          estadoPago: appointment.paymentStatus,
+        },
+      },
+    });
+    if (forwarded) {
+      logger.info({ appointmentId }, "appointment_cancellation_forwarded_to_agent");
+      return { via: "agent", sent: true, phone: customer.phone };
+    }
+    logger.warn({ appointmentId }, "appointment_cancellation_agent_unavailable_direct_fallback");
+  }
+
+  const paymentLine = paid ? `\n\nSobre el pago que hiciste, ${business.name} se pondrá en contacto contigo.` : "";
   try {
     const provider = await resolveWhatsAppProviderForBusiness(business.id, "NOTIFICATION");
     await provider.sendText(
       customer.phone,
       `Hola ${customer.name}, te escribimos de ${business.name}. ` +
         `Tu cita de ${service.name} del ${dateLabel} a las ${appointment.startTime} fue cancelada.` +
-        `${paymentLine}
-
-Si quieres agendar otra fecha, escríbenos por aquí.`,
+        `${paymentLine}\n\nSi quieres agendar otra fecha, escríbenos por aquí.`,
     );
     logger.info({ appointmentId }, "whatsapp_appointment_cancellation_sent");
-    return { sent: true, phone: customer.phone };
+    return { via: "direct", sent: true, phone: customer.phone };
   } catch (error) {
     logger.warn({ appointmentId, error }, "whatsapp_appointment_cancellation_failed");
-    return { sent: false, phone: customer.phone };
+    return { via: "direct", sent: false, phone: customer.phone };
   }
 }
 

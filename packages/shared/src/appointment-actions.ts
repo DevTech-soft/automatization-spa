@@ -48,11 +48,13 @@ export interface AppointmentActionResult {
   paymentStatus: string;
   pendingBalance: number | null;
   /**
-   * Solo al cancelar con aviso. `sent: false` casi siempre es la ventana de 24 h
-   * de WhatsApp (la clienta no ha escrito hace un día y Meta exige plantilla):
-   * el panel muestra el teléfono para avisarle por otro medio.
+   * Solo al cancelar con aviso.
+   * - `via: "agent"`: se le encargó al bot de n8n, que lo redacta y lo envía;
+   *   `sent` solo dice que n8n recibió el encargo.
+   * - `via: "direct"`: lo envió el backend. `sent: false` casi siempre es la
+   *   ventana de 24 h de WhatsApp; el panel muestra el teléfono para avisar a mano.
    */
-  customerNotice?: { sent: boolean; phone: string };
+  customerNotice?: { via: "agent" | "direct"; sent: boolean; phone: string };
 }
 
 /**

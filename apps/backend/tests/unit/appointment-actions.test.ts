@@ -15,7 +15,7 @@ vi.mock("../../src/services/google-sheets-sync.service.js", () => ({
   syncAppointmentToSheet: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("../../src/services/notification.service.js", () => ({
-  notifyAppointmentCancelled: vi.fn().mockResolvedValue({ sent: true, phone: "+573001112233" }),
+  notifyAppointmentCancelled: vi.fn().mockResolvedValue({ via: "direct", sent: true, phone: "+573001112233" }),
 }));
 
 const { appointmentRepository } = await import("../../src/repositories/appointment.repository.js");
@@ -133,7 +133,7 @@ describe("applyAppointmentAction", () => {
 
   it("cancelar con aviso le escribe a la clienta y devuelve si salió", async () => {
     vi.mocked(appointmentRepository.findForAction).mockResolvedValue(appointment());
-    vi.mocked(notifyAppointmentCancelled).mockResolvedValueOnce({ sent: false, phone: "+573001112233" });
+    vi.mocked(notifyAppointmentCancelled).mockResolvedValueOnce({ via: "direct", sent: false, phone: "+573001112233" });
 
     const result = await applyAppointmentAction(
       BID,
@@ -143,7 +143,7 @@ describe("applyAppointmentAction", () => {
     );
 
     expect(notifyAppointmentCancelled).toHaveBeenCalledWith(AID);
-    expect(result.customerNotice).toEqual({ sent: false, phone: "+573001112233" });
+    expect(result.customerNotice).toEqual({ via: "direct", sent: false, phone: "+573001112233" });
   });
 
   it("cancelar sin aviso no le escribe a la clienta", async () => {

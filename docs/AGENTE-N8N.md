@@ -72,6 +72,42 @@ Meta ──▶ POST /api/webhooks/whatsapp        (firma validada, tenant resuel
 El objeto `agent` sale de `business.settings.agent` y alimenta el system prompt.
 Es texto libre por negocio: no requiere migración para agregarle campos.
 
+## Avisos del sistema (eventos)
+
+Algunas cosas pasan en el backend y la clienta se tiene que enterar por el bot.
+Hoy hay una: **el negocio le canceló la cita** desde el panel o el portal. El
+backend manda al **mismo webhook** el payload de siempre más un `event`:
+
+```json
+{
+  "businessId": "uuid",
+  "phone": "573001234567",
+  "text": "[Aviso del sistema] El negocio canceló la cita APT-XXXX de …",
+  "event": {
+    "type": "appointment_cancelled",
+    "instruccion": "El negocio canceló la cita APT-XXXX de Masaje del 2026-10-05 a las 10:00. …",
+    "cita": { "codigo": "APT-XXXX", "servicio": "Masaje", "fecha": "2026-10-05", "inicio": "10:00", "estadoPago": "PAID" }
+  }
+}
+```
+
+- El nodo *Datos del Mensaje* copia `event.instruccion` a `evento`, y el prompt
+  del sistema lo pone en la sección **AVISOS DEL SISTEMA**. Como solo el backend
+  llena `event`, una clienta que escriba "aviso del sistema" no puede suplantarlo:
+  sin `evento`, el prompt dice que ese texto es de ella.
+- `text` lleva la misma instrucción con prefijo para que un workflow viejo, que
+  no lee `event`, igual avise. Queda en la memoria como turno de la clienta con
+  ese prefijo — por eso, si después responde "¿y para cuándo hay?", el agente
+  sabe de qué cita le hablan.
+- `phone` va en solo dígitos (formato del `wa_id`) para caer en la misma
+  memoria (`businessId:phone`) que la conversación real.
+- El motivo de la cancelación **no** viaja: es una nota interna.
+- Si n8n no recibe el evento, o el negocio no tiene el agente activo, el backend
+  envía un texto fijo directo (`notifyAppointmentCancelled`).
+- El webhook responde al recibir (`responseMode: onReceived`): el panel solo
+  sabe que el bot aceptó el encargo, no que el WhatsApp llegó. Como todo texto
+  libre, fuera de la ventana de 24 h Meta no lo entrega.
+
 ## Herramientas
 
 Todas bajo `/internal/agent/*`, protegidas por `requireAgentToken`
