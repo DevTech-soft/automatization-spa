@@ -12,6 +12,7 @@ const TABS = [
   { segment: "subscription", label: "Suscripción" },
   { segment: "integrations", label: "Integraciones" },
   { segment: "activity", label: "Actividad" },
+  { segment: "conversations", label: "Conversaciones" },
   { segment: "usage", label: "Consumo" },
   { segment: "contacts", label: "Contactos" },
   { segment: "users", label: "Usuarios" },

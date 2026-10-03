@@ -207,7 +207,7 @@ export async function listAgentAppointments(
  */
 export async function sendAgentReply(businessId: string, phone: string, text: string): Promise<void> {
   await requireBusiness(businessId);
-  const provider = await resolveWhatsAppProviderForBusiness(businessId);
+  const provider = await resolveWhatsAppProviderForBusiness(businessId, "AGENT");
   await provider.sendText(normalizePhone(phone), text);
   logger.info({ businessId, phone }, "agent_reply_sent");
 }

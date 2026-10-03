@@ -1,5 +1,11 @@
 import type { FastifyInstance } from "fastify";
-import { activityQuerySchema, paginationQuerySchema, usageQuerySchema } from "@spa/shared";
+import {
+  activityQuerySchema,
+  chatDetailQuerySchema,
+  chatPhoneParamSchema,
+  paginationQuerySchema,
+  usageQuerySchema,
+} from "@spa/shared";
 import { z } from "zod";
 import { requirePortalOwner, requirePortalSession } from "../middlewares/portal-auth.js";
 import {
@@ -9,9 +15,11 @@ import {
   listPayments,
 } from "../services/admin-activity.service.js";
 import { getBusinessUsage } from "../services/admin-metrics.service.js";
+import { getChat, listChats } from "../services/chat.service.js";
 import { getCustomer, getPortalMe, listCustomers } from "../services/portal.service.js";
 
 const customerParamSchema = z.object({ customerId: z.string().uuid() });
+const chatParamSchema = z.object({ phone: chatPhoneParamSchema });
 
 /**
  * API del portal de cliente / CRM (docs/PANEL-OPERADOR.md F7, §8.5). Mismo
@@ -40,6 +48,18 @@ export async function portalRoutes(app: FastifyInstance): Promise<void> {
       const query = paginationQuerySchema.parse(request.query);
       const filters = activityQuerySchema.parse(request.query);
       return { data: await listConversations(request.portal!.businessId, query, filters) };
+    });
+
+    // Transcripción de WhatsApp (F7): lo ve todo el equipo, como las citas.
+    portal.get("/portal/chats", async (request) => {
+      const query = paginationQuerySchema.parse(request.query);
+      return { data: await listChats(request.portal!.businessId, query) };
+    });
+
+    portal.get("/portal/chats/:phone", async (request) => {
+      const { phone } = chatParamSchema.parse(request.params);
+      const query = chatDetailQuerySchema.parse(request.query);
+      return { data: await getChat(request.portal!.businessId, phone, query) };
     });
 
     portal.get("/portal/customers", async (request) => {

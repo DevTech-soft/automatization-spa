@@ -127,8 +127,8 @@ export function ConversationsTable({ data, basePath, params }: TableProps<Conver
   return (
     <>
       <p className="text-sm text-[var(--color-fg-muted)]">
-        En qué punto quedó cada conversación del bot. No hay transcripción: la tabla guarda el
-        estado de la máquina de conversación, no los mensajes.
+        En qué punto quedó cada conversación del bot de menús. Los mensajes están en la pestaña
+        Conversaciones.
       </p>
       <Table>
         <THead>

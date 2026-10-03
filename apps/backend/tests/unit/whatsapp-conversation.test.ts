@@ -29,6 +29,9 @@ vi.mock("../../src/integrations/whatsapp/index.js", () => ({
 vi.mock("../../src/services/whatsapp-provider-resolver.js", () => ({
   resolveWhatsAppProviderForBusiness: vi.fn(),
 }));
+vi.mock("../../src/services/whatsapp-message-log.js", () => ({
+  recordIncomingMessage: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("../../src/services/availability.service.js", () => ({
   getAvailability: vi.fn(),
 }));
@@ -51,6 +54,7 @@ const { getWhatsAppWebhookReader } = await import("../../src/integrations/whatsa
 const { resolveWhatsAppProviderForBusiness } = await import(
   "../../src/services/whatsapp-provider-resolver.js"
 );
+const { recordIncomingMessage } = await import("../../src/services/whatsapp-message-log.js");
 const { getAvailability } = await import("../../src/services/availability.service.js");
 const { createAppointment } = await import("../../src/services/appointment.service.js");
 const { createPayment } = await import("../../src/services/payment.service.js");
@@ -123,6 +127,44 @@ describe("handleIncomingWhatsAppMessage", () => {
     await handleIncomingWhatsAppMessage({});
 
     expect(businessRepository.findByWhatsAppNumber).not.toHaveBeenCalled();
+  });
+
+  it("registra el entrante en la transcripción antes de contestar", async () => {
+    const provider = fakeProvider();
+    const message = { kind: "text", from: PHONE, to: BUSINESS_WA_NUMBER, text: "hola", messageId: "wamid.1" };
+    provider.parseIncomingMessage.mockReturnValue(message);
+    vi.mocked(getWhatsAppWebhookReader).mockReturnValue(provider as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue(provider as never);
+    mockBusinessFound();
+    vi.mocked(whatsappConversationRepository.findActive).mockResolvedValue(null);
+    vi.mocked(whatsappConversationRepository.createInitial).mockResolvedValue(baseConversation() as never);
+    vi.mocked(serviceRepository.findActiveByBusinessId).mockResolvedValue([]);
+
+    await handleIncomingWhatsAppMessage({});
+
+    expect(recordIncomingMessage).toHaveBeenCalledWith(BUSINESS_ID, message);
+  });
+
+  it("un tipo no soportado (imagen) queda en la transcripción pero el bot no contesta", async () => {
+    const provider = fakeProvider();
+    provider.parseIncomingMessage.mockReturnValue({
+      kind: "unsupported",
+      from: PHONE,
+      to: BUSINESS_WA_NUMBER,
+      messageType: "image",
+    });
+    vi.mocked(getWhatsAppWebhookReader).mockReturnValue(provider as never);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue(provider as never);
+    mockBusinessFound();
+
+    await handleIncomingWhatsAppMessage({});
+
+    expect(recordIncomingMessage).toHaveBeenCalledWith(
+      BUSINESS_ID,
+      expect.objectContaining({ kind: "unsupported" }),
+    );
+    expect(provider.sendText).not.toHaveBeenCalled();
+    expect(whatsappConversationRepository.findActive).not.toHaveBeenCalled();
   });
 
   it("no hace nada si el número receptor no pertenece a ningún negocio", async () => {

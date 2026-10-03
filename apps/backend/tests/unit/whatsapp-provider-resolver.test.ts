@@ -4,6 +4,9 @@ vi.mock("../../src/integrations/whatsapp/index.js", () => ({
   getWhatsAppProvider: vi.fn(() => ({ name: "env" })),
   getWhatsAppProviderForCredentials: vi.fn(() => ({ name: "tenant" })),
 }));
+vi.mock("../../src/services/whatsapp-message-log.js", () => ({
+  withMessageLog: vi.fn((provider: unknown) => provider),
+}));
 vi.mock("../../src/repositories/whatsAppAccount.repository.js", () => ({
   whatsAppAccountRepository: { findCredentialsByBusinessId: vi.fn() },
 }));

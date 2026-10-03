@@ -712,7 +712,7 @@ borra). Todo audita (`business.user.*`). Los negocios sin organización espejo
 
 **API del portal** (`routes/portal.route.ts`): `GET /portal/me`,
 `/portal/appointments`, `/portal/customers`, `/portal/customers/:id`,
-`/portal/conversations` y, solo dueño, `/portal/usage`, `/portal/transactions`,
+`/portal/conversations`, `/portal/chats`, `/portal/chats/:phone` y, solo dueño, `/portal/usage`, `/portal/transactions`,
 `/portal/gift-cards`. Reusa los servicios de `admin-activity`/`admin-metrics`;
 lo nuevo es el CRM de clientas (`portal.service.ts`: citas, citas efectivas,
 total gastado y última visita por clienta, e historial).
@@ -724,8 +724,22 @@ dueño, Métricas, Pagos y Gift cards. El portal toma el color primario y el log
 de la pestaña Marca. Las tablas de actividad y la vista de consumo se
 extrajeron a `components/` y las comparten el operador y el portal.
 
-**Pendiente de F7**: transcripción de conversaciones (hoy solo el estado de la
-máquina; hace falta una tabla de mensajes), acciones del recepcionista sobre las
+**Transcripción de WhatsApp** (migración `20261003120000_whatsapp_messages`,
+tabla `whatsapp_messages`): el webhook registra cada entrante
+(`recordIncomingMessage`, deduplicado por `wa_message_id` porque Meta reintenta)
+—también imágenes/audios, que el bot no atiende, y lo que llega con el negocio
+suspendido—, y `resolveWhatsAppProviderForBusiness(businessId, source)` devuelve
+el provider envuelto en `withMessageLog`, así que todo envío **exitoso** del bot
+(`BOT`), del agente (`AGENT`) o de una notificación (`NOTIFICATION`) queda
+registrado. Registrar nunca rompe la conversación: si falla, se loguea
+`whatsapp_message_log_failed` y la clienta igual recibe su respuesta. Teléfono
+guardado solo en dígitos. Lectura: `chat.service.ts` (hilos con `DISTINCT ON`,
+cruce con `customers` y `whatsapp_conversations` por dígitos). Panel: pestaña
+**Conversaciones** del negocio y `/portal/conversations` (componente compartido
+`components/chat-view.tsx`, "en vivo" por `AutoRefresh` cada 15 s). Solo
+lectura: responder desde el panel no existe (ventana de 24 h de Meta).
+
+**Pendiente de F7**: responder desde el panel, acciones del recepcionista sobre las
 citas (marcar completada / no asistió), 2FA y cambio de contraseña desde el
 propio portal, y que el dueño administre a su equipo sin pasar por el operador.
 

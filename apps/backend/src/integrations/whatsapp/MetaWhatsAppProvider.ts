@@ -96,20 +96,31 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
       return { kind: "ignored" };
     }
 
-    const contactName = extractContactName(rawPayload);
-    const phoneNumberId = extractPhoneNumberId(rawPayload);
+    const base = {
+      from: message.from,
+      to,
+      phoneNumberId: extractPhoneNumberId(rawPayload),
+      messageId: typeof message.id === "string" ? message.id : undefined,
+      contactName: extractContactName(rawPayload),
+    };
 
     if (message.type === "text" && typeof message.text?.body === "string") {
-      return { kind: "text", from: message.from, to, phoneNumberId, text: message.text.body, contactName };
+      return { ...base, kind: "text", text: message.text.body };
     }
 
-    const replyId = message.interactive?.list_reply?.id ?? message.interactive?.button_reply?.id;
-    if (message.type === "interactive" && typeof replyId === "string") {
-      return { kind: "interactive_reply", from: message.from, to, phoneNumberId, replyId, contactName };
+    const reply = message.interactive?.list_reply ?? message.interactive?.button_reply;
+    if (message.type === "interactive" && typeof reply?.id === "string") {
+      return {
+        ...base,
+        kind: "interactive_reply",
+        replyId: reply.id,
+        replyTitle: typeof reply.title === "string" ? reply.title : undefined,
+      };
     }
 
-    // Otros tipos (imagen, audio, ubicación, etc.) — el bot determinístico no los soporta (sección 18).
-    return { kind: "ignored" };
+    // Otros tipos (imagen, audio, ubicación, etc.) — el bot determinístico no
+    // los soporta (sección 18); solo van a la transcripción.
+    return { ...base, kind: "unsupported", messageType: message.type };
   }
 
   validateWebhookSignature(rawBody: string, signatureHeader: string | undefined): boolean {
@@ -148,12 +159,13 @@ export class MetaWhatsAppProvider implements WhatsAppProvider {
 }
 
 interface MetaIncomingMessage {
+  id?: string;
   from: string;
   type: string;
   text?: { body?: string };
   interactive?: {
-    list_reply?: { id?: string };
-    button_reply?: { id?: string };
+    list_reply?: { id?: string; title?: string };
+    button_reply?: { id?: string; title?: string };
   };
 }
 

@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getSessionMock, findMembershipsMock, activity, metrics, portalService, usersService } = vi.hoisted(() => ({
+const { getSessionMock, findMembershipsMock, activity, metrics, portalService, usersService, chats } = vi.hoisted(() => ({
   getSessionMock: vi.fn(),
+  chats: { listChats: vi.fn(), getChat: vi.fn(), assertBusinessExists: vi.fn() },
   findMembershipsMock: vi.fn(),
   activity: {
     listAppointments: vi.fn(),
@@ -38,6 +39,7 @@ vi.mock("../../src/services/portal.service.js", async (importOriginal) => ({
   getCustomer: portalService.getCustomer,
 }));
 vi.mock("../../src/services/admin-users.service.js", () => usersService);
+vi.mock("../../src/services/chat.service.js", () => chats);
 
 const { buildApp } = await import("../../src/app.js");
 
@@ -223,6 +225,56 @@ describe("separación operador / portal de cliente (F7)", () => {
     expect(bad.statusCode).toBe(400);
     expect(ok.statusCode).toBe(200);
     expect(portalService.getCustomer).toHaveBeenCalledWith(BUSINESS_ID, OTHER_BUSINESS_ID);
+  });
+
+  it("GET /portal/chats/:phone valida el número y usa el negocio de la sesión", async () => {
+    getSessionMock.mockResolvedValue(CLIENT_SESSION);
+    findMembershipsMock.mockResolvedValue([membership("member")]);
+    chats.getChat.mockResolvedValue({ phone: "573001112233", messages: [] });
+
+    const bad = await app.inject({ method: "GET", url: "/portal/chats/abc" });
+    const ok = await app.inject({
+      method: "GET",
+      url: "/portal/chats/573001112233?before=2026-10-03T10:00:00.000Z",
+    });
+
+    expect(bad.statusCode).toBe(400);
+    expect(ok.statusCode).toBe(200);
+    expect(chats.getChat).toHaveBeenCalledWith(BUSINESS_ID, "573001112233", {
+      before: "2026-10-03T10:00:00.000Z",
+    });
+  });
+});
+
+describe("/admin/businesses/:id/chats — transcripción para el operador", () => {
+  let app: Awaited<ReturnType<typeof buildApp>>;
+
+  beforeEach(async () => {
+    app = await buildApp();
+    getSessionMock.mockResolvedValue(OPERATOR_SESSION);
+  });
+  afterEach(async () => {
+    await app.close();
+    vi.clearAllMocks();
+  });
+
+  it("verifica el negocio y lista con paginación", async () => {
+    chats.listChats.mockResolvedValue(EMPTY_PAGE);
+
+    const response = await app.inject({ method: "GET", url: `/admin/businesses/${BUSINESS_ID}/chats?q=maria` });
+
+    expect(response.statusCode).toBe(200);
+    expect(chats.assertBusinessExists).toHaveBeenCalledWith(BUSINESS_ID);
+    expect(chats.listChats).toHaveBeenCalledWith(BUSINESS_ID, expect.objectContaining({ q: "maria", page: 1 }));
+  });
+
+  it("un cliente del portal no ve los chats de /admin (403)", async () => {
+    getSessionMock.mockResolvedValue(CLIENT_SESSION);
+
+    const response = await app.inject({ method: "GET", url: `/admin/businesses/${BUSINESS_ID}/chats` });
+
+    expect(response.statusCode).toBe(403);
+    expect(chats.listChats).not.toHaveBeenCalled();
   });
 });
 

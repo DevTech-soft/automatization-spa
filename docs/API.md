@@ -427,7 +427,9 @@ comparten las mismas reglas:
 | `GET /admin/businesses/:id/usage?days=30` | consumo de un cliente: citas por estado y canal, volumen transaccionado, abonos, conversaciones, gift cards, serie diaria y top de servicios |
 | `GET /admin/businesses/:id/appointments` | citas; filtros `from`, `to`, `status`, `q` |
 | `GET /admin/businesses/:id/transactions` | pagos **del negocio** (los de sus clientas). Se llama así para no confundirlo con `/admin/payments`, que son los pagos que el operador recibe |
-| `GET /admin/businesses/:id/conversations` | estado de las conversaciones del bot. **No hay transcripción**: `whatsapp_conversations` guarda el estado de la máquina, no los mensajes |
+| `GET /admin/businesses/:id/conversations` | estado de la máquina del bot de menús por número (`whatsapp_conversations`), sin mensajes |
+| `GET /admin/businesses/:id/chats` | transcripción de WhatsApp: un hilo por número, el más reciente primero; `q` busca por teléfono, nombre de perfil o nombre de clienta |
+| `GET /admin/businesses/:id/chats/:phone` | mensajes del hilo (`phone` solo dígitos), 100 por página del más viejo al más nuevo; `?before=<ISO>` trae los anteriores (`nextBefore`) |
 | `GET /admin/businesses/:id/gift-cards` | gift cards del negocio |
 | `GET /admin/audit-logs` | bitácora; `action` filtra por **prefijo** (`business.`, `billing.`…) |
 

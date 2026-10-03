@@ -16,7 +16,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "script:demo-payment-credentials": "tsx scripts/set-demo-payment-credentials.ts",
-    "script:create-operator": "tsx scripts/create-operator.ts"
+    "script:create-operator": "tsx scripts/create-operator.ts",
+    "script:reset-operator-password": "tsx scripts/reset-operator-password.ts"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.1",

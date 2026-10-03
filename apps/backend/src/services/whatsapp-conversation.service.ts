@@ -9,6 +9,7 @@ import { appointmentRepository } from "../repositories/appointment.repository.js
 import { whatsappConversationRepository } from "../repositories/whatsappConversation.repository.js";
 import { getWhatsAppWebhookReader } from "../integrations/whatsapp/index.js";
 import { resolveWhatsAppProviderForBusiness } from "./whatsapp-provider-resolver.js";
+import { recordIncomingMessage } from "./whatsapp-message-log.js";
 import type { InteractiveListRow, WhatsAppProvider } from "../integrations/whatsapp/index.js";
 import { forwardToAgent, isAgentEnabled, readAgentSettings } from "../integrations/n8n/AgentForwarder.js";
 import { getAvailability } from "./availability.service.js";
@@ -63,6 +64,13 @@ export async function handleIncomingWhatsAppMessage(rawPayload: unknown): Promis
 
   if (!business) {
     logger.warn({ to: message.to, phoneNumberId: message.phoneNumberId }, "whatsapp_message_unknown_business_number");
+    return;
+  }
+
+  // Transcripción (F7): todo lo que escribe la clienta, también lo que el bot
+  // no atiende y lo que llega con el negocio suspendido.
+  await recordIncomingMessage(business.id, message);
+  if (message.kind === "unsupported") {
     return;
   }
 

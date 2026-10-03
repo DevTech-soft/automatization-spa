@@ -1,5 +1,12 @@
 import type { FastifyInstance } from "fastify";
-import { activityQuerySchema, auditQuerySchema, paginationQuerySchema, usageQuerySchema } from "@spa/shared";
+import {
+  activityQuerySchema,
+  auditQuerySchema,
+  chatDetailQuerySchema,
+  chatPhoneParamSchema,
+  paginationQuerySchema,
+  usageQuerySchema,
+} from "@spa/shared";
 import { z } from "zod";
 import {
   listAppointments,
@@ -9,8 +16,10 @@ import {
 } from "../services/admin-activity.service.js";
 import { getBusinessUsage, getOverview } from "../services/admin-metrics.service.js";
 import { listAuditLogs } from "../services/admin-audit.service.js";
+import { assertBusinessExists, getChat, listChats } from "../services/chat.service.js";
 
 const idParamSchema = z.object({ id: z.string().uuid() });
+const chatParamsSchema = z.object({ id: z.string().uuid(), phone: chatPhoneParamSchema });
 
 /**
  * Métricas, consumo y actividad (docs/PANEL-OPERADOR.md §1, F3e/F6). Las rutas
@@ -48,6 +57,22 @@ export async function adminActivityRoutes(app: FastifyInstance): Promise<void> {
     const query = paginationQuerySchema.parse(request.query);
     const filters = activityQuerySchema.parse(request.query);
     return { data: await listConversations(id, query, filters) };
+  });
+
+  // — Transcripción de WhatsApp (F7) —
+
+  app.get("/admin/businesses/:id/chats", async (request) => {
+    const { id } = idParamSchema.parse(request.params);
+    const query = paginationQuerySchema.parse(request.query);
+    await assertBusinessExists(id);
+    return { data: await listChats(id, query) };
+  });
+
+  app.get("/admin/businesses/:id/chats/:phone", async (request) => {
+    const { id, phone } = chatParamsSchema.parse(request.params);
+    const query = chatDetailQuerySchema.parse(request.query);
+    await assertBusinessExists(id);
+    return { data: await getChat(id, phone, query) };
   });
 
   app.get("/admin/businesses/:id/gift-cards", async (request) => {

@@ -91,6 +91,7 @@ const BUSINESS_TABS = [
   "/subscription",
   "/integrations",
   "/activity",
+  "/conversations",
   "/usage",
   "/contacts",
   "/users",

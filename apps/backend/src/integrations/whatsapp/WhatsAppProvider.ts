@@ -24,9 +24,28 @@ export type InteractiveMessage =
  * el tenant preferentemente por `phoneNumberId` (docs/PANEL-OPERADOR.md §7.2) y
  * cae a `to` mientras F4 no puebla `whatsapp_accounts`.
  */
+interface IncomingBase {
+  from: string;
+  to: string;
+  phoneNumberId?: string | undefined;
+  /** `wamid` de Meta: deduplica los reintentos del webhook en la transcripción. */
+  messageId?: string | undefined;
+  contactName?: string | undefined;
+}
+
 export type IncomingWhatsAppMessage =
-  | { kind: "text"; from: string; to: string; phoneNumberId?: string | undefined; text: string; contactName?: string | undefined }
-  | { kind: "interactive_reply"; from: string; to: string; phoneNumberId?: string | undefined; replyId: string; contactName?: string | undefined }
+  | (IncomingBase & { kind: "text"; text: string })
+  | (IncomingBase & {
+      kind: "interactive_reply";
+      replyId: string;
+      /** Título visible de la opción elegida; solo para la transcripción. */
+      replyTitle?: string | undefined;
+    })
+  /**
+   * Imagen, audio, ubicación… El bot no los atiende (sección 18), pero quedan en
+   * la transcripción para que el negocio sepa que la clienta escribió.
+   */
+  | (IncomingBase & { kind: "unsupported"; messageType: string })
   /** Delivery receipts, read receipts, etc. — no acción del bot, solo ack 200. */
   | { kind: "ignored" };
 

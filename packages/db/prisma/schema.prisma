@@ -151,6 +151,7 @@ model Business {
   giftCards             GiftCard[]
   notificationLogs      NotificationLog[]
   whatsAppConversations WhatsAppConversation[]
+  whatsAppMessages      WhatsAppMessage[]
   whatsAppAccounts      WhatsAppAccount[]
   whatsAppSignupSessions WhatsAppSignupSession[]
   paymentCredentials    PaymentCredentials?
@@ -354,6 +355,50 @@ model WhatsAppConversation {
   @@unique([businessId, phone])
   @@index([businessId])
   @@map("whatsapp_conversations")
+}
+
+enum WhatsAppMessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+/// Quién originó el mensaje. `CUSTOMER` en los entrantes; en los salientes,
+/// qué parte del sistema lo envió.
+enum WhatsAppMessageSource {
+  CUSTOMER
+  BOT
+  AGENT
+  NOTIFICATION
+}
+
+/// Transcripción de WhatsApp por negocio (docs/PANEL-OPERADOR.md F7). Se
+/// escribe al recibir el webhook y tras cada envío exitoso; nunca se lee para
+/// decidir nada del bot (su estado sigue en `whatsapp_conversations`).
+model WhatsAppMessage {
+  id          String                   @id @default(uuid())
+  businessId  String                   @map("business_id")
+  /// Número normalizado de la clienta (igual que `whatsapp_conversations.phone`).
+  phone       String
+  direction   WhatsAppMessageDirection
+  source      WhatsAppMessageSource
+  /// `text`, `interactive`, `interactive_reply`, `template`, `document` o el
+  /// tipo de Meta de un entrante no soportado (`image`, `audio`…).
+  type        String
+  /// Texto legible del mensaje (cuerpo, título de la opción elegida, caption…).
+  body        String
+  /// Detalle estructurado: opciones de una lista, parámetros de plantilla, URL.
+  payload     Json?
+  /// Nombre de perfil de WhatsApp de la clienta, solo en entrantes.
+  contactName String?                  @map("contact_name")
+  /// `wamid` de Meta en los entrantes: Meta reintenta el webhook y esto evita duplicados.
+  waMessageId String?                  @unique @map("wa_message_id")
+  createdAt   DateTime                 @default(now()) @map("created_at")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, phone, createdAt])
+  @@index([businessId, createdAt])
+  @@map("whatsapp_messages")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -75,9 +75,27 @@ describe("MetaWhatsAppProvider.parseIncomingMessage", () => {
     expect(provider.parseIncomingMessage(payload)).toEqual({ kind: "ignored" });
   });
 
-  it("ignora tipos de mensaje no soportados (ej. imagen)", () => {
+  it("marca como no soportados los tipos que el bot no atiende (ej. imagen)", () => {
     const payload = textMessagePayload({ type: "image", text: undefined, image: { id: "x" } });
-    expect(provider.parseIncomingMessage(payload)).toEqual({ kind: "ignored" });
+    expect(provider.parseIncomingMessage(payload)).toMatchObject({
+      kind: "unsupported",
+      messageType: "image",
+      from: "573001112233",
+    });
+  });
+
+  it("extrae el wamid y el título de la opción elegida", () => {
+    const payload = interactivePayload("list_reply", "service-123") as {
+      entry: { changes: { value: { messages: Record<string, unknown>[] } }[] }[];
+    };
+    const msg = payload.entry[0]!.changes[0]!.value.messages[0]!;
+    msg["id"] = "wamid.ABC";
+    (msg["interactive"] as { list_reply: Record<string, unknown> }).list_reply["title"] = "Masaje";
+    expect(provider.parseIncomingMessage(payload)).toMatchObject({
+      kind: "interactive_reply",
+      messageId: "wamid.ABC",
+      replyTitle: "Masaje",
+    });
   });
 
   it("ignora payloads malformados sin lanzar", () => {
