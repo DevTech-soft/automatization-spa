@@ -221,6 +221,14 @@ Wompi.
 > `settings.onboarding`. El Google Sheet es el único paso `required: false`: no
 > bloquea. La marca exige la persona del agente **solo** si `agentEnabled`.
 >
+> **Catálogo** (pestaña Catálogo, `admin-catalog.service.ts`, pasos 3–4):
+> `/admin/businesses/:id/services` (CRUD; un servicio con citas no se borra
+> —FK `Restrict`—, se pausa con `active: false`) y `/admin/businesses/:id/hours`
+> (`PUT` de la semana completa, upsert por `(businessId, dayOfWeek)`; un día
+> cerrado conserva su fila con `active: false`). Cambiar precio u horario no
+> toca citas ya agendadas (cada `Appointment` guarda su precio y horas). Audita
+> `business.service.*` y `business.hours.update`.
+>
 > **Activación** (`POST /admin/businesses/:id/activate`): `TRIAL` → `ACTIVE`
 > (paso 9). El backend **revalida el checklist completo** —el botón deshabilitado
 > del panel es comodidad, no seguridad— y rechaza desde cualquier estado que no

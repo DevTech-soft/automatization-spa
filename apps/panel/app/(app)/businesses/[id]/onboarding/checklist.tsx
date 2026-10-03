@@ -19,6 +19,8 @@ import { activateBusinessAction, setOnboardingFlagAction, type FormState } from 
 const STEP_LINK: Partial<Record<OnboardingStepKey, { href: string; label: string }>> = {
   basics: { href: "", label: "Ir a Datos" },
   branding: { href: "/branding", label: "Ir a Marca" },
+  services: { href: "/catalog", label: "Cargar servicios" },
+  schedule: { href: "/catalog", label: "Definir horarios" },
   whatsapp: { href: "/integrations", label: "Conectar" },
   whatsappProfile: { href: "/integrations", label: "Ver número" },
   payment: { href: "/integrations", label: "Cargar llaves" },
@@ -26,8 +28,8 @@ const STEP_LINK: Partial<Record<OnboardingStepKey, { href: string; label: string
 };
 
 const STEP_NOTE: Partial<Record<OnboardingStepKey, string>> = {
-  services: "Se cargan por la API de servicios del backend; el editor llega después.",
-  schedule: "Horarios de atención del negocio en la base de datos.",
+  services: "Lo que el bot, el agente y la web ofrecen para reservar.",
+  schedule: "Sin horario activo un día, ese día no se ofrecen citas.",
   whatsapp: "Alta manual del número mientras Meta aprueba el Embedded Signup.",
   payment: "Sin llaves propias el negocio cobra con las del operador.",
   googleSheet: "Opcional: `settings.googleSheetId`.",

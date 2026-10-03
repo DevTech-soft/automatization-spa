@@ -42,6 +42,7 @@ import {
 import { adminBillingRoutes } from "./admin-billing.route.js";
 import { adminActivityRoutes } from "./admin-activity.route.js";
 import { adminIntegrationsRoutes } from "./admin-integrations.route.js";
+import { adminCatalogRoutes } from "./admin-catalog.route.js";
 
 const idParamSchema = z.object({ id: z.string().uuid() });
 const contactParamsSchema = z.object({ id: z.string().uuid(), contactId: z.string().uuid() });
@@ -55,7 +56,8 @@ const userParamsSchema = z.object({ id: z.string().uuid(), userId: z.string().mi
  * Este módulo tiene el guard y el CRUD del negocio; el resto se registra como
  * plugins hijos dentro del mismo scope (y por tanto bajo el mismo guard):
  * cartera (`admin-billing`), métricas y actividad (`admin-activity`) e
- * integraciones por-tenant (`admin-integrations`).
+ * integraciones por-tenant (`admin-integrations`) y catálogo de servicios y
+ * horarios (`admin-catalog`).
  */
 export async function adminRoutes(app: FastifyInstance): Promise<void> {
   app.register(async (admin) => {
@@ -200,5 +202,6 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     await admin.register(adminBillingRoutes);
     await admin.register(adminActivityRoutes);
     await admin.register(adminIntegrationsRoutes);
+    await admin.register(adminCatalogRoutes);
   });
 }

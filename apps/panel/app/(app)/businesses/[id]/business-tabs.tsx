@@ -8,6 +8,7 @@ const TABS = [
   { segment: "", label: "Datos" },
   { segment: "branding", label: "Marca" },
   { segment: "onboarding", label: "Onboarding" },
+  { segment: "catalog", label: "Catálogo" },
   { segment: "subscription", label: "Suscripción" },
   { segment: "integrations", label: "Integraciones" },
   { segment: "activity", label: "Actividad" },

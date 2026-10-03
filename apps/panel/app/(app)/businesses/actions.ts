@@ -13,17 +13,22 @@ import {
   onboardingManualSchema,
   updateBrandingSchema,
   updateBusinessSchema,
+  updateBusinessHoursSchema,
   updateBusinessUserSchema,
+  updateServiceSchema,
   upsertContactSchema,
+  upsertServiceSchema,
   upsertPaymentCredentialsSchema,
   upsertSubscriptionSchema,
   type BusinessBranding,
   type BusinessDetail,
+  type BusinessHourDto,
   type BusinessUserCredentials,
   type BusinessUserDto,
   type ClientContactDto,
   type OnboardingChecklist,
   type PaymentCredentialsDto,
+  type ServiceDto,
   type SubscriptionPlanDto,
   type EmbeddedSignupCallbackInput,
   type EmbeddedSignupResult,
@@ -82,6 +87,7 @@ const BUSINESS_TABS = [
   "",
   "/branding",
   "/onboarding",
+  "/catalog",
   "/subscription",
   "/integrations",
   "/activity",
@@ -501,6 +507,114 @@ export async function deleteContactAction(
 
   revalidateBusiness(id);
   return { ok: true };
+}
+
+// — Catálogo: servicios y horarios (§6.1 pasos 3–4) —
+
+export async function saveServiceAction(
+  id: string,
+  serviceId: string | null,
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const parsed = upsertServiceSchema.safeParse({
+    ...Object.fromEntries(formData),
+    active: formData.get("active") === "on",
+  });
+  if (!parsed.success) {
+    return { ok: false, error: "Revisa los campos.", fieldErrors: zodToFieldErrors(parsed.error.issues) };
+  }
+
+  try {
+    if (serviceId) {
+      await adminMutate<ServiceDto>("PATCH", `/admin/businesses/${id}/services/${serviceId}`, parsed.data);
+    } else {
+      await adminMutate<ServiceDto>("POST", `/admin/businesses/${id}/services`, parsed.data);
+    }
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, error: e.message, fieldErrors: e.fieldErrors };
+    return { ok: false, error: "No se pudo guardar el servicio." };
+  }
+
+  revalidateBusiness(id);
+  return { ok: true };
+}
+
+/** Pausar / reactivar sin abrir el formulario. */
+export async function setServiceActiveAction(
+  id: string,
+  serviceId: string,
+  active: boolean,
+  _prev: FormState,
+  _formData: FormData,
+): Promise<FormState> {
+  const body = updateServiceSchema.parse({ active });
+  try {
+    await adminMutate<ServiceDto>("PATCH", `/admin/businesses/${id}/services/${serviceId}`, body);
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, error: e.message };
+    return { ok: false, error: "No se pudo actualizar el servicio." };
+  }
+
+  revalidateBusiness(id);
+  return { ok: true };
+}
+
+export async function deleteServiceAction(
+  id: string,
+  serviceId: string,
+  _prev: FormState,
+  _formData: FormData,
+): Promise<FormState> {
+  try {
+    await adminDelete(`/admin/businesses/${id}/services/${serviceId}`);
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, error: e.message };
+    return { ok: false, error: "No se pudo eliminar el servicio." };
+  }
+
+  revalidateBusiness(id);
+  return { ok: true };
+}
+
+/**
+ * La semana completa en un solo envío. Los campos del formulario son
+ * `day-<n>-active|open|close` (n = 0 domingo … 6 sábado); los errores se
+ * devuelven por día (`day-<n>`) porque `zodToFieldErrors` solo mira la última
+ * parte del path y todos los días se llaman igual.
+ */
+export async function saveBusinessHoursAction(
+  id: string,
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const days = Array.from({ length: 7 }, (_, dayOfWeek) => ({
+    dayOfWeek,
+    active: formData.get(`day-${dayOfWeek}-active`) === "on",
+    openTime: String(formData.get(`day-${dayOfWeek}-open`) ?? ""),
+    closeTime: String(formData.get(`day-${dayOfWeek}-close`) ?? ""),
+  }));
+
+  const parsed = updateBusinessHoursSchema.safeParse({ days });
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string[]> = {};
+    for (const issue of parsed.error.issues) {
+      const index = issue.path[1];
+      const key = typeof index === "number" ? `day-${days[index]!.dayOfWeek}` : "_";
+      (fieldErrors[key] ??= []).push(issue.message);
+    }
+    return { ok: false, error: "Revisa los horarios marcados.", fieldErrors };
+  }
+
+  try {
+    await adminMutate<BusinessHourDto[]>("PUT", `/admin/businesses/${id}/hours`, parsed.data);
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, error: e.message };
+    return { ok: false, error: "No se pudieron guardar los horarios." };
+  }
+
+  revalidateBusiness(id);
+  return { ok: true, message: "Horarios guardados." };
 }
 
 // — Usuarios del portal del cliente (F7) —

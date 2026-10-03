@@ -398,6 +398,8 @@ comparten las mismas reglas:
 | `GET`/`PATCH /admin/businesses/:id/onboarding` | checklist derivado de la data + marcas manuales |
 | `POST /admin/businesses/:id/activate` | `TRIAL → ACTIVE`; revalida el checklist completo en el servidor |
 | `GET`/`POST /admin/businesses/:id/contacts` · `PATCH`/`DELETE .../contacts/:contactId` | contactos del dueño (CRM) |
+| `GET`/`POST /admin/businesses/:id/services` · `PATCH`/`DELETE .../services/:serviceId` | catálogo de servicios (incluye pausados, con `appointmentsCount`). `PATCH` es parcial (`{ active: false }` pausa). `DELETE` → `409` si el servicio tiene citas: se pausa en vez de borrarse |
+| `GET`/`PUT /admin/businesses/:id/hours` | horario semanal. `GET` devuelve siempre los 7 días (0 = domingo; sin fila = cerrado). `PUT { days: [{ dayOfWeek, openTime, closeTime, active }] }` hace upsert por día en una transacción; cierre > apertura, sin cruzar medianoche |
 
 ### Suscripción y cartera
 
