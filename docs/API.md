@@ -428,6 +428,7 @@ comparten las mismas reglas:
 | `GET /admin/businesses/:id/appointments` | citas; filtros `from`, `to`, `status`, `q` |
 | `GET /admin/businesses/:id/transactions` | pagos **del negocio** (los de sus clientas). Se llama así para no confundirlo con `/admin/payments`, que son los pagos que el operador recibe |
 | `GET /admin/businesses/:id/conversations` | estado de la máquina del bot de menús por número (`whatsapp_conversations`), sin mensajes |
+| `POST /admin/businesses/:id/appointments/:appointmentId/actions` | acciones de la recepción, mismas que el portal (ver abajo) |
 | `GET /admin/businesses/:id/chats` | transcripción de WhatsApp: un hilo por número, el más reciente primero; `q` busca por teléfono, nombre de perfil o nombre de clienta |
 | `GET /admin/businesses/:id/chats/:phone` | mensajes del hilo (`phone` solo dígitos), 100 por página del más viejo al más nuevo; `?before=<ISO>` trae los anteriores (`nextBefore`) |
 | `GET /admin/businesses/:id/gift-cards` | gift cards del negocio |
@@ -461,3 +462,16 @@ scheduler a las 6:00 de `APP_TIMEZONE`; es idempotente, así que repetirlo el
 mismo día no duplica nada.
 
 - `200 { "data": { runDate, invoicesCreated, invoicesOverdue, businessesPastDue, businessesSuspended, notes } }`.
+
+### Acciones sobre citas (F7)
+
+`POST /portal/appointments/:appointmentId/actions` (todo el equipo del spa; el negocio sale de la sesión) y `POST /admin/businesses/:id/appointments/:appointmentId/actions` (operador). Body:
+
+| `action` | Desde | Hacia | Notas |
+|---|---|---|---|
+| `complete` | `CONFIRMED` | `COMPLETED` | solo el día de la cita o después. `balancePaid` (default `true`): con abono, pasa el pago a `PAID` y el saldo a 0 |
+| `no_show` | `CONFIRMED` | `NO_SHOW` | solo el día de la cita o después |
+| `cancel` | `PENDING`, `CONFIRMED` | `CANCELLED` | `reason` obligatorio (3–300); se agrega a `notes`. No reembolsa en Wompi |
+| `reopen` | `COMPLETED`, `NO_SHOW` | `CONFIRMED` | deshace un error; no toca el pago. `409` si el cupo ya lo tomó otra cita |
+
+Respuesta `{ id, status, paymentStatus, pendingBalance }`. `400` si la acción no aplica al estado o la fecha, `409` si la cita cambió entre la lectura y la escritura (bloqueo optimista). Cada acción queda en el audit log (`appointment.<acción>`, actor = correo del usuario del portal o id del operador) y re-sincroniza la fila en Google Sheets.

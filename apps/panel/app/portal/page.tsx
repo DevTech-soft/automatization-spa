@@ -5,6 +5,8 @@ import { StateBadge } from "@/components/ui/badge";
 import { Stat } from "@/components/ui/stat";
 import { adminGet, requirePortalUser } from "@/lib/backend";
 import { formatDate, formatMoney, formatNumber, todayIn } from "@/lib/format";
+import { AppointmentActions } from "@/components/appointment-actions";
+import { appointmentActionPortal } from "./actions";
 
 /**
  * Portada del portal: la agenda de hoy y lo que viene en la semana. Es lo que
@@ -83,6 +85,9 @@ export default async function PortalHomePage() {
                     cobrar {formatMoney(row.pendingBalance, currency)}
                   </span>
                 ) : null}
+                <span className="w-full sm:w-auto">
+                  <AppointmentActions appointment={row} today={today} run={appointmentActionPortal} />
+                </span>
               </li>
             ))}
           </ol>

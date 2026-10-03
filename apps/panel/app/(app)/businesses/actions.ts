@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   agentFieldOrder,
+  appointmentActionSchema,
   changeStatusSchema,
   connectWhatsAppSchema,
   createBusinessSchema,
@@ -504,6 +505,43 @@ export async function deleteContactAction(
   } catch (e) {
     if (e instanceof ApiError) return { ok: false, error: e.message };
     return { ok: false, error: "No se pudo eliminar el contacto." };
+  }
+
+  revalidateBusiness(id);
+  return { ok: true };
+}
+
+// — Acciones sobre citas (F7, soporte del operador) —
+
+/**
+ * Lee el formulario de `AppointmentActions`: `action` viene del botón pulsado,
+ * `reason` del campo de cancelación y `balancePaid` del checkbox de saldo.
+ * Lo comparte el portal (`app/portal/actions.ts`).
+ */
+export async function parseAppointmentActionForm(formData: FormData) {
+  return appointmentActionSchema.safeParse({
+    action: formData.get("action"),
+    reason: formData.get("reason") ?? undefined,
+    balancePaid: formData.get("balancePaid") === "on",
+  });
+}
+
+export async function appointmentActionAdmin(
+  id: string,
+  appointmentId: string,
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const parsed = await parseAppointmentActionForm(formData);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Acción inválida." };
+  }
+
+  try {
+    await adminMutate("POST", `/admin/businesses/${id}/appointments/${appointmentId}/actions`, parsed.data);
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, error: e.message };
+    return { ok: false, error: "No se pudo actualizar la cita." };
   }
 
   revalidateBusiness(id);

@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getSessionMock, findMembershipsMock, activity, metrics, portalService, usersService, chats } = vi.hoisted(() => ({
+const { getSessionMock, findMembershipsMock, activity, metrics, portalService, usersService, chats, appointmentActions } = vi.hoisted(() => ({
   getSessionMock: vi.fn(),
   chats: { listChats: vi.fn(), getChat: vi.fn(), assertBusinessExists: vi.fn() },
+  appointmentActions: { applyAppointmentAction: vi.fn() },
   findMembershipsMock: vi.fn(),
   activity: {
     listAppointments: vi.fn(),
@@ -40,6 +41,7 @@ vi.mock("../../src/services/portal.service.js", async (importOriginal) => ({
 }));
 vi.mock("../../src/services/admin-users.service.js", () => usersService);
 vi.mock("../../src/services/chat.service.js", () => chats);
+vi.mock("../../src/services/appointment-actions.service.js", () => appointmentActions);
 
 const { buildApp } = await import("../../src/app.js");
 
@@ -243,6 +245,78 @@ describe("separación operador / portal de cliente (F7)", () => {
     expect(chats.getChat).toHaveBeenCalledWith(BUSINESS_ID, "573001112233", {
       before: "2026-10-03T10:00:00.000Z",
     });
+  });
+});
+
+describe("acciones sobre citas", () => {
+  let app: Awaited<ReturnType<typeof buildApp>>;
+  const APPOINTMENT_ID = "33333333-3333-4333-8333-333333333333";
+
+  beforeEach(async () => {
+    app = await buildApp();
+  });
+  afterEach(async () => {
+    await app.close();
+    vi.clearAllMocks();
+  });
+
+  it("el equipo puede cancelar; el negocio y el actor salen de la sesión", async () => {
+    getSessionMock.mockResolvedValue(CLIENT_SESSION);
+    findMembershipsMock.mockResolvedValue([membership("member")]);
+    appointmentActions.applyAppointmentAction.mockResolvedValue({ id: APPOINTMENT_ID, status: "CANCELLED" });
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/portal/appointments/${APPOINTMENT_ID}/actions`,
+      payload: { action: "cancel", reason: "Llamó a cancelar", businessId: OTHER_BUSINESS_ID },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(appointmentActions.applyAppointmentAction).toHaveBeenCalledWith(
+      BUSINESS_ID,
+      APPOINTMENT_ID,
+      { action: "cancel", reason: "Llamó a cancelar" },
+      "spa@example.com",
+    );
+  });
+
+  it("cancelar sin motivo o una acción desconocida → 400", async () => {
+    getSessionMock.mockResolvedValue(CLIENT_SESSION);
+    findMembershipsMock.mockResolvedValue([membership("member")]);
+
+    const noReason = await app.inject({
+      method: "POST",
+      url: `/portal/appointments/${APPOINTMENT_ID}/actions`,
+      payload: { action: "cancel" },
+    });
+    const unknown = await app.inject({
+      method: "POST",
+      url: `/portal/appointments/${APPOINTMENT_ID}/actions`,
+      payload: { action: "refund" },
+    });
+
+    expect(noReason.statusCode).toBe(400);
+    expect(unknown.statusCode).toBe(400);
+    expect(appointmentActions.applyAppointmentAction).not.toHaveBeenCalled();
+  });
+
+  it("el operador usa la ruta de /admin con el negocio de la URL", async () => {
+    getSessionMock.mockResolvedValue(OPERATOR_SESSION);
+    appointmentActions.applyAppointmentAction.mockResolvedValue({ id: APPOINTMENT_ID, status: "COMPLETED" });
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/admin/businesses/${BUSINESS_ID}/appointments/${APPOINTMENT_ID}/actions`,
+      payload: { action: "complete" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(appointmentActions.applyAppointmentAction).toHaveBeenCalledWith(
+      BUSINESS_ID,
+      APPOINTMENT_ID,
+      { action: "complete", balancePaid: true },
+      "op-1",
+    );
   });
 });
 

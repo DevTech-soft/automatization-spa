@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import {
   activityQuerySchema,
+  appointmentActionSchema,
   auditQuerySchema,
   chatDetailQuerySchema,
   chatPhoneParamSchema,
@@ -17,9 +18,11 @@ import {
 import { getBusinessUsage, getOverview } from "../services/admin-metrics.service.js";
 import { listAuditLogs } from "../services/admin-audit.service.js";
 import { assertBusinessExists, getChat, listChats } from "../services/chat.service.js";
+import { applyAppointmentAction } from "../services/appointment-actions.service.js";
 
 const idParamSchema = z.object({ id: z.string().uuid() });
 const chatParamsSchema = z.object({ id: z.string().uuid(), phone: chatPhoneParamSchema });
+const appointmentParamsSchema = z.object({ id: z.string().uuid(), appointmentId: z.string().uuid() });
 
 /**
  * Métricas, consumo y actividad (docs/PANEL-OPERADOR.md §1, F3e/F6). Las rutas
@@ -43,6 +46,13 @@ export async function adminActivityRoutes(app: FastifyInstance): Promise<void> {
     const query = paginationQuerySchema.parse(request.query);
     const filters = activityQuerySchema.parse(request.query);
     return { data: await listAppointments(id, query, filters) };
+  });
+
+  /** Las mismas acciones de la recepción, para cuando el operador da soporte. */
+  app.post("/admin/businesses/:id/appointments/:appointmentId/actions", async (request) => {
+    const { id, appointmentId } = appointmentParamsSchema.parse(request.params);
+    const body = appointmentActionSchema.parse(request.body);
+    return { data: await applyAppointmentAction(id, appointmentId, body, request.operator!.userId) };
   });
 
   app.get("/admin/businesses/:id/transactions", async (request) => {

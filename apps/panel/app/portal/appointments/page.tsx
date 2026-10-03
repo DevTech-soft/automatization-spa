@@ -1,7 +1,9 @@
 import type { AppointmentRow, PaginatedResponse } from "@spa/shared";
 import { AppointmentsTable } from "@/components/activity-tables";
 import { stateLabel } from "@/components/ui/badge";
-import { adminGet } from "@/lib/backend";
+import { adminGet, requirePortalUser } from "@/lib/backend";
+import { todayIn } from "@/lib/format";
+import { appointmentActionPortal } from "../actions";
 import { ListToolbar, listQuery } from "../list-toolbar";
 
 const STATUSES = ["PENDING", "CONFIRMED", "COMPLETED", "CANCELLED", "NO_SHOW", "EXPIRED"];
@@ -13,7 +15,10 @@ export default async function PortalAppointmentsPage({
 }) {
   const sp = await searchParams;
   const { q, query, linkParams } = listQuery(sp, ["status", "from", "to"]);
-  const data = await adminGet<PaginatedResponse<AppointmentRow>>(`/portal/appointments?${query}`);
+  const [viewer, data] = await Promise.all([
+    requirePortalUser(),
+    adminGet<PaginatedResponse<AppointmentRow>>(`/portal/appointments?${query}`),
+  ]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -36,6 +41,7 @@ export default async function PortalAppointmentsPage({
         basePath="/portal/appointments"
         params={linkParams}
         emptyText="No hay citas con esos filtros."
+        actions={{ today: todayIn(viewer.business.timezone), run: appointmentActionPortal }}
       />
     </div>
   );

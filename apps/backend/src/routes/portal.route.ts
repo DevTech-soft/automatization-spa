@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import {
   activityQuerySchema,
+  appointmentActionSchema,
   chatDetailQuerySchema,
   chatPhoneParamSchema,
   paginationQuerySchema,
@@ -16,10 +17,12 @@ import {
 } from "../services/admin-activity.service.js";
 import { getBusinessUsage } from "../services/admin-metrics.service.js";
 import { getChat, listChats } from "../services/chat.service.js";
+import { applyAppointmentAction } from "../services/appointment-actions.service.js";
 import { getCustomer, getPortalMe, listCustomers } from "../services/portal.service.js";
 
 const customerParamSchema = z.object({ customerId: z.string().uuid() });
 const chatParamSchema = z.object({ phone: chatPhoneParamSchema });
+const appointmentParamSchema = z.object({ appointmentId: z.string().uuid() });
 
 /**
  * API del portal de cliente / CRM (docs/PANEL-OPERADOR.md F7, §8.5). Mismo
@@ -48,6 +51,19 @@ export async function portalRoutes(app: FastifyInstance): Promise<void> {
       const query = paginationQuerySchema.parse(request.query);
       const filters = activityQuerySchema.parse(request.query);
       return { data: await listConversations(request.portal!.businessId, query, filters) };
+    });
+
+    /**
+     * Atendida / no asistió / cancelar / deshacer. Todo el equipo: es la tarea
+     * de la recepción. Queda en el audit log con el usuario que lo hizo.
+     */
+    portal.post("/portal/appointments/:appointmentId/actions", async (request) => {
+      const { appointmentId } = appointmentParamSchema.parse(request.params);
+      const body = appointmentActionSchema.parse(request.body);
+      const portalUser = request.portal!;
+      return {
+        data: await applyAppointmentAction(portalUser.businessId, appointmentId, body, portalUser.email),
+      };
     });
 
     // Transcripción de WhatsApp (F7): lo ve todo el equipo, como las citas.

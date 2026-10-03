@@ -107,6 +107,28 @@ export const appointmentRepository = {
     return result.count > 0;
   },
 
+  /** Cita + zona horaria del negocio, para las acciones de la recepción (F7). */
+  findForAction(id: string) {
+    return prisma.appointment.findUnique({
+      where: { id },
+      include: { business: { select: { timezone: true } } },
+    });
+  },
+
+  /**
+   * Cambia la cita solo si sigue en `expectedStatus` (bloqueo optimista).
+   * Devuelve `false` si otra escritura llegó primero.
+   */
+  async transitionFrom(
+    id: string,
+    expectedStatus: Prisma.AppointmentWhereInput["status"],
+    data: Prisma.AppointmentUpdateManyMutationInput,
+    db: Db = prisma,
+  ): Promise<boolean> {
+    const result = await db.appointment.updateMany({ where: { id, status: expectedStatus }, data });
+    return result.count > 0;
+  },
+
   /** El pago se recibió pero la cita ya no pudo confirmarse (conflicto de capacity) — requiere revisión manual. */
   markPaymentConflict(id: string, note: string, db: Db = prisma) {
     return db.appointment.update({

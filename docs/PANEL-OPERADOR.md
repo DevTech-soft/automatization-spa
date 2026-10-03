@@ -739,8 +739,14 @@ cruce con `customers` y `whatsapp_conversations` por dígitos). Panel: pestaña
 `components/chat-view.tsx`, "en vivo" por `AutoRefresh` cada 15 s). Solo
 lectura: responder desde el panel no existe (ventana de 24 h de Meta).
 
-**Pendiente de F7**: responder desde el panel, acciones del recepcionista sobre las
-citas (marcar completada / no asistió), 2FA y cambio de contraseña desde el
+**Acciones sobre citas** (`appointment-actions.service.ts`, tabla de
+transiciones en `@spa/shared/appointment-actions.ts`): atendida (con "saldo
+cobrado" si hubo abono), no asistió, cancelar con motivo y deshacer. Botones en
+Hoy y Citas del portal y en Actividad del operador (`components/appointment-actions.tsx`).
+Bloqueo optimista por estado esperado, audit log en la misma transacción,
+re-sync a Google Sheets. Cancelar no reembolsa ni avisa a la clienta.
+
+**Pendiente de F7**: responder desde el panel, aviso a la clienta al cancelar, 2FA y cambio de contraseña desde el
 propio portal, y que el dueño administre a su equipo sin pasar por el operador.
 
 ---

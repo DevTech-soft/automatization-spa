@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type {
   AppointmentRow,
+  BusinessDetail,
   ConversationRow,
   GiftCardRow,
   PaginatedResponse,
@@ -13,6 +14,8 @@ import {
   PaymentsTable,
 } from "@/components/activity-tables";
 import { adminGet } from "@/lib/backend";
+import { todayIn } from "@/lib/format";
+import { appointmentActionAdmin } from "../../actions";
 import { cn } from "@/lib/utils";
 
 /**
@@ -97,6 +100,10 @@ export default async function ActivityPage({
           )}
           basePath={basePath}
           params={linkParams}
+          actions={{
+            today: todayIn((await adminGet<BusinessDetail>(`/admin/businesses/${id}`)).timezone),
+            run: appointmentActionAdmin.bind(null, id),
+          }}
         />
       ) : view === "payments" ? (
         <PaymentsTable

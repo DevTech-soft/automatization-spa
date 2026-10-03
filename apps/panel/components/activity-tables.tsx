@@ -9,6 +9,7 @@ import { StateBadge } from "@/components/ui/badge";
 import { Table, TD, TH, THead, TR, EmptyRow } from "@/components/ui/table";
 import { Pagination } from "@/components/pagination";
 import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
+import { AppointmentActions, type AppointmentActionRunner } from "@/components/appointment-actions";
 
 /**
  * Tablas de actividad de un negocio (citas, pagos, conversaciones, gift cards).
@@ -24,7 +25,16 @@ interface TableProps<T> {
   emptyText?: string;
 }
 
-export function AppointmentsTable({ data, basePath, params, emptyText }: TableProps<AppointmentRow>) {
+export function AppointmentsTable({
+  data,
+  basePath,
+  params,
+  emptyText,
+  actions,
+}: TableProps<AppointmentRow> & {
+  /** Con esto la tabla muestra los botones de la recepción (F7). `today` en la zona del negocio. */
+  actions?: { today: string; run: AppointmentActionRunner };
+}) {
   return (
     <>
       <Table>
@@ -36,11 +46,12 @@ export function AppointmentsTable({ data, basePath, params, emptyText }: TablePr
             <TH>Origen</TH>
             <TH>Estado</TH>
             <TH className="text-right">Valor</TH>
+            {actions ? <TH>Acciones</TH> : null}
           </tr>
         </THead>
         <tbody>
           {data.items.length === 0 ? (
-            <EmptyRow colSpan={6}>{emptyText ?? "Sin citas en este negocio."}</EmptyRow>
+            <EmptyRow colSpan={actions ? 7 : 6}>{emptyText ?? "Sin citas en este negocio."}</EmptyRow>
           ) : (
             data.items.map((row) => (
               <TR key={row.id}>
@@ -75,6 +86,11 @@ export function AppointmentsTable({ data, basePath, params, emptyText }: TablePr
                     </span>
                   ) : null}
                 </TD>
+                {actions ? (
+                  <TD>
+                    <AppointmentActions appointment={row} today={actions.today} run={actions.run} />
+                  </TD>
+                ) : null}
               </TR>
             ))
           )}
