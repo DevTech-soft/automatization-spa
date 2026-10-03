@@ -23,6 +23,7 @@ import {
   X,
 } from "lucide-react";
 import { signOut } from "@/lib/auth-client";
+import { initials } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -225,11 +226,6 @@ export function AppShell({
       </div>
     </div>
   );
-}
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
 }
 
 function UserMenu({ user }: { user: { name: string; email: string; roleLabel: string } }) {

@@ -82,6 +82,8 @@ const STATE_TONES: Record<string, BadgeTone> = {
   NO_SHOW: "danger",
   FAILED: "danger",
   REFUNDED: "neutral",
+  CONNECTED: "success",
+  INACTIVE: "neutral",
 };
 
 const STATE_LABELS: Record<string, string> = {
@@ -106,6 +108,8 @@ const STATE_LABELS: Record<string, string> = {
   COLLECTING_NAME: "Pidiendo nombre",
   COLLECTING_PHONE: "Pidiendo teléfono",
   WAITING_PAYMENT: "Esperando pago",
+  CONNECTED: "Conectado",
+  INACTIVE: "Inactivo",
 };
 
 /** Nombre legible de un enum del runtime; devuelve el valor crudo si no lo conoce. */

@@ -55,7 +55,7 @@ export function ChatView({
   const listParams = { q: q || undefined, page: page > 1 ? String(page) : undefined };
 
   return (
-    <div className="grid min-h-[32rem] overflow-hidden rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-background)] md:grid-cols-[20rem_1fr]">
+    <div className="grid min-h-[32rem] overflow-hidden rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-background)] shadow-[var(--shadow-card)] md:grid-cols-[20rem_1fr]">
       <aside
         className={cn(
           "flex min-h-0 flex-col border-[var(--color-border)] md:border-r",

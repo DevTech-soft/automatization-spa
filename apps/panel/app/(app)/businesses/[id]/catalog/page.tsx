@@ -16,7 +16,7 @@ export default async function CatalogPage({ params }: { params: Promise<{ id: st
   ]);
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-6">
       <ServicesList businessId={id} services={services} currency={business.currency} />
       <HoursEditor businessId={id} hours={hours} timezone={business.timezone} />
     </div>

@@ -32,3 +32,39 @@ export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDi
 export function CardFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return <div className={cn("flex items-center p-6 pt-0", className)} {...props} />;
 }
+
+/**
+ * Tarjeta de sección de las pestañas: título, descripción y, a la derecha, la
+ * acción principal de la sección. `flush` quita el padding del cuerpo para
+ * listas y tablas que van de borde a borde.
+ */
+export function SectionCard({
+  title,
+  description,
+  actions,
+  flush = false,
+  className,
+  contentClassName,
+  children,
+}: {
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  actions?: React.ReactNode;
+  flush?: boolean;
+  className?: string;
+  contentClassName?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card className={className}>
+      <CardHeader className="flex-row flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-1">
+          <CardTitle>{title}</CardTitle>
+          {description ? <CardDescription>{description}</CardDescription> : null}
+        </div>
+        {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+      </CardHeader>
+      <div className={cn(flush ? "" : "p-6", contentClassName)}>{children}</div>
+    </Card>
+  );
+}

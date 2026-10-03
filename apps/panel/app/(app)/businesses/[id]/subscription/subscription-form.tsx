@@ -96,10 +96,7 @@ function ExtendForm({ businessId }: { businessId: string }) {
   const [state, formAction] = useActionState<FormState, FormData>(action, { ok: false });
 
   return (
-    <form
-      action={formAction}
-      className="flex flex-col gap-3 rounded-[var(--radius)] border border-[var(--color-border)] p-4"
-    >
+    <form action={formAction} className="flex flex-col gap-3 border-t border-[var(--color-border)] pt-5">
       <div>
         <p className="text-sm font-medium">Extender vigencia sin cobrar</p>
         <p className="text-sm text-[var(--color-fg-muted)]">

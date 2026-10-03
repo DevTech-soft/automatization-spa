@@ -5,7 +5,8 @@ import Link from "next/link";
 import { CheckCircle2, Circle, CircleDashed } from "lucide-react";
 import type { OnboardingChecklist, OnboardingStep, OnboardingStepKey } from "@spa/shared";
 import { buttonVariants } from "@/components/ui/button";
-import { SubmitButton } from "@/components/ui/form-field";
+import { SectionCard } from "@/components/ui/card";
+import { FormAlert, SubmitButton } from "@/components/ui/form-field";
 import { cn } from "@/lib/utils";
 import { activateBusinessAction, setOnboardingFlagAction, type FormState } from "../../actions";
 
@@ -75,19 +76,16 @@ function ActivatePanel({ checklist }: { checklist: OnboardingChecklist }) {
 
   return (
     <form action={formAction} className="flex flex-col gap-2">
-      <div className="flex items-center gap-3">
-        <SubmitButton
-          label="Activar negocio"
-          pendingLabel="Activando…"
-          disabled={!checklist.canActivate}
-        />
-        {!checklist.canActivate ? (
-          <span className="text-sm text-[var(--color-fg-muted)]">
-            Faltan pasos requeridos.
-          </span>
-        ) : null}
-      </div>
-      {state.error ? <p className="text-sm text-[var(--color-danger)]">{state.error}</p> : null}
+      <SubmitButton
+        label="Activar negocio"
+        pendingLabel="Activando…"
+        disabled={!checklist.canActivate}
+        className="w-full"
+      />
+      {!checklist.canActivate ? (
+        <p className="text-center text-xs text-[var(--color-fg-muted)]">Faltan pasos requeridos.</p>
+      ) : null}
+      {state.error ? <FormAlert state={state} /> : null}
     </form>
   );
 }
@@ -95,73 +93,88 @@ function ActivatePanel({ checklist }: { checklist: OnboardingChecklist }) {
 export function OnboardingChecklistView({ checklist }: { checklist: OnboardingChecklist }) {
   const required = checklist.steps.filter((s) => s.required);
   const doneCount = required.filter((s) => s.done).length;
+  const percent = required.length === 0 ? 100 : Math.round((doneCount / required.length) * 100);
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-base font-semibold">Checklist de alta</h2>
-          <span className="text-sm text-[var(--color-fg-muted)]">
-            {doneCount} de {required.length} pasos requeridos
-          </span>
-        </div>
-        <div
-          className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-border)]"
-          role="progressbar"
-          aria-valuenow={doneCount}
-          aria-valuemin={0}
-          aria-valuemax={required.length}
-        >
-          <div
-            className="h-full rounded-full bg-[var(--color-primary)] transition-all"
-            style={{ width: `${(doneCount / required.length) * 100}%` }}
-          />
-        </div>
-      </div>
-
-      <ul className="flex flex-col divide-y divide-[var(--color-border)] rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-background)]">
-        {checklist.steps.map((step) => {
-          const link = STEP_LINK[step.key];
-          return (
-            <li key={step.key} className="flex gap-3 p-4">
-              <StepIcon step={step} />
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-medium">{step.label}</span>
-                  {!step.required ? (
-                    <span className="text-xs text-[var(--color-fg-muted)]">opcional</span>
+    <div className="grid items-start gap-6 lg:grid-cols-3">
+      <SectionCard
+        className="lg:col-span-2"
+        title="Checklist de alta"
+        description="Los pasos se calculan solos a partir de lo cargado; los manuales se marcan aquí."
+        flush
+      >
+        <ul className="flex flex-col divide-y divide-[var(--color-border)]">
+          {checklist.steps.map((step) => {
+            const link = STEP_LINK[step.key];
+            return (
+              <li key={step.key} className="flex gap-3 px-6 py-4">
+                <StepIcon step={step} />
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={cn("text-sm font-medium", step.done && "text-[var(--color-fg-muted)]")}>
+                      {step.label}
+                    </span>
+                    {!step.required ? <Tag>opcional</Tag> : null}
+                    {step.manual ? <Tag>manual</Tag> : null}
+                  </div>
+                  <p className="text-sm text-[var(--color-fg-muted)]">{step.detail}</p>
+                  {!step.done && STEP_NOTE[step.key] ? (
+                    <p className="text-xs text-[var(--color-fg-muted)]">{STEP_NOTE[step.key]}</p>
                   ) : null}
-                  {step.manual ? (
-                    <span className="text-xs text-[var(--color-fg-muted)]">manual</span>
-                  ) : null}
+                  {step.manual ? <ManualToggle businessId={checklist.businessId} step={step} /> : null}
                 </div>
-                <p className="text-sm text-[var(--color-fg-muted)]">{step.detail}</p>
-                {!step.done && STEP_NOTE[step.key] ? (
-                  <p className="text-xs text-[var(--color-fg-muted)]">{STEP_NOTE[step.key]}</p>
+                {link && !step.done ? (
+                  <Link
+                    href={`/businesses/${checklist.businessId}${link.href}`}
+                    className={cn(buttonVariants({ variant: "soft", size: "sm" }), "shrink-0")}
+                  >
+                    {link.label}
+                  </Link>
                 ) : null}
-                {step.manual ? <ManualToggle businessId={checklist.businessId} step={step} /> : null}
-              </div>
-              {link ? (
-                <Link
-                  href={`/businesses/${checklist.businessId}${link.href}`}
-                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0")}
-                >
-                  {link.label}
-                </Link>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
+              </li>
+            );
+          })}
+        </ul>
+      </SectionCard>
 
-      <div className="flex flex-col gap-2 border-t border-[var(--color-border)] pt-6">
-        <h2 className="text-base font-semibold">Activación</h2>
+      <SectionCard title="Activación" description="Pasa el negocio de prueba a activo." contentClassName="flex flex-col gap-5">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-baseline justify-between">
+            <span className="text-2xl font-semibold tracking-tight">{percent}%</span>
+            <span className="text-sm text-[var(--color-fg-muted)]">
+              {doneCount} de {required.length} requeridos
+            </span>
+          </div>
+          <div
+            className="h-2 w-full overflow-hidden rounded-full bg-[var(--color-grid)]"
+            role="progressbar"
+            aria-label="Pasos requeridos completados"
+            aria-valuenow={doneCount}
+            aria-valuemin={0}
+            aria-valuemax={required.length}
+          >
+            <div
+              className={cn(
+                "h-full rounded-full transition-all",
+                checklist.canActivate ? "bg-[var(--color-success)]" : "bg-[var(--color-primary)]",
+              )}
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+        </div>
         <p className="text-sm text-[var(--color-fg-muted)]">
-          Pasa el negocio de <strong>prueba</strong> a <strong>activo</strong>. El backend vuelve a
-          verificar el checklist antes de aceptarlo.
+          El backend vuelve a verificar el checklist antes de aceptar la activación.
         </p>
         <ActivatePanel checklist={checklist} />
-      </div>
+      </SectionCard>
     </div>
+  );
+}
+
+function Tag({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="rounded-md bg-[var(--color-grid)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--color-fg-muted)]">
+      {children}
+    </span>
   );
 }

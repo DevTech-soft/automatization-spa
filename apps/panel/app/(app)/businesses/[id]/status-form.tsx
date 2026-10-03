@@ -1,8 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import type { BusinessDetail, BusinessStatus } from "@spa/shared";
 import { ALLOWED_STATUS_TRANSITIONS, BUSINESS_STATUS_LABEL } from "@spa/shared";
+import { Callout } from "@/components/ui/callout";
+import { SectionCard } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Field, FormAlert, SubmitButton } from "@/components/ui/form-field";
@@ -35,42 +37,51 @@ export function StatusForm({ business }: { business: BusinessDetail }) {
     (status) => !(business.status === "TRIAL" && status === "ACTIVE"),
   );
 
-  if (options.length === 0) {
+  const [selected, setSelected] = useState<BusinessStatus | undefined>(options[0]);
+
+  if (options.length === 0 || !selected) {
     return null;
   }
 
   return (
-    <form
-      action={formAction}
-      className="flex flex-col gap-4 rounded-[var(--radius)] border border-[var(--color-border)] p-4"
+    <SectionCard
+      title="Estado del servicio"
+      description={
+        <>
+          Ahora está en <strong>{BUSINESS_STATUS_LABEL[business.status]}</strong>. El cambio se aplica
+          de inmediato y queda registrado con tu usuario.
+        </>
+      }
     >
-      <div>
-        <p className="text-sm font-medium">Estado del servicio</p>
-        <p className="text-sm text-[var(--color-fg-muted)]">
-          Ahora está en <strong>{BUSINESS_STATUS_LABEL[business.status]}</strong>. El cambio se
-          aplica de inmediato y queda registrado con tu usuario.
-        </p>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
+      <form action={formAction} className="flex flex-col gap-4">
         <Field name="status" label="Nuevo estado" errors={state.fieldErrors}>
-          <Select id="status" name="status" defaultValue={options[0]}>
+          <Select
+            id="status"
+            name="status"
+            value={selected}
+            onChange={(e) => setSelected(e.target.value as BusinessStatus)}
+          >
             {options.map((status) => (
               <option key={status} value={status}>
-                {BUSINESS_STATUS_LABEL[status]} — {CONSEQUENCE[status]}
+                {BUSINESS_STATUS_LABEL[status]}
               </option>
             ))}
           </Select>
         </Field>
+        {CONSEQUENCE[selected] ? (
+          <Callout tone={selected === "SUSPENDED" || selected === "CANCELLED" ? "danger" : "info"}>
+            {CONSEQUENCE[selected]}
+          </Callout>
+        ) : null}
         <Field name="reason" label="Motivo" errors={state.fieldErrors}>
           <Input id="reason" name="reason" placeholder="No pagó la cuenta de septiembre" required />
         </Field>
-      </div>
 
-      <FormAlert state={state} />
-      <div>
-        <SubmitButton variant="outline" label="Cambiar estado" pendingLabel="Aplicando…" />
-      </div>
-    </form>
+        <FormAlert state={state} />
+        <div>
+          <SubmitButton variant="outline" label="Cambiar estado" pendingLabel="Aplicando…" />
+        </div>
+      </form>
+    </SectionCard>
   );
 }

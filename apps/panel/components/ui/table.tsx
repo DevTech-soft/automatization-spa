@@ -7,9 +7,22 @@ import { cn } from "@/lib/utils";
  * falta el estado de TanStack Table — solo el marco visual compartido.
  */
 
-export function Table({ className, ...props }: React.HTMLAttributes<HTMLTableElement>) {
+export function Table({
+  className,
+  flush = false,
+  ...props
+}: React.HTMLAttributes<HTMLTableElement> & {
+  /** Sin marco propio: para tablas dentro de una tarjeta (`SectionCard flush`). */
+  flush?: boolean;
+}) {
   return (
-    <div className="overflow-x-auto rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-background)] shadow-[var(--shadow-card)]">
+    <div
+      className={cn(
+        "overflow-x-auto",
+        !flush &&
+          "rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-background)] shadow-[var(--shadow-card)]",
+      )}
+    >
       <table className={cn("w-full text-sm", className)} {...props} />
     </div>
   );

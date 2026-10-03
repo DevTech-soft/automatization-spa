@@ -1,11 +1,12 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Clock, Users } from "lucide-react";
+import { Clock, Plus, Sparkles, Users } from "lucide-react";
 import type { ServiceDto } from "@spa/shared";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { SectionCard } from "@/components/ui/card";
 import { Field, FormAlert, SubmitButton } from "@/components/ui/form-field";
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -34,43 +35,45 @@ export function ServicesList({
   const [adding, setAdding] = useState(false);
 
   return (
-    <section className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold">Servicios</h2>
-          <p className="text-sm text-[var(--color-fg-muted)]">
-            Lo que el bot, el agente y la página de reservas ofrecen. Cambiar el precio no afecta las citas ya
-            agendadas.
-          </p>
-        </div>
-        {!adding ? (
-          <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
+    <SectionCard
+      title="Servicios"
+      description="Lo que el bot, el agente y la página de reservas ofrecen. Cambiar el precio no afecta las citas ya agendadas."
+      actions={
+        !adding ? (
+          <Button size="sm" onClick={() => setAdding(true)}>
+            <Plus className="size-4" />
             Nuevo servicio
           </Button>
-        ) : null}
-      </div>
-
+        ) : null
+      }
+      flush
+    >
       {adding ? (
-        <ServiceForm businessId={businessId} service={null} onDone={() => setAdding(false)} />
+        <div className="border-b border-[var(--color-border)] p-4">
+          <ServiceForm businessId={businessId} service={null} onDone={() => setAdding(false)} />
+        </div>
       ) : null}
 
       {services.length === 0 && !adding ? (
-        <p className="rounded-[var(--radius)] border border-dashed border-[var(--color-border)] px-4 py-8 text-center text-sm text-[var(--color-fg-muted)]">
+        <div className="flex flex-col items-center gap-2 px-6 py-12 text-center text-sm text-[var(--color-fg-muted)]">
+          <span className="flex size-10 items-center justify-center rounded-lg bg-[var(--color-primary-soft)] text-[var(--color-primary)]">
+            <Sparkles className="size-5" />
+          </span>
           Sin servicios. El negocio no puede recibir reservas hasta cargar al menos uno.
-        </p>
+        </div>
       ) : null}
 
-      <ul className="flex flex-col gap-3">
+      <ul className="flex flex-col divide-y divide-[var(--color-border)]">
         {services.map((service) =>
           editing === service.id ? (
-            <li key={service.id}>
+            <li key={service.id} className="p-4">
               <ServiceForm businessId={businessId} service={service} onDone={() => setEditing(null)} />
             </li>
           ) : (
             <li
               key={service.id}
               className={cn(
-                "flex flex-wrap items-start justify-between gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-background)] p-4",
+                "flex flex-wrap items-start justify-between gap-3 px-6 py-4 hover:bg-[var(--color-surface)]",
                 !service.active && "opacity-60",
               )}
             >
@@ -78,7 +81,7 @@ export function ServicesList({
                 <p className="flex flex-wrap items-center gap-2 font-medium">
                   {service.name}
                   {!service.active ? (
-                    <span className="rounded-full border border-transparent bg-[var(--color-grid)] px-2 py-0.5 text-xs font-normal text-[var(--color-fg-muted)]">
+                    <span className="rounded-md bg-[var(--color-grid)] px-2 py-0.5 text-xs font-medium text-[var(--color-fg-muted)]">
                       Pausado
                     </span>
                   ) : null}
@@ -114,7 +117,7 @@ export function ServicesList({
           ),
         )}
       </ul>
-    </section>
+    </SectionCard>
   );
 }
 
@@ -137,8 +140,9 @@ function ServiceForm({
   return (
     <form
       action={formAction}
-      className="flex flex-col gap-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-background)] p-4"
+      className="flex flex-col gap-4 rounded-lg border border-[var(--color-primary)]/30 bg-[var(--color-surface)] p-4"
     >
+      <p className="text-sm font-medium">{service ? `Editar ${service.name}` : "Nuevo servicio"}</p>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field name="name" label="Nombre" errors={state.fieldErrors}>
           <Input id="name" name="name" defaultValue={service?.name ?? ""} required />

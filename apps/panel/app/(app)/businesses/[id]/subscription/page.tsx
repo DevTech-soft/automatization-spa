@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CalendarClock, CreditCard, Receipt } from "lucide-react";
 import type {
   OperatorInvoiceListItem,
   OperatorPaymentListItem,
@@ -6,6 +7,8 @@ import type {
   UpsertSubscriptionInput,
 } from "@spa/shared";
 import { InvoiceStatusBadge } from "@/components/ui/badge";
+import { Callout } from "@/components/ui/callout";
+import { SectionCard } from "@/components/ui/card";
 import { Table, TD, TH, THead, TR, EmptyRow } from "@/components/ui/table";
 import { Stat } from "@/components/ui/stat";
 import { adminGet } from "@/lib/backend";
@@ -41,21 +44,24 @@ export default async function SubscriptionPage({ params }: { params: Promise<{ i
   const currency = plan?.currency ?? "COP";
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       {plan ? (
-        <section className="grid gap-3 sm:grid-cols-3">
+        <section className="grid gap-4 sm:grid-cols-3">
           <Stat
+            icon={<CreditCard />}
             label="Plan"
             value={formatMoney(plan.price, plan.currency)}
             hint={`${plan.name} · ${plan.cycle === "MONTHLY" ? "cada 30 días" : "anual"}`}
           />
           <Stat
+            icon={<CalendarClock />}
             label="Vigente hasta"
             value={formatDate(plan.validUntil)}
             hint={`${formatDaysRemaining(plan.daysRemaining)} · ${plan.graceDays} días de gracia`}
             tone={plan.graceExpired ? "danger" : plan.expired ? "warning" : "default"}
           />
           <Stat
+            icon={<Receipt />}
             label="Pendiente de cobro"
             value={formatMoney(billing.outstandingTotal, currency)}
             hint={`${billing.outstanding.length} cuenta(s) sin pagar`}
@@ -63,27 +69,34 @@ export default async function SubscriptionPage({ params }: { params: Promise<{ i
           />
         </section>
       ) : (
-        <p className="rounded-[var(--radius)] border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-3 py-2 text-sm text-[var(--color-warning)]">
-          Este negocio todavía no tiene plan. Sin plan no se le puede emitir una cuenta de cobro ni
-          entra en el ciclo de facturación.
-        </p>
+        <Callout tone="warning" title="Este negocio todavía no tiene plan">
+          Sin plan no se le puede emitir una cuenta de cobro ni entra en el ciclo de facturación.
+        </Callout>
       )}
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-base font-semibold">Plan</h2>
-        <SubscriptionForm
-          businessId={id}
-          plan={plan}
-          suggested={subscription.suggested}
-        />
-      </section>
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        <SectionCard
+          title="Plan"
+          description={plan ? "Lo que paga y hasta cuándo está al día." : "Prellenado con los valores sugeridos."}
+        >
+          <SubscriptionForm businessId={id} plan={plan} suggested={subscription.suggested} />
+        </SectionCard>
 
-      <section className="flex flex-col gap-3 border-t border-[var(--color-border)] pt-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-base font-semibold">Cuentas de cobro</h2>
-          {plan ? <EmitInvoiceButton businessId={id} /> : null}
-        </div>
-        <Table>
+        <SectionCard
+          title="Registrar un pago"
+          description="Extiende la vigencia del plan y, si el negocio estaba en mora o suspendido, lo reactiva."
+        >
+          <PaymentForm businessId={id} plan={plan} outstanding={billing.outstanding} />
+        </SectionCard>
+      </div>
+
+      <SectionCard
+        title="Cuentas de cobro"
+        description="El job diario emite la del próximo período 5 días antes del vencimiento."
+        actions={plan ? <EmitInvoiceButton businessId={id} /> : null}
+        flush
+      >
+        <Table flush>
           <THead>
             <tr>
               <TH>Número</TH>
@@ -100,7 +113,10 @@ export default async function SubscriptionPage({ params }: { params: Promise<{ i
               billing.invoices.map((invoice) => (
                 <TR key={invoice.id}>
                   <TD>
-                    <Link href={`/billing/${invoice.id}`} className="font-mono text-xs hover:underline">
+                    <Link
+                      href={`/billing/${invoice.id}`}
+                      className="font-mono text-xs text-[var(--color-primary)] hover:underline"
+                    >
                       {invoice.number}
                     </Link>
                   </TD>
@@ -124,20 +140,10 @@ export default async function SubscriptionPage({ params }: { params: Promise<{ i
             )}
           </tbody>
         </Table>
-      </section>
+      </SectionCard>
 
-      <section className="flex flex-col gap-3 border-t border-[var(--color-border)] pt-6">
-        <h2 className="text-base font-semibold">Registrar un pago</h2>
-        <p className="text-sm text-[var(--color-fg-muted)]">
-          Registrar el pago extiende la vigencia del plan y, si el negocio estaba en mora o
-          suspendido, lo reactiva.
-        </p>
-        <PaymentForm businessId={id} plan={plan} outstanding={billing.outstanding} />
-      </section>
-
-      <section className="flex flex-col gap-3 border-t border-[var(--color-border)] pt-6">
-        <h2 className="text-base font-semibold">Pagos recibidos</h2>
-        <Table>
+      <SectionCard title="Pagos recibidos" flush>
+        <Table flush>
           <THead>
             <tr>
               <TH>Fecha</TH>
@@ -172,7 +178,7 @@ export default async function SubscriptionPage({ params }: { params: Promise<{ i
             )}
           </tbody>
         </Table>
-      </section>
+      </SectionCard>
     </div>
   );
 }

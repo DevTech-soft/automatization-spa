@@ -6,8 +6,12 @@ import type {
   WhatsAppAccountDto,
   WhatsAppSignupSessionDto,
 } from "@spa/shared";
+import { CheckCircle2, PhoneOff } from "lucide-react";
+import { Callout } from "@/components/ui/callout";
+import { SectionCard } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Field, FormAlert, SubmitButton } from "@/components/ui/form-field";
+import { StateBadge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/format";
 import { EmbeddedSignupPanel } from "./embedded-signup";
 import {
@@ -43,15 +47,17 @@ export function WhatsAppSection({
   signupSessions: WhatsAppSignupSessionDto[];
 }) {
   return (
-    <section className="flex flex-col gap-4">
-      <div>
-        <h2 className="text-base font-semibold">WhatsApp</h2>
-        <p className="text-sm text-[var(--color-fg-muted)]">
+    <SectionCard
+      title="WhatsApp"
+      description={
+        <>
           El número desde el que este negocio le contesta a sus clientas. El webhook resuelve el
           tenant por <code className="font-mono text-xs">phone_number_id</code>, así que ese dato
           tiene que coincidir exactamente con el de Meta.
-        </p>
-      </div>
+        </>
+      }
+      contentClassName="flex flex-col gap-4"
+    >
 
       {accounts.length > 0 ? (
         <ul className="flex flex-col gap-3">
@@ -60,11 +66,11 @@ export function WhatsAppSection({
           ))}
         </ul>
       ) : (
-        <p className="rounded-[var(--radius)] border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-3 py-2 text-sm text-[var(--color-warning)]">
-          Sin número conectado: los mensajes de este negocio salen con las credenciales globales del
-          operador, y el webhook lo resuelve por el número de la ficha en vez de por su
+        <Callout tone="warning" title="Sin número conectado">
+          Los mensajes de este negocio salen con las credenciales globales del operador, y el
+          webhook lo resuelve por el número de la ficha en vez de por su
           <code className="mx-1 font-mono text-xs">phone_number_id</code>.
-        </p>
+        </Callout>
       )}
 
       <EmbeddedSignupPanel
@@ -74,7 +80,7 @@ export function WhatsAppSection({
       />
 
       <ConnectForm businessId={businessId} hasAccounts={accounts.length > 0} />
-    </section>
+    </SectionCard>
   );
 }
 
@@ -89,18 +95,27 @@ function AccountCard({ businessId, account }: { businessId: string; account: Wha
   );
 
   return (
-    <li className="flex flex-col gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-background)] p-4">
+    <li className="flex flex-col gap-4 rounded-lg border border-[var(--color-border)] p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="font-medium">
-            {account.displayName ?? "Número sin nombre aprobado"}
-            {!account.active ? (
-              <span className="ml-2 text-xs text-[var(--color-fg-muted)]">(inactivo)</span>
-            ) : null}
-          </p>
-          <p className="text-sm text-[var(--color-fg-muted)]">
-            {account.displayPhoneNumber ?? "—"}
-          </p>
+        <div className="flex items-start gap-3">
+          <span
+            className={
+              account.active
+                ? "flex size-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-success-soft)] text-[var(--color-success)]"
+                : "flex size-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-grid)] text-[var(--color-fg-muted)]"
+            }
+          >
+            {account.active ? <CheckCircle2 className="size-5" /> : <PhoneOff className="size-5" />}
+          </span>
+          <div>
+            <p className="flex flex-wrap items-center gap-2 font-medium">
+              {account.displayName ?? "Número sin nombre aprobado"}
+              <StateBadge value={account.active ? "CONNECTED" : "INACTIVE"} />
+            </p>
+            <p className="text-sm text-[var(--color-fg-muted)]">
+              {account.displayPhoneNumber ?? "—"}
+            </p>
+          </div>
         </div>
         <div className="flex gap-2">
           <form action={verifyAction}>
@@ -112,7 +127,7 @@ function AccountCard({ businessId, account }: { businessId: string; account: Wha
         </div>
       </div>
 
-      <dl className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-3 rounded-lg bg-[var(--color-surface)] p-3 text-xs sm:grid-cols-3 lg:grid-cols-6">
         <Meta label="WABA" value={account.wabaId} />
         <Meta label="phone_number_id" value={account.phoneNumberId} />
         <Meta label="Token" value={account.accessTokenMask} />
@@ -151,10 +166,7 @@ function ConnectForm({ businessId, hasAccounts }: { businessId: string; hasAccou
   );
 
   return (
-    <form
-      action={formAction}
-      className="flex flex-col gap-4 rounded-[var(--radius)] border border-[var(--color-border)] p-4"
-    >
+    <form action={formAction} className="flex flex-col gap-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
       <div>
         <p className="text-sm font-medium">{hasAccounts ? "Conectar otro número" : "Conectar número"}</p>
         <p className="text-sm text-[var(--color-fg-muted)]">

@@ -1,9 +1,11 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Check, Copy, ShieldCheck } from "lucide-react";
+import { Check, Copy, Plus, ShieldCheck, UserCog } from "lucide-react";
 import { PORTAL_ROLE_LABELS, PORTAL_ROLES, type BusinessUserDto } from "@spa/shared";
 import { Button } from "@/components/ui/button";
+import { SectionCard } from "@/components/ui/card";
+import { Avatar } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Field, FormAlert, SubmitButton } from "@/components/ui/form-field";
@@ -26,36 +28,40 @@ export function UsersPanel({ businessId, users }: { businessId: string; users: B
   const [adding, setAdding] = useState(false);
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold">Usuarios del portal</h2>
-          <p className="text-sm text-[var(--color-fg-muted)]">
-            Quién del negocio puede entrar a ver sus citas, clientas y conversaciones. El equipo no ve pagos
-            ni métricas de ingresos.
-          </p>
-        </div>
-        {!adding ? (
-          <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
+    <SectionCard
+      title="Usuarios del portal"
+      description="Quién del negocio puede entrar a ver sus citas, clientas y conversaciones. El equipo no ve pagos ni métricas de ingresos."
+      actions={
+        !adding ? (
+          <Button size="sm" onClick={() => setAdding(true)}>
+            <Plus className="size-4" />
             Nuevo usuario
           </Button>
-        ) : null}
-      </div>
-
-      {adding ? <CreateUserForm businessId={businessId} onClose={() => setAdding(false)} /> : null}
-
-      {users.length === 0 && !adding ? (
-        <p className="rounded-[var(--radius)] border border-dashed border-[var(--color-border)] px-4 py-8 text-center text-sm text-[var(--color-fg-muted)]">
-          Este negocio todavía no tiene usuarios. Crea el del dueño(a) para darle acceso al portal.
-        </p>
+        ) : null
+      }
+      flush
+    >
+      {adding ? (
+        <div className="border-b border-[var(--color-border)] p-4">
+          <CreateUserForm businessId={businessId} onClose={() => setAdding(false)} />
+        </div>
       ) : null}
 
-      <ul className="flex flex-col gap-3">
+      {users.length === 0 && !adding ? (
+        <div className="flex flex-col items-center gap-2 px-6 py-12 text-center text-sm text-[var(--color-fg-muted)]">
+          <span className="flex size-10 items-center justify-center rounded-lg bg-[var(--color-primary-soft)] text-[var(--color-primary)]">
+            <UserCog className="size-5" />
+          </span>
+          Este negocio todavía no tiene usuarios. Crea el del dueño(a) para darle acceso al portal.
+        </div>
+      ) : null}
+
+      <ul className="flex flex-col divide-y divide-[var(--color-border)]">
         {users.map((user) => (
           <UserRow key={user.userId} businessId={businessId} user={user} />
         ))}
       </ul>
-    </div>
+    </SectionCard>
   );
 }
 
@@ -67,7 +73,7 @@ function CreateUserForm({ businessId, onClose }: { businessId: string; onClose: 
 
   if (state.ok && state.temporaryPassword) {
     return (
-      <div className="flex flex-col gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-background)] p-4">
+      <div className="flex flex-col gap-3">
         <CredentialsNotice email={state.email ?? ""} password={state.temporaryPassword} />
         <div>
           <Button size="sm" variant="ghost" onClick={onClose}>
@@ -81,7 +87,7 @@ function CreateUserForm({ businessId, onClose }: { businessId: string; onClose: 
   return (
     <form
       action={formAction}
-      className="flex flex-col gap-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-background)] p-4"
+      className="flex flex-col gap-4 rounded-lg border border-[var(--color-primary)]/30 bg-[var(--color-surface)] p-4"
     >
       <div className="grid gap-4 sm:grid-cols-3">
         <Field name="name" label="Nombre" errors={state.fieldErrors}>
@@ -129,20 +135,29 @@ function UserRow({ businessId, user }: { businessId: string; user: BusinessUserD
   const error = resetState.error ?? roleState.error ?? removeState.error;
 
   return (
-    <li className="flex flex-col gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-background)] p-4">
+    <li className="flex flex-col gap-3 px-6 py-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-col gap-1">
-          <p className="flex items-center gap-2 font-medium">
-            {user.name}
-            <span className="rounded-full border border-[var(--color-border)] px-2 py-0.5 text-xs font-normal text-[var(--color-fg-muted)]">
-              {PORTAL_ROLE_LABELS[user.role]}
-            </span>
-            {user.twoFactorEnabled ? <ShieldCheck className="size-4 text-[var(--color-success)]" aria-label="2FA activo" /> : null}
-          </p>
-          <p className="text-sm text-[var(--color-fg-muted)]">{user.email}</p>
-          <p className="text-xs text-[var(--color-fg-muted)]">
-            {user.lastSeenAt ? `Último ingreso ${formatDateTime(user.lastSeenAt)}` : "Nunca ha entrado"}
-          </p>
+        <div className="flex min-w-0 gap-3">
+          <Avatar name={user.name} />
+          <div className="flex min-w-0 flex-col gap-1">
+            <p className="flex items-center gap-2 font-medium">
+              {user.name}
+              <span
+                className={
+                  user.role === "owner"
+                    ? "rounded-md bg-[var(--color-primary-soft)] px-2 py-0.5 text-xs font-medium text-[var(--color-primary)]"
+                    : "rounded-md bg-[var(--color-grid)] px-2 py-0.5 text-xs font-medium text-[var(--color-fg-muted)]"
+                }
+              >
+                {PORTAL_ROLE_LABELS[user.role]}
+              </span>
+              {user.twoFactorEnabled ? <ShieldCheck className="size-4 text-[var(--color-success)]" aria-label="2FA activo" /> : null}
+            </p>
+            <p className="text-sm text-[var(--color-fg-muted)]">{user.email}</p>
+            <p className="text-xs text-[var(--color-fg-muted)]">
+              {user.lastSeenAt ? `Último ingreso ${formatDateTime(user.lastSeenAt)}` : "Nunca ha entrado"}
+            </p>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-1">
           <form action={roleAction}>
@@ -194,7 +209,7 @@ function CredentialsNotice({ email, password, reset = false }: { email: string; 
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-[var(--radius)] border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] p-3 text-sm text-[var(--color-warning)]">
+    <div className="flex flex-col gap-2 rounded-lg bg-[var(--color-warning-soft)] p-4 text-sm text-[var(--color-warning)]">
       <p className="font-medium">
         {reset ? "Contraseña restablecida y sesiones abiertas cerradas." : "Usuario creado."} Esta contraseña no se
         vuelve a mostrar: cópiala y envíasela al cliente.

@@ -1,11 +1,13 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Mail, Phone } from "lucide-react";
+import { Contact, Mail, Phone, Plus } from "lucide-react";
 import type { ClientContactDto } from "@spa/shared";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { SectionCard } from "@/components/ui/card";
 import { Field, FormAlert, SubmitButton } from "@/components/ui/form-field";
 import { formatDate } from "@/lib/format";
 import { deleteContactAction, saveContactAction, type FormState } from "../../actions";
@@ -26,39 +28,38 @@ export function ContactsList({
   const [adding, setAdding] = useState(false);
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold">Contactos</h2>
-          <p className="text-sm text-[var(--color-fg-muted)]">
-            La persona con la que hablas de este negocio: cobros, soporte, renovación.
-          </p>
-        </div>
-        {!adding ? (
-          <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
+    <SectionCard
+      title="Contactos"
+      description="La persona con la que hablas de este negocio: cobros, soporte, renovación."
+      actions={
+        !adding ? (
+          <Button size="sm" onClick={() => setAdding(true)}>
+            <Plus className="size-4" />
             Nuevo contacto
           </Button>
-        ) : null}
-      </div>
-
+        ) : null
+      }
+      flush
+    >
       {adding ? (
-        <ContactForm
-          businessId={businessId}
-          contact={null}
-          onDone={() => setAdding(false)}
-        />
+        <div className="border-b border-[var(--color-border)] p-4">
+          <ContactForm businessId={businessId} contact={null} onDone={() => setAdding(false)} />
+        </div>
       ) : null}
 
       {contacts.length === 0 && !adding ? (
-        <p className="rounded-[var(--radius)] border border-dashed border-[var(--color-border)] px-4 py-8 text-center text-sm text-[var(--color-fg-muted)]">
+        <div className="flex flex-col items-center gap-2 px-6 py-12 text-center text-sm text-[var(--color-fg-muted)]">
+          <span className="flex size-10 items-center justify-center rounded-lg bg-[var(--color-primary-soft)] text-[var(--color-primary)]">
+            <Contact className="size-5" />
+          </span>
           Todavía no registraste a nadie.
-        </p>
+        </div>
       ) : null}
 
-      <ul className="flex flex-col gap-3">
+      <ul className="flex flex-col divide-y divide-[var(--color-border)]">
         {contacts.map((contact) =>
           editing === contact.id ? (
-            <li key={contact.id}>
+            <li key={contact.id} className="p-4">
               <ContactForm
                 businessId={businessId}
                 contact={contact}
@@ -68,28 +69,31 @@ export function ContactsList({
           ) : (
             <li
               key={contact.id}
-              className="flex flex-wrap items-start justify-between gap-3 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-background)] p-4"
+              className="flex flex-wrap items-start justify-between gap-3 px-6 py-4 hover:bg-[var(--color-surface)]"
             >
-              <div className="flex min-w-0 flex-col gap-1">
-                <p className="font-medium">{contact.name}</p>
-                <div className="flex flex-wrap gap-4 text-sm text-[var(--color-fg-muted)]">
-                  {contact.phone ? (
-                    <a href={`tel:${contact.phone}`} className="inline-flex items-center gap-1.5 hover:underline">
-                      <Phone className="size-3.5" />
-                      {contact.phone}
-                    </a>
+              <div className="flex min-w-0 gap-3">
+                <Avatar name={contact.name} />
+                <div className="flex min-w-0 flex-col gap-1">
+                  <p className="font-medium">{contact.name}</p>
+                  <div className="flex flex-wrap gap-4 text-sm text-[var(--color-fg-muted)]">
+                    {contact.phone ? (
+                      <a href={`tel:${contact.phone}`} className="inline-flex items-center gap-1.5 hover:underline">
+                        <Phone className="size-3.5" />
+                        {contact.phone}
+                      </a>
+                    ) : null}
+                    {contact.email ? (
+                      <a href={`mailto:${contact.email}`} className="inline-flex items-center gap-1.5 hover:underline">
+                        <Mail className="size-3.5" />
+                        {contact.email}
+                      </a>
+                    ) : null}
+                    {contact.soldAt ? <span>Cliente desde {formatDate(contact.soldAt)}</span> : null}
+                  </div>
+                  {contact.notes ? (
+                    <p className="whitespace-pre-line text-sm text-[var(--color-fg-muted)]">{contact.notes}</p>
                   ) : null}
-                  {contact.email ? (
-                    <a href={`mailto:${contact.email}`} className="inline-flex items-center gap-1.5 hover:underline">
-                      <Mail className="size-3.5" />
-                      {contact.email}
-                    </a>
-                  ) : null}
-                  {contact.soldAt ? <span>Cliente desde {formatDate(contact.soldAt)}</span> : null}
                 </div>
-                {contact.notes ? (
-                  <p className="whitespace-pre-line text-sm text-[var(--color-fg-muted)]">{contact.notes}</p>
-                ) : null}
               </div>
               <div className="flex items-center gap-2">
                 <Button size="sm" variant="ghost" onClick={() => setEditing(contact.id)}>
@@ -101,7 +105,7 @@ export function ContactsList({
           ),
         )}
       </ul>
-    </div>
+    </SectionCard>
   );
 }
 
@@ -124,7 +128,7 @@ function ContactForm({
   return (
     <form
       action={formAction}
-      className="flex flex-col gap-4 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-background)] p-4"
+      className="flex flex-col gap-4 rounded-lg border border-[var(--color-primary)]/30 bg-[var(--color-surface)] p-4"
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <Field name="name" label="Nombre" errors={state.fieldErrors}>

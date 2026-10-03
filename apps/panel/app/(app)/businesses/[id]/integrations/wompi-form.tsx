@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import type { PaymentCredentialsDto } from "@spa/shared";
+import { Callout } from "@/components/ui/callout";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Field, FormAlert, SubmitButton } from "@/components/ui/form-field";
@@ -69,15 +70,14 @@ export function WompiForm({
   return (
     <div className="flex flex-col gap-4">
       {credentials.usingGlobalFallback ? (
-        <p className="rounded-[var(--radius)] border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-3 py-2 text-sm text-[var(--color-warning)]">
-          Este negocio cobra con las llaves globales del operador: el dinero de sus reservas cae en
-          la cuenta de Wompi del operador, no en la suya.
-        </p>
+        <Callout tone="warning" title="Cobra con las llaves globales del operador">
+          El dinero de sus reservas cae en la cuenta de Wompi del operador, no en la suya.
+        </Callout>
       ) : (
-        <p className="text-sm text-[var(--color-fg-muted)]">
-          Llaves propias en entorno <strong>{credentials.environment === "PROD" ? "producción" : "pruebas"}</strong>
-          , guardadas el {formatDateTime(credentials.configuredAt)}.
-        </p>
+        <Callout tone="success" title="Llaves propias configuradas">
+          Entorno de {credentials.environment === "PROD" ? "producción" : "pruebas"}, guardadas el{" "}
+          {formatDateTime(credentials.configuredAt)}.
+        </Callout>
       )}
 
       <form action={formAction} className="flex flex-col gap-4">

@@ -51,7 +51,7 @@ export function PaymentForm({
           {outstanding.map((invoice) => (
             <label
               key={invoice.id}
-              className="flex cursor-pointer items-center gap-3 rounded-[var(--radius)] border border-[var(--color-border)] px-3 py-2 text-sm"
+              className="flex cursor-pointer items-center gap-3 rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm transition-colors hover:bg-[var(--color-surface)] has-[:checked]:border-[var(--color-primary)] has-[:checked]:bg-[var(--color-primary-soft)]"
             >
               <input
                 type="checkbox"
@@ -73,7 +73,7 @@ export function PaymentForm({
         </p>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2">
         <Field name="paidAt" label="Fecha del pago" errors={state.fieldErrors}>
           <Input id="paidAt" name="paidAt" type="date" defaultValue={today} required />
         </Field>

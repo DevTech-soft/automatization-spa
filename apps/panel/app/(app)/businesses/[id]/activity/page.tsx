@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CalendarCheck, Gift, MessagesSquare, Search, Wallet } from "lucide-react";
 import type {
   AppointmentRow,
   BusinessDetail,
@@ -13,6 +14,8 @@ import {
   GiftCardsTable,
   PaymentsTable,
 } from "@/components/activity-tables";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { adminGet } from "@/lib/backend";
 import { todayIn } from "@/lib/format";
 import { appointmentActionAdmin } from "../../actions";
@@ -26,10 +29,10 @@ import { cn } from "@/lib/utils";
  */
 
 const VIEWS = [
-  { key: "appointments", label: "Citas" },
-  { key: "payments", label: "Pagos" },
-  { key: "conversations", label: "Conversaciones" },
-  { key: "gift-cards", label: "Gift cards" },
+  { key: "appointments", label: "Citas", icon: CalendarCheck },
+  { key: "payments", label: "Pagos", icon: Wallet },
+  { key: "conversations", label: "Conversaciones", icon: MessagesSquare },
+  { key: "gift-cards", label: "Gift cards", icon: Gift },
 ] as const;
 
 type ViewKey = (typeof VIEWS)[number]["key"];
@@ -60,38 +63,40 @@ export default async function ActivityPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <nav className="flex flex-wrap gap-2">
-        {VIEWS.map((item) => (
-          <Link
-            key={item.key}
-            href={`${basePath}?view=${item.key}`}
-            className={cn(
-              "rounded-full border px-3 py-1 text-sm transition-colors",
-              item.key === view
-                ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-primary-fg)]"
-                : "border-[var(--color-border)] hover:bg-[var(--color-surface)]",
-            )}
-          >
-            {item.label}
-          </Link>
-        ))}
-      </nav>
-
-      <form className="flex gap-2" action={basePath}>
-        <input type="hidden" name="view" value={view} />
-        <input
-          name="q"
-          defaultValue={q}
-          placeholder="Buscar…"
-          className="h-9 w-full max-w-xs rounded-[var(--radius)] border border-[var(--color-input)] bg-[var(--color-background)] px-3 text-sm outline-none focus-visible:border-[var(--color-ring)]"
-        />
-        <button
-          type="submit"
-          className="h-9 rounded-[var(--radius)] border border-[var(--color-border)] px-3 text-sm hover:bg-[var(--color-surface)]"
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <nav
+          aria-label="Vista"
+          className="inline-flex flex-wrap rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] p-1 shadow-[var(--shadow-card)]"
         >
-          Buscar
-        </button>
-      </form>
+          {VIEWS.map((item) => (
+            <Link
+              key={item.key}
+              href={`${basePath}?view=${item.key}`}
+              aria-current={item.key === view ? "page" : undefined}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
+                item.key === view
+                  ? "bg-[var(--color-primary)] text-[var(--color-primary-fg)]"
+                  : "text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]",
+              )}
+            >
+              <item.icon className="size-4" />
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+
+        <form className="flex w-full gap-2 sm:w-auto" action={basePath}>
+          <input type="hidden" name="view" value={view} />
+          <div className="relative flex-1 sm:w-72">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--color-fg-muted)]" />
+            <Input name="q" defaultValue={q} placeholder="Buscar…" aria-label="Buscar" className="pl-9" />
+          </div>
+          <Button type="submit" variant="outline">
+            Buscar
+          </Button>
+        </form>
+      </div>
 
       {view === "appointments" ? (
         <AppointmentsTable

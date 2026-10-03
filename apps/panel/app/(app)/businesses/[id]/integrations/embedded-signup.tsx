@@ -5,6 +5,7 @@ import type { EmbeddedSignupConfigDto, WhatsAppSignupSessionDto } from "@spa/sha
 import { Button } from "@/components/ui/button";
 import { FormAlert, SubmitButton } from "@/components/ui/form-field";
 import { StateBadge } from "@/components/ui/badge";
+import { Callout } from "@/components/ui/callout";
 import { formatDateTime } from "@/lib/format";
 import {
   completeEmbeddedSignupAction,
@@ -60,19 +61,16 @@ export function EmbeddedSignupPanel({
 }) {
   if (!config.enabled) {
     return (
-      <div className="rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-muted-bg,transparent)] p-4">
-        <p className="text-sm font-medium">Conexión automática no disponible todavía</p>
-        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
-          El Embedded Signup necesita la app de Meta aprobada con acceso avanzado (§7.1), y eso
-          exige la verificación de negocio. Mientras tanto el número se conecta a mano aquí abajo:
-          es el puente de §7.3 y el resultado en la base es el mismo.
-        </p>
-      </div>
+      <Callout tone="info" title="Conexión automática no disponible todavía">
+        El Embedded Signup necesita la app de Meta aprobada con acceso avanzado (§7.1), y eso exige
+        la verificación de negocio. Mientras tanto el número se conecta a mano aquí abajo: es el
+        puente de §7.3 y el resultado en la base es el mismo.
+      </Callout>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-[var(--radius)] border border-[var(--color-border)] p-4">
+    <div className="flex flex-col gap-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
       <div>
         <p className="text-sm font-medium">Que el cliente conecte su propio número</p>
         <p className="text-sm text-[var(--color-fg-muted)]">
@@ -122,7 +120,7 @@ function CopyableLink({ url }: { url: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   return (
-    <div className="flex flex-col gap-2 rounded-[var(--radius)] border border-[var(--color-success-soft)] bg-[var(--color-success-soft)] p-3">
+    <div className="flex flex-col gap-2 rounded-lg bg-[var(--color-success-soft)] p-3">
       <p className="text-xs text-[var(--color-success)]">
         Mándaselo al cliente por WhatsApp. Vence según la configuración del despliegue y sirve una
         sola vez; generar otro cancela este.

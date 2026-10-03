@@ -16,11 +16,11 @@ export default async function BusinessDetailPage({ params }: { params: Promise<{
   }
 
   return (
-    <div className="flex flex-col gap-8">
-      <BusinessForm business={business} />
-      <div className="border-t border-[var(--color-border)] pt-6">
-        <StatusForm business={business} />
+    <div className="grid items-start gap-6 lg:grid-cols-3">
+      <div className="lg:col-span-2">
+        <BusinessForm business={business} />
       </div>
+      <StatusForm business={business} />
     </div>
   );
 }
