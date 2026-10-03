@@ -20,7 +20,8 @@ const { notificationLogRepository } = await import("../../src/repositories/notif
 const { resolveWhatsAppProviderForBusiness } = await import(
   "../../src/services/whatsapp-provider-resolver.js"
 );
-const { notifyAppointmentConfirmed, notifyAppointmentReminder, notifyGiftCardCreated } = await import(
+const { notifyAppointmentCancelled, notifyAppointmentConfirmed, notifyAppointmentReminder, notifyGiftCardCreated } =
+  await import(
   "../../src/services/notification.service.js"
 );
 
@@ -106,6 +107,62 @@ describe("notifyAppointmentConfirmed", () => {
     vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue({ sendText } as never);
 
     await expect(notifyAppointmentConfirmed(APPOINTMENT_ID)).resolves.toBeUndefined();
+  });
+});
+
+describe("notifyAppointmentCancelled", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("avisa a la clienta sin incluir el motivo interno", async () => {
+    vi.mocked(appointmentRepository.findByIdWithDetails).mockResolvedValue(
+      fakeAppointment({ paymentStatus: "PENDING", notes: "Cancelada desde el panel: no pagó" }) as never,
+    );
+    const sendText = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue({ sendText } as never);
+
+    await expect(notifyAppointmentCancelled(APPOINTMENT_ID)).resolves.toEqual({
+      sent: true,
+      phone: "+573001112233",
+    });
+
+    const text = sendText.mock.calls[0]![1] as string;
+    expect(sendText).toHaveBeenCalledWith("+573001112233", expect.stringContaining("fue cancelada"));
+    expect(text).toContain("Masaje relajante");
+    expect(text).not.toContain("no pagó");
+    expect(text).not.toContain("pago que hiciste");
+    // Sin `notification_log`: la transición a CANCELLED ya es de una sola vez.
+    expect(notificationLogRepository.create).not.toHaveBeenCalled();
+  });
+
+  it("si la cita estaba pagada, dice que el negocio la contactará por el pago", async () => {
+    vi.mocked(appointmentRepository.findByIdWithDetails).mockResolvedValue(
+      fakeAppointment({ paymentStatus: "DEPOSIT_PAID" }) as never,
+    );
+    const sendText = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue({ sendText } as never);
+
+    await notifyAppointmentCancelled(APPOINTMENT_ID);
+
+    expect(sendText).toHaveBeenCalledWith("+573001112233", expect.stringContaining("pago que hiciste"));
+  });
+
+  it("si WhatsApp rechaza el mensaje, no lanza y devuelve sent: false", async () => {
+    vi.mocked(appointmentRepository.findByIdWithDetails).mockResolvedValue(fakeAppointment() as never);
+    const sendText = vi.fn().mockRejectedValue(new Error("(#131047) Re-engagement message"));
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue({ sendText } as never);
+
+    await expect(notifyAppointmentCancelled(APPOINTMENT_ID)).resolves.toEqual({
+      sent: false,
+      phone: "+573001112233",
+    });
+  });
+
+  it("devuelve null si la cita ya no existe", async () => {
+    vi.mocked(appointmentRepository.findByIdWithDetails).mockResolvedValue(null);
+
+    await expect(notifyAppointmentCancelled(APPOINTMENT_ID)).resolves.toBeNull();
   });
 });
 

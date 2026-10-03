@@ -29,6 +29,12 @@ export const appointmentActionSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("cancel"),
     reason: z.string().trim().min(3, "Cuéntanos el motivo (mínimo 3 caracteres).").max(300),
+    /**
+     * Mandarle a la clienta un WhatsApp diciendo que su cita se canceló. El
+     * motivo NO va en el mensaje: es una nota interna. Se apaga cuando fue ella
+     * misma quien pidió cancelar.
+     */
+    notifyCustomer: z.boolean().default(true),
   }),
   z.object({ action: z.literal("reopen") }),
 ]);
@@ -41,6 +47,12 @@ export interface AppointmentActionResult {
   status: string;
   paymentStatus: string;
   pendingBalance: number | null;
+  /**
+   * Solo al cancelar con aviso. `sent: false` casi siempre es la ventana de 24 h
+   * de WhatsApp (la clienta no ha escrito hace un día y Meta exige plantilla):
+   * el panel muestra el teléfono para avisarle por otro medio.
+   */
+  customerNotice?: { sent: boolean; phone: string };
 }
 
 /**

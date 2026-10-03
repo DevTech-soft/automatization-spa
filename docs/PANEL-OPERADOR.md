@@ -772,8 +772,10 @@ Hoy y Citas del portal y en Actividad del operador (`components/appointment-acti
 Bloqueo optimista por estado esperado, audit log en la misma transacción,
 re-sync a Google Sheets. Cancelar no reembolsa ni avisa a la clienta.
 
-**Pendiente de F7**: responder desde el panel, aviso a la clienta al cancelar, y que el dueño administre a su
-equipo sin pasar por el operador. (2FA y cambio de contraseña: ✅ en `/portal/account`.)
+**Pendiente de F7**: responder desde el panel y que el dueño administre a su equipo sin pasar por el operador.
+(2FA y cambio de contraseña: ✅ en `/portal/account`. Aviso a la clienta al cancelar: ✅ `notifyAppointmentCancelled`,
+texto libre — si cae fuera de la ventana de 24 h de WhatsApp no sale y el panel muestra el teléfono para avisar a mano;
+la salida de fondo son plantillas aprobadas por WABA, igual que para el recordatorio.)
 
 ---
 

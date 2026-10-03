@@ -140,6 +140,53 @@ export async function notifyAppointmentReminder(appointmentId: string): Promise<
 }
 
 /**
+ * Aviso a la clienta de que el negocio le canceló la cita (acción "Cancelar"
+ * del panel y del portal). A diferencia de las demás no pasa por
+ * `notification_log`: la transición a CANCELLED es atómica y no tiene vuelta
+ * atrás, así que no hay reproceso que deduplicar.
+ *
+ * Devuelve si el mensaje salió, para que quien canceló sepa si tiene que
+ * avisarle por otro medio. Lo más común es que no salga por la ventana de 24 h
+ * de WhatsApp: el texto libre solo se entrega si la clienta escribió en el
+ * último día. Nunca lanza: la cita ya quedó cancelada.
+ */
+export async function notifyAppointmentCancelled(
+  appointmentId: string,
+): Promise<{ sent: boolean; phone: string } | null> {
+  const appointment = await appointmentRepository.findByIdWithDetails(appointmentId);
+  if (!appointment) {
+    logger.error({ appointmentId }, "notify_appointment_cancelled_appointment_missing");
+    return null;
+  }
+
+  const { customer, service, business } = appointment;
+  const dateLabel = dateOnlyFromUTCDate(appointment.appointmentDate);
+  // Cancelar no reembolsa (eso lo hace el negocio en su Wompi): no se promete
+  // devolución, solo que el negocio la contactará.
+  const paid = appointment.paymentStatus === "PAID" || appointment.paymentStatus === "DEPOSIT_PAID";
+  const paymentLine = paid ? `
+
+Sobre el pago que hiciste, ${business.name} se pondrá en contacto contigo.` : "";
+
+  try {
+    const provider = await resolveWhatsAppProviderForBusiness(business.id, "NOTIFICATION");
+    await provider.sendText(
+      customer.phone,
+      `Hola ${customer.name}, te escribimos de ${business.name}. ` +
+        `Tu cita de ${service.name} del ${dateLabel} a las ${appointment.startTime} fue cancelada.` +
+        `${paymentLine}
+
+Si quieres agendar otra fecha, escríbenos por aquí.`,
+    );
+    logger.info({ appointmentId }, "whatsapp_appointment_cancellation_sent");
+    return { sent: true, phone: customer.phone };
+  } catch (error) {
+    logger.warn({ appointmentId, error }, "whatsapp_appointment_cancellation_failed");
+    return { sent: false, phone: customer.phone };
+  }
+}
+
+/**
  * Envía la Gift Card al comprador y notifica al negocio (sección 15, pasos
  * 7-8 y sección 22). `pdfUrl` puede ser `null` si la generación de la imagen
  * falló — en ese caso se envía un texto sin adjunto en vez de bloquear el

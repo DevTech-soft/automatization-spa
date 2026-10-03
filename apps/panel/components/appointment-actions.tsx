@@ -40,7 +40,19 @@ export function AppointmentActions({
   const actions = availableAppointmentActions(appointment.status, appointment.date, today);
   const hasBalance = (appointment.pendingBalance ?? 0) > 0;
 
-  if (actions.length === 0) return null;
+  // Tras cancelar ya no quedan acciones, pero el resultado del aviso a la
+  // clienta tiene que seguir a la vista (sobre todo si no salió).
+  const feedback = state.warning ? (
+    <p className="w-full rounded-md bg-[var(--color-warning-soft)] px-2 py-1 text-xs text-[var(--color-warning)]" role="status">
+      {state.warning}
+    </p>
+  ) : state.message ? (
+    <p className="w-full text-xs text-[var(--color-success)]" role="status">
+      {state.message}
+    </p>
+  ) : null;
+
+  if (actions.length === 0) return feedback;
 
   if (cancelling) {
     return (
@@ -60,6 +72,10 @@ export function AppointmentActions({
         <Button type="button" size="sm" variant="ghost" onClick={() => setCancelling(false)}>
           Volver
         </Button>
+        <label className="flex w-full items-center gap-1.5 text-xs text-[var(--color-fg-muted)]">
+          <input type="checkbox" name="notifyCustomer" defaultChecked className="size-3.5" />
+          Avisar a la clienta por WhatsApp (el motivo no se le envía)
+        </label>
         {state.error ? <p className="w-full text-xs text-[var(--color-danger)]">{state.error}</p> : null}
       </form>
     );
@@ -92,6 +108,7 @@ export function AppointmentActions({
         </Button>
       ) : null}
       {state.error ? <p className="w-full text-xs text-[var(--color-danger)]">{state.error}</p> : null}
+      {feedback}
     </form>
   );
 }

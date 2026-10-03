@@ -36,6 +36,7 @@ import {
   type WhatsAppAccountDto,
   type WhatsAppHealth,
   type WhatsAppSignupSessionDto,
+  type AppointmentActionResult,
 } from "@spa/shared";
 import { adminDelete, adminMutate, ApiError } from "@/lib/backend";
 
@@ -45,6 +46,8 @@ export interface FormState {
   fieldErrors?: Record<string, string[]>;
   /** Texto de éxito a medida; sin él, `FormAlert` muestra "Cambios guardados." */
   message?: string;
+  /** La acción se aplicó pero algo quedó pendiente (p. ej. el aviso por WhatsApp no salió). */
+  warning?: string;
 }
 
 /**
@@ -523,7 +526,21 @@ export async function parseAppointmentActionForm(formData: FormData) {
     action: formData.get("action"),
     reason: formData.get("reason") ?? undefined,
     balancePaid: formData.get("balancePaid") === "on",
+    notifyCustomer: formData.get("notifyCustomer") === "on",
   });
+}
+
+/** Lo que se le muestra a quien aplicó la acción; al cancelar, si la clienta quedó avisada. */
+export async function appointmentActionFeedback(result: AppointmentActionResult): Promise<FormState> {
+  const notice = result.customerNotice;
+  if (!notice) return { ok: true };
+  if (notice.sent) return { ok: true, message: "Cita cancelada. Le avisamos a la clienta por WhatsApp." };
+  return {
+    ok: true,
+    warning:
+      `Cita cancelada, pero el WhatsApp a la clienta no salió (lo normal es que no haya escrito en las ` +
+      `últimas 24 h). Avísale al ${notice.phone}.`,
+  };
 }
 
 export async function appointmentActionAdmin(
@@ -537,15 +554,20 @@ export async function appointmentActionAdmin(
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Acción inválida." };
   }
 
+  let result: AppointmentActionResult;
   try {
-    await adminMutate("POST", `/admin/businesses/${id}/appointments/${appointmentId}/actions`, parsed.data);
+    result = await adminMutate<AppointmentActionResult>(
+      "POST",
+      `/admin/businesses/${id}/appointments/${appointmentId}/actions`,
+      parsed.data,
+    );
   } catch (e) {
     if (e instanceof ApiError) return { ok: false, error: e.message };
     return { ok: false, error: "No se pudo actualizar la cita." };
   }
 
   revalidateBusiness(id);
-  return { ok: true };
+  return appointmentActionFeedback(result);
 }
 
 // — Catálogo: servicios y horarios (§6.1 pasos 3–4) —

@@ -7,6 +7,7 @@ import { ConflictError, NotFoundError, ValidationError } from "../errors/index.j
 import { businessToday, dateOnlyFromUTCDate } from "../utils/datetime.js";
 import { logger } from "../utils/logger.js";
 import { syncAppointmentToSheet } from "./google-sheets-sync.service.js";
+import { notifyAppointmentCancelled } from "./notification.service.js";
 
 /**
  * Acciones de la recepción sobre una cita (docs/PANEL-OPERADOR.md F7): marcar
@@ -114,7 +115,7 @@ export async function applyAppointmentAction(
           metadata: {
             appointmentId,
             code: appointment.appointmentCode,
-            ...(input.action === "cancel" ? { reason: input.reason } : {}),
+            ...(input.action === "cancel" ? { reason: input.reason, notifyCustomer: input.notifyCustomer } : {}),
           },
         },
         tx,
@@ -132,5 +133,12 @@ export async function applyAppointmentAction(
   logger.info({ actor, businessId, appointmentId, action: input.action }, "appointment_action_applied");
   void syncAppointmentToSheet(appointmentId);
 
-  return { id: appointmentId, status: TO[input.action], paymentStatus, pendingBalance };
+  const result: AppointmentActionResult = { id: appointmentId, status: TO[input.action], paymentStatus, pendingBalance };
+  // Fuera de la transacción y esperado: quien canceló necesita saber ya si el
+  // aviso salió para, si no, llamar a la clienta.
+  if (input.action === "cancel" && input.notifyCustomer) {
+    const notice = await notifyAppointmentCancelled(appointmentId);
+    if (notice) result.customerNotice = notice;
+  }
+  return result;
 }

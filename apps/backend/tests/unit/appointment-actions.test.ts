@@ -14,10 +14,14 @@ vi.mock("../../src/repositories/auditLog.repository.js", () => ({
 vi.mock("../../src/services/google-sheets-sync.service.js", () => ({
   syncAppointmentToSheet: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock("../../src/services/notification.service.js", () => ({
+  notifyAppointmentCancelled: vi.fn().mockResolvedValue({ sent: true, phone: "+573001112233" }),
+}));
 
 const { appointmentRepository } = await import("../../src/repositories/appointment.repository.js");
 const { auditLogRepository } = await import("../../src/repositories/auditLog.repository.js");
 const { syncAppointmentToSheet } = await import("../../src/services/google-sheets-sync.service.js");
+const { notifyAppointmentCancelled } = await import("../../src/services/notification.service.js");
 const { applyAppointmentAction } = await import("../../src/services/appointment-actions.service.js");
 const { ConflictError, NotFoundError, ValidationError } = await import("../../src/errors/index.js");
 const { availableAppointmentActions } = await import("@spa/shared");
@@ -108,7 +112,12 @@ describe("applyAppointmentAction", () => {
       appointment({ status: "PENDING", notes: "Alergia a la lavanda" }),
     );
 
-    await applyAppointmentAction(BID, AID, { action: "cancel", reason: "La clienta llamó" }, "rec@spa.co");
+    await applyAppointmentAction(
+      BID,
+      AID,
+      { action: "cancel", reason: "La clienta llamó", notifyCustomer: false },
+      "rec@spa.co",
+    );
 
     expect(appointmentRepository.transitionFrom).toHaveBeenCalledWith(
       AID,
@@ -120,6 +129,45 @@ describe("applyAppointmentAction", () => {
       expect.objectContaining({ metadata: expect.objectContaining({ reason: "La clienta llamó" }) }),
       tx,
     );
+  });
+
+  it("cancelar con aviso le escribe a la clienta y devuelve si salió", async () => {
+    vi.mocked(appointmentRepository.findForAction).mockResolvedValue(appointment());
+    vi.mocked(notifyAppointmentCancelled).mockResolvedValueOnce({ sent: false, phone: "+573001112233" });
+
+    const result = await applyAppointmentAction(
+      BID,
+      AID,
+      { action: "cancel", reason: "Se enfermó la terapeuta", notifyCustomer: true },
+      "rec@spa.co",
+    );
+
+    expect(notifyAppointmentCancelled).toHaveBeenCalledWith(AID);
+    expect(result.customerNotice).toEqual({ sent: false, phone: "+573001112233" });
+  });
+
+  it("cancelar sin aviso no le escribe a la clienta", async () => {
+    vi.mocked(appointmentRepository.findForAction).mockResolvedValue(appointment());
+
+    const result = await applyAppointmentAction(
+      BID,
+      AID,
+      { action: "cancel", reason: "Ella pidió cancelar", notifyCustomer: false },
+      "rec@spa.co",
+    );
+
+    expect(notifyAppointmentCancelled).not.toHaveBeenCalled();
+    expect(result.customerNotice).toBeUndefined();
+  });
+
+  it("si la cancelación choca con otra escritura, no se avisa a nadie", async () => {
+    vi.mocked(appointmentRepository.findForAction).mockResolvedValue(appointment());
+    vi.mocked(appointmentRepository.transitionFrom).mockResolvedValue(false);
+
+    await expect(
+      applyAppointmentAction(BID, AID, { action: "cancel", reason: "Motivo", notifyCustomer: true }, "rec@spa.co"),
+    ).rejects.toBeInstanceOf(ConflictError);
+    expect(notifyAppointmentCancelled).not.toHaveBeenCalled();
   });
 
   it("rechaza una acción que no aplica al estado actual", async () => {

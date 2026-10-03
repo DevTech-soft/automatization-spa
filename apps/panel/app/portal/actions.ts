@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { adminMutate, ApiError } from "@/lib/backend";
-import { parseAppointmentActionForm, type FormState } from "../(app)/businesses/actions";
+import type { AppointmentActionResult } from "@spa/shared";
+import { appointmentActionFeedback, parseAppointmentActionForm, type FormState } from "../(app)/businesses/actions";
 
 /**
  * Server Actions del portal del spa (F7). El negocio no viaja en la URL: lo
@@ -19,8 +20,9 @@ export async function appointmentActionPortal(
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Acción inválida." };
   }
 
+  let result: AppointmentActionResult;
   try {
-    await adminMutate("POST", `/portal/appointments/${appointmentId}/actions`, parsed.data);
+    result = await adminMutate<AppointmentActionResult>("POST", `/portal/appointments/${appointmentId}/actions`, parsed.data);
   } catch (e) {
     if (e instanceof ApiError) return { ok: false, error: e.message };
     return { ok: false, error: "No se pudo actualizar la cita." };
@@ -28,5 +30,5 @@ export async function appointmentActionPortal(
 
   // Hoy, Citas y la ficha de la clienta muestran la misma cita.
   revalidatePath("/portal", "layout");
-  return { ok: true };
+  return appointmentActionFeedback(result);
 }
