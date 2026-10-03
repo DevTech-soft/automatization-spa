@@ -41,7 +41,7 @@ describe("/admin/* — guard de sesión del operador", () => {
 
   it("GET /admin/me con sesión válida responde 200 con el operador", async () => {
     getSessionMock.mockResolvedValue({
-      user: { id: "user-1", email: "op@example.com" },
+      user: { id: "user-1", email: "op@example.com", role: "operator" },
       session: { activeOrganizationId: null },
     });
 
@@ -61,7 +61,7 @@ describe("/admin/* — guard de sesión del operador", () => {
 
   it("propaga activeOrganizationId de la sesión", async () => {
     getSessionMock.mockResolvedValue({
-      user: { id: "user-1", email: "op@example.com" },
+      user: { id: "user-1", email: "op@example.com", role: "operator" },
       session: { activeOrganizationId: "org-9" },
     });
 

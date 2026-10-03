@@ -7,16 +7,20 @@ import {
   changeStatusSchema,
   connectWhatsAppSchema,
   createBusinessSchema,
+  createBusinessUserSchema,
   embeddedSignupCallbackSchema,
   extendSubscriptionSchema,
   onboardingManualSchema,
   updateBrandingSchema,
   updateBusinessSchema,
+  updateBusinessUserSchema,
   upsertContactSchema,
   upsertPaymentCredentialsSchema,
   upsertSubscriptionSchema,
   type BusinessBranding,
   type BusinessDetail,
+  type BusinessUserCredentials,
+  type BusinessUserDto,
   type ClientContactDto,
   type OnboardingChecklist,
   type PaymentCredentialsDto,
@@ -47,6 +51,15 @@ export interface SignupLinkState extends FormState {
 }
 
 /**
+ * `FormState` + la contraseña temporal de un usuario del portal (F7). Como la
+ * URL del enlace de auto-conexión, solo existe en esta respuesta.
+ */
+export interface UserCredentialsState extends FormState {
+  email?: string;
+  temporaryPassword?: string;
+}
+
+/**
  * Los errores se indexan por el **último** segmento del path de Zod, que es el
  * `name` del input: para los campos anidados de la persona del agente el path
  * es `["agent", "nombreAgente"]` pero el input se llama `nombreAgente`.
@@ -74,6 +87,7 @@ const BUSINESS_TABS = [
   "/activity",
   "/usage",
   "/contacts",
+  "/users",
 ];
 
 function revalidateBusiness(id: string): void {
@@ -483,6 +497,90 @@ export async function deleteContactAction(
   } catch (e) {
     if (e instanceof ApiError) return { ok: false, error: e.message };
     return { ok: false, error: "No se pudo eliminar el contacto." };
+  }
+
+  revalidateBusiness(id);
+  return { ok: true };
+}
+
+// — Usuarios del portal del cliente (F7) —
+
+export async function createBusinessUserAction(
+  id: string,
+  _prev: UserCredentialsState,
+  formData: FormData,
+): Promise<UserCredentialsState> {
+  const parsed = createBusinessUserSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return { ok: false, error: "Revisa los campos.", fieldErrors: zodToFieldErrors(parsed.error.issues) };
+  }
+
+  let result: BusinessUserCredentials;
+  try {
+    result = await adminMutate<BusinessUserCredentials>("POST", `/admin/businesses/${id}/users`, parsed.data);
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, error: e.message, fieldErrors: e.fieldErrors };
+    return { ok: false, error: "No se pudo crear el usuario." };
+  }
+
+  revalidateBusiness(id);
+  return { ok: true, email: result.user.email, temporaryPassword: result.temporaryPassword };
+}
+
+export async function resetBusinessUserPasswordAction(
+  id: string,
+  userId: string,
+  _prev: UserCredentialsState,
+  _formData: FormData,
+): Promise<UserCredentialsState> {
+  let result: BusinessUserCredentials;
+  try {
+    result = await adminMutate<BusinessUserCredentials>(
+      "POST",
+      `/admin/businesses/${id}/users/${userId}/reset-password`,
+      {},
+    );
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, error: e.message };
+    return { ok: false, error: "No se pudo restablecer la contraseña." };
+  }
+
+  return { ok: true, email: result.user.email, temporaryPassword: result.temporaryPassword };
+}
+
+export async function updateBusinessUserRoleAction(
+  id: string,
+  userId: string,
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const parsed = updateBusinessUserSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return { ok: false, error: "Rol inválido." };
+  }
+
+  try {
+    await adminMutate<BusinessUserDto>("PATCH", `/admin/businesses/${id}/users/${userId}`, parsed.data);
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, error: e.message };
+    return { ok: false, error: "No se pudo cambiar el rol." };
+  }
+
+  revalidateBusiness(id);
+  return { ok: true };
+}
+
+export async function removeBusinessUserAction(
+  id: string,
+  userId: string,
+  _prev: FormState,
+  _formData: FormData,
+): Promise<FormState> {
+  try {
+    await adminDelete(`/admin/businesses/${id}/users/${userId}`);
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, error: e.message };
+    return { ok: false, error: "No se pudo quitar el usuario." };
   }
 
   revalidateBusiness(id);

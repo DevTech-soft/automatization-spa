@@ -67,3 +67,10 @@ export function percentChange(current: number, previous: number): number | null 
   if (previous === 0) return null;
   return Math.round(((current - previous) / previous) * 100);
 }
+
+/** Fecha de calendario de hoy (`YYYY-MM-DD`) en la zona horaria del negocio. */
+export function todayIn(timezone: string, offsetDays = 0): string {
+  const date = new Date(Date.now() + offsetDays * 86_400_000);
+  // `en-CA` formatea como AAAA-MM-DD.
+  return new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(date);
+}

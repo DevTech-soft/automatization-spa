@@ -12,10 +12,14 @@ import { logger } from "../utils/logger.js";
  * sesión adjunta server-side; el plugin `bearer` permite mandar el token en
  * `Authorization: Bearer` además de la cookie.
  *
- * v1: un solo usuario `operator` (dado de alta con `scripts/create-operator.ts`),
- * sin verificación por correo (no hay infra de email). El plugin `organization`
- * se habilita desde ya —`businessId` = tenant— aunque los roles de cliente
- * (`client_owner`/`client_staff`) recién se activan en F7 (§8.5).
+ * Dos clases de usuario, distinguidas por `user.role` (F7):
+ * - `operator`: el dueño de la automatización (`scripts/create-operator.ts`).
+ * - `client`: usuario del portal de un spa, miembro de la organización espejo de
+ *   su negocio (`member.role` = `owner`/`member`). Los crea el operador desde el
+ *   panel (`admin-users.service.ts`).
+ *
+ * No hay signup público ni verificación por correo (no hay infra de email):
+ * toda cuenta nace de un script o del panel, vía `auth/users.ts`.
  */
 
 const baseURL = env.BETTER_AUTH_URL || env.APP_URL;
@@ -48,7 +52,15 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,
+    // Sin esto `/api/auth/sign-up/email` queda abierto a cualquiera.
+    disableSignUp: true,
     minPasswordLength: 12,
+  },
+  user: {
+    additionalFields: {
+      // `input: false`: nadie se lo cambia a sí mismo vía `/update-user`.
+      role: { type: "string", required: false, defaultValue: "client", input: false },
+    },
   },
   advanced: {
     // En prod el panel (Vercel) es cross-site respecto al backend → la cookie
@@ -58,7 +70,17 @@ export const auth = betterAuth({
       secure: isProd,
     },
   },
-  plugins: [bearer(), twoFactor(), organization()],
+  plugins: [
+    bearer(),
+    twoFactor(),
+    organization({
+      // Cada organización espeja un `Business` y la crea el panel
+      // (`createWithOrganization`); un cliente no puede fabricarse otra ni
+      // borrar la suya — eso desenlazaría su usuario del negocio.
+      allowUserToCreateOrganization: false,
+      disableOrganizationDeletion: true,
+    }),
+  ],
 });
 
 export type Auth = typeof auth;

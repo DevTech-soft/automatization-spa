@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getOperator } from "@/lib/backend";
+import { getOperator, getPortalUser } from "@/lib/backend";
 import { SignOutButton } from "@/components/sign-out-button";
 
 const NAV = [
@@ -13,7 +13,8 @@ const NAV = [
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const operator = await getOperator();
   if (!operator) {
-    redirect("/login");
+    // Un usuario de un spa tiene sesión pero no es operador: va a su portal.
+    redirect((await getPortalUser()) ? "/portal" : "/login");
   }
 
   return (

@@ -30,7 +30,8 @@ export default function LoginPage() {
       );
       return;
     }
-    router.replace("/dashboard");
+    // `/` reparte por rol (operador → panel, cliente → portal).
+    router.replace("/");
     router.refresh();
   }
 
@@ -38,8 +39,8 @@ export default function LoginPage() {
     <main className="grid min-h-full place-items-center bg-[var(--color-surface)] p-6">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Panel de operador</CardTitle>
-          <CardDescription>Inicia sesión para gestionar tus clientes.</CardDescription>
+          <CardTitle>Iniciar sesión</CardTitle>
+          <CardDescription>Entra con el correo y la contraseña que te dieron.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="flex flex-col gap-4">

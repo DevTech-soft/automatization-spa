@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
+import { homeForSession } from "@/lib/backend";
 
-export default function Home() {
-  // El layout de (app) rebota a /login si no hay sesión.
-  redirect("/dashboard");
+/** Reparte por rol: el operador a su panel, el usuario de un spa a su portal. */
+export default async function Home() {
+  redirect((await homeForSession()) ?? "/login");
 }

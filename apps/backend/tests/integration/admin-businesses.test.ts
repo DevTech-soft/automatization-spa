@@ -19,7 +19,7 @@ vi.mock("../../src/services/admin-business.service.js", () => ({
 const { buildApp } = await import("../../src/app.js");
 const svc = await import("../../src/services/admin-business.service.js");
 
-const SESSION = { user: { id: "op-1", email: "op@example.com" }, session: { activeOrganizationId: null } };
+const SESSION = { user: { id: "op-1", email: "op@example.com", role: "operator" }, session: { activeOrganizationId: null } };
 const BID = "11111111-1111-1111-1111-111111111111";
 
 describe("/admin/businesses", () => {

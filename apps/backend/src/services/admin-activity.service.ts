@@ -67,7 +67,7 @@ export async function listAppointments(
       : {}),
   };
 
-  const { rows, total } = await adminActivityRepository.listAppointments(where, page(query));
+  const { rows, total } = await adminActivityRepository.listAppointments(where, page(query), query.order);
 
   const items: AppointmentRow[] = rows.map((row) => ({
     id: row.id,

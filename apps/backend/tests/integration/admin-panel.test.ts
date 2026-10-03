@@ -62,7 +62,7 @@ const status = await import("../../src/services/admin-status.service.js");
 const whatsapp = await import("../../src/services/admin-whatsapp.service.js");
 const credentials = await import("../../src/services/admin-payment-credentials.service.js");
 
-const SESSION = { user: { id: "op-1", email: "op@example.com" }, session: { activeOrganizationId: null } };
+const SESSION = { user: { id: "op-1", email: "op@example.com", role: "operator" }, session: { activeOrganizationId: null } };
 const BID = "11111111-1111-1111-1111-111111111111";
 const AID = "22222222-2222-2222-2222-222222222222";
 

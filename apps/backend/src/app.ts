@@ -22,6 +22,7 @@ import { whatsappRoutes } from "./routes/whatsapp.route.js";
 import { whatsappSignupRoutes } from "./routes/whatsapp-signup.route.js";
 import { authRoutes } from "./routes/auth.route.js";
 import { adminRoutes } from "./routes/admin.route.js";
+import { portalRoutes } from "./routes/portal.route.js";
 import { isPanelAuthEnabled } from "./auth/better-auth.js";
 
 // "src/app.ts" en dev (tsx) y "dist/app.js" en build viven ambos un nivel por
@@ -80,6 +81,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   if (isPanelAuthEnabled) {
     await app.register(authRoutes);
     await app.register(adminRoutes);
+    await app.register(portalRoutes);
   }
   await app.register(healthRoutes);
   await app.register(businessRoutes);

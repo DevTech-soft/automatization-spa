@@ -2,10 +2,12 @@ import type { FastifyInstance } from "fastify";
 import {
   changeStatusSchema,
   createBusinessSchema,
+  createBusinessUserSchema,
   onboardingManualSchema,
   paginationQuerySchema,
   updateBrandingSchema,
   updateBusinessSchema,
+  updateBusinessUserSchema,
   upsertContactSchema,
 } from "@spa/shared";
 import type { AdminMeResponse } from "@spa/shared";
@@ -30,12 +32,20 @@ import {
   listContacts,
   updateContact,
 } from "../services/admin-contact.service.js";
+import {
+  createBusinessUser,
+  listBusinessUsers,
+  removeBusinessUser,
+  resetBusinessUserPassword,
+  updateBusinessUser,
+} from "../services/admin-users.service.js";
 import { adminBillingRoutes } from "./admin-billing.route.js";
 import { adminActivityRoutes } from "./admin-activity.route.js";
 import { adminIntegrationsRoutes } from "./admin-integrations.route.js";
 
 const idParamSchema = z.object({ id: z.string().uuid() });
 const contactParamsSchema = z.object({ id: z.string().uuid(), contactId: z.string().uuid() });
+const userParamsSchema = z.object({ id: z.string().uuid(), userId: z.string().min(1).max(64) });
 
 /**
  * API del panel de operador (docs/PANEL-OPERADOR.md §8). Todas las rutas pasan
@@ -151,6 +161,39 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     admin.delete("/admin/businesses/:id/contacts/:contactId", async (request, reply) => {
       const { id, contactId } = contactParamsSchema.parse(request.params);
       await deleteContact(id, contactId, request.operator!.userId);
+      reply.status(204);
+    });
+
+    // — Usuarios del portal del cliente (F7) —
+
+    admin.get("/admin/businesses/:id/users", async (request) => {
+      const { id } = idParamSchema.parse(request.params);
+      return { data: await listBusinessUsers(id) };
+    });
+
+    /** Devuelve la contraseña temporal en claro una única vez. */
+    admin.post("/admin/businesses/:id/users", async (request, reply) => {
+      const { id } = idParamSchema.parse(request.params);
+      const body = createBusinessUserSchema.parse(request.body);
+      const result = await createBusinessUser(id, body, request.operator!.userId);
+      reply.status(201);
+      return { data: result };
+    });
+
+    admin.patch("/admin/businesses/:id/users/:userId", async (request) => {
+      const { id, userId } = userParamsSchema.parse(request.params);
+      const body = updateBusinessUserSchema.parse(request.body);
+      return { data: await updateBusinessUser(id, userId, body, request.operator!.userId) };
+    });
+
+    admin.post("/admin/businesses/:id/users/:userId/reset-password", async (request) => {
+      const { id, userId } = userParamsSchema.parse(request.params);
+      return { data: await resetBusinessUserPassword(id, userId, request.operator!.userId) };
+    });
+
+    admin.delete("/admin/businesses/:id/users/:userId", async (request, reply) => {
+      const { id, userId } = userParamsSchema.parse(request.params);
+      await removeBusinessUser(id, userId, request.operator!.userId);
       reply.status(204);
     });
 

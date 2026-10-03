@@ -14,7 +14,7 @@
  * credenciales (estado a medias de una corrida previa), lo limpia y lo recrea.
  * El 2FA se activa después desde el panel.
  */
-import { auth } from "../src/auth/better-auth.js";
+import { createCredentialUser } from "../src/auth/users.js";
 import { prisma } from "../src/db/prisma.js";
 
 async function main(): Promise<void> {
@@ -36,16 +36,22 @@ async function main(): Promise<void> {
 
   if (existing) {
     const hasCredential = existing.accounts.some((a) => a.providerId === "credential");
-    if (hasCredential) {
+    if (hasCredential && existing.role === "operator") {
       console.log(`Ya existe un operador con ${email} (${existing.id}). Nada que hacer.`);
       return;
+    }
+    if (hasCredential) {
+      // Promover un usuario de un spa a operador le daría acceso a todos los
+      // negocios: es una decisión que no se toma por un correo repetido.
+      throw new Error(`${email} ya es usuario del portal de un negocio. Usa otro correo para el operador.`);
     }
     console.log(`Usuario ${email} existe pero sin credenciales — se limpia y recrea.`);
     await prisma.user.delete({ where: { id: existing.id } });
   }
 
-  const result = await auth.api.signUpEmail({ body: { email, password, name } });
-  console.log(`Operador creado: ${result.user.email} (${result.user.id}).`);
+  // `/sign-up/email` está cerrado (`disableSignUp`): se crea por el adapter.
+  const user = await createCredentialUser({ email, password, name, role: "operator" });
+  console.log(`Operador creado: ${user.email} (${user.id}).`);
   console.log("Siguiente: inicia sesión en el panel y activa el 2FA.");
 }
 

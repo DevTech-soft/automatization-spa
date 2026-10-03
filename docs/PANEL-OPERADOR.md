@@ -1,8 +1,8 @@
 # Panel de operador y evolución multi-cliente
 
 Plan de desarrollo y bitácora de decisiones. Nació antes de escribir código, con
-el modelo conceptual, los flujos y las fases; hoy F0–F3 y F5 están en `main` y
-F4 va a medias. El estado por fase, en §10.
+el modelo conceptual, los flujos y las fases; hoy F0–F3 y F5 están en `main`, y
+F4, F6 y F7 (portal de cliente) van a medias. El estado por fase, en §10.
 
 Contexto: hoy el sistema atiende **un** negocio. El objetivo es que el operador
 (dueño de la automatización) pueda **vender el servicio a varios spas/salones**,
@@ -669,6 +669,58 @@ No es una superficie de v1, pero **la arquitectura lo asume desde F0**:
 - La vista de conversaciones del bot reutiliza lo que ya persiste
   `whatsappConversation.repository` / `whatsapp-conversation.service`.
 
+### 8.6 Portal de cliente — lo construido (F7a)
+
+**Dos clases de usuario** en la misma tabla `user` de Better Auth, separadas por
+`user.role` (`additionalFields`, `input: false`, default `client`; migración
+`20261002120000_portal_user_roles`, que marca como `operator` a todos los
+usuarios existentes):
+
+| Rol | Superficie | Guard | Tenant |
+|---|---|---|---|
+| `operator` | `/admin/*` · panel `/dashboard`, `/businesses`… | `requireOperatorSession` (403 a cualquier otro rol) | todos |
+| `client` | `/portal/*` · panel `/portal` | `requirePortalSession` | el de su `member` → `organization.businessId`; **nunca** de la URL |
+
+Dentro del negocio, `member.role` usa los roles incorporados del plugin
+`organization`: `owner` (dueño/a) y `member` (equipo). El equipo ve citas,
+clientas y conversaciones; pagos, gift cards y métricas son solo del dueño
+(`requirePortalOwner`). Un negocio `SUSPENDED` sigue entrando al portal (ve su
+data y el aviso de mora); `CANCELLED` o `active=false`, no.
+
+**Endurecimiento de Better Auth** que vino con esto: `disableSignUp: true`
+(antes `/api/auth/sign-up/email` estaba abierto y cualquier cuenta creada así era
+tratada como operador), `allowUserToCreateOrganization: false` y
+`disableOrganizationDeletion: true`. Las cuentas se crean por `auth/users.ts`
+(`internalAdapter.createUser` + cuenta `credential`, como el plugin `admin`), que
+usan `scripts/create-operator.ts` y el panel.
+
+**Alta de usuarios del portal** (`admin-users.service.ts`, pestaña
+**Usuarios** del negocio): el operador crea la cuenta y recibe una contraseña
+temporal de 16 caracteres que se muestra **una sola vez**, con un mensaje listo
+para pegar en WhatsApp. También: cambiar rol, generar contraseña nueva (cierra
+las sesiones abiertas) y quitar acceso (si el usuario se queda sin negocio, se
+borra). Todo audita (`business.user.*`). Los negocios sin organización espejo
+(los anteriores al panel) la reciben al crear su primer usuario.
+
+**API del portal** (`routes/portal.route.ts`): `GET /portal/me`,
+`/portal/appointments`, `/portal/customers`, `/portal/customers/:id`,
+`/portal/conversations` y, solo dueño, `/portal/usage`, `/portal/transactions`,
+`/portal/gift-cards`. Reusa los servicios de `admin-activity`/`admin-metrics`;
+lo nuevo es el CRM de clientas (`portal.service.ts`: citas, citas efectivas,
+total gastado y última visita por clienta, e historial).
+
+**Panel**: `/` reparte por rol (operador → `/dashboard`, cliente → `/portal`).
+`app/portal/*`: Hoy (agenda del día, pendientes de pago, saldo a cobrar en el
+local, próximos 7 días), Citas, Clientas (+ ficha), Conversaciones y, para el
+dueño, Métricas, Pagos y Gift cards. El portal toma el color primario y el logo
+de la pestaña Marca. Las tablas de actividad y la vista de consumo se
+extrajeron a `components/` y las comparten el operador y el portal.
+
+**Pendiente de F7**: transcripción de conversaciones (hoy solo el estado de la
+máquina; hace falta una tabla de mensajes), acciones del recepcionista sobre las
+citas (marcar completada / no asistió), 2FA y cambio de contraseña desde el
+propio portal, y que el dueño administre a su equipo sin pasar por el operador.
+
 ---
 
 ## 9. Seguridad
@@ -710,7 +762,7 @@ No es una superficie de v1, pero **la arquitectura lo asume desde F0**:
 | **F4** | 🟡 **a medias**. ✅ Envío por-tenant: `resolveWhatsAppProviderForBusiness` toma las credenciales del negocio (`whatsapp_accounts`, token cifrado) con fallback a las env; lo usan notificaciones, bot de menús y agente. `getWhatsAppWebhookReader` valida firma y parsea sin exigir credenciales globales. ✅ Alta manual del número desde el panel (puente §7.3) con rotación de token, verificación contra la Graph API (calidad y límite de mensajería) y desconexión. ✅ **Embedded Signup construido** (§7.4): canje del `code`, suscripción a la WABA, registro en Cloud API y enlace de auto-conexión de un solo uso para el cliente (`/conectar/:token`) — llega apagado y se enciende con `META_APP_ID` + `META_EMBEDDED_SIGNUP_CONFIG_ID` cuando Meta apruebe. ⏳ Falta la gestión de perfil/nombre visible — bloqueado por M0. | F0, F1, F3, **M0 aprobado** (⇒ M-1) | 🟡 el resto, cuando Meta apruebe |
 | **F5** | ✅ **hecho** (en `main`). `SubscriptionPlan` por negocio (alta, edición, extensión de vigencia). Cuentas de cobro con consecutivo `CC-<año>-NNN` bajo advisory lock, armadas desde el plan o con líneas manuales; enviar/anular con motivo. Pagos recibidos en una transacción que salda cuentas, extiende `validUntil` y reactiva al moroso. PDF de cuenta y recibo (Puppeteer → Storage, marca del operador en `OPERATOR_*`). Ciclo diario idempotente (`billing-cycle.service`): emite 5 días antes, marca vencidas, pasa a mora y suspende al agotarse la gracia — cron 6:00 en `APP_TIMEZONE` + `POST /internal/jobs/billing-cycle`. | F0, F3 | ✅ |
 | **F6** | 🟡 **a medias**. ✅ Métricas de uso por cliente (citas por estado y canal, volumen transaccionado, abonos, conversaciones, gift cards, serie diaria, top de servicios) en `/admin/businesses/:id/usage` y la pestaña Consumo. ⏳ Falta: recordatorios automáticos de vencimiento al operador y Google Sheets por-tenant. | F3 | 🟡 |
-| **F7** | **Portal de cliente / CRM**: activar roles `client_owner` / `client_staff` en Better Auth, invitaciones, guard por rol sobre los endpoints que ya nacen filtrados por `businessId`, navegación del portal, y —para ver la conversación y no solo su estado— una tabla de mensajes de WhatsApp (hoy no existe). Tests de aislamiento de tenant. | F3, F6 | siguiente |
+| **F7** | 🟡 **a medias** (§8.6). ✅ F7a: `user.role` (`operator`/`client`) + signup público cerrado; `requireOperatorSession` exige `operator`; `requirePortalSession` saca el tenant de la membresía. API `/portal/*` (citas, clientas, conversaciones; pagos, gift cards y métricas solo para el dueño). Usuarios del portal administrados por el operador (pestaña **Usuarios**, contraseña temporal sin correo). Portal en `apps/panel/app/portal` con la marca del negocio. Tests de aislamiento de tenant. ⏳ Falta: transcripción de conversaciones (tabla de mensajes), acciones del recepcionista sobre citas, 2FA y cambio de contraseña desde el portal. | F3, F6 | 🟡 |
 
 ---
 

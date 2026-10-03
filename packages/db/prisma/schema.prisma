@@ -566,6 +566,11 @@ model User {
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
   twoFactorEnabled Boolean?     @default(false)
+  /// Añadido nuestro (`user.additionalFields` de Better Auth, `input: false`):
+  /// `operator` (el dueño de la automatización, ve todo) o `client` (usuario de
+  /// un spa, ve solo su negocio vía `member`). Default `client`: un usuario
+  /// nuevo nunca nace con poderes de operador por omisión.
+  role             String       @default("client")
   sessions         Session[]
   accounts         Account[]
   twofactors       TwoFactor[]

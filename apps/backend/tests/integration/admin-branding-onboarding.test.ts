@@ -29,7 +29,7 @@ const { buildApp } = await import("../../src/app.js");
 const branding = await import("../../src/services/admin-branding.service.js");
 const onboarding = await import("../../src/services/admin-onboarding.service.js");
 
-const SESSION = { user: { id: "op-1", email: "op@example.com" }, session: { activeOrganizationId: null } };
+const SESSION = { user: { id: "op-1", email: "op@example.com", role: "operator" }, session: { activeOrganizationId: null } };
 const BID = "11111111-1111-1111-1111-111111111111";
 
 describe("/admin/businesses/:id — marca y onboarding", () => {

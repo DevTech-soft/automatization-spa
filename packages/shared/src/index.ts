@@ -10,3 +10,4 @@ export * from "./metrics.js";
 export * from "./onboarding.js";
 export * from "./pagination.js";
 export * from "./subscription.js";
+export * from "./portal.js";

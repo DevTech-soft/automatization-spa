@@ -31,11 +31,13 @@ export const adminActivityRepository = {
   async listAppointments(
     where: Prisma.AppointmentWhereInput,
     { skip, take }: Page,
+    /** `asc` para una agenda (lo próximo primero); `desc` para el historial. */
+    order: Prisma.SortOrder = "desc",
   ): Promise<{ rows: AdminAppointmentRow[]; total: number }> {
     const [rows, total] = await prisma.$transaction([
       prisma.appointment.findMany({
         where,
-        orderBy: [{ appointmentDate: "desc" }, { startTime: "desc" }],
+        orderBy: [{ appointmentDate: order }, { startTime: order }],
         skip,
         take,
         include: APPOINTMENT_INCLUDE,

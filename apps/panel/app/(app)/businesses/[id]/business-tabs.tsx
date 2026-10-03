@@ -13,6 +13,7 @@ const TABS = [
   { segment: "activity", label: "Actividad" },
   { segment: "usage", label: "Consumo" },
   { segment: "contacts", label: "Contactos" },
+  { segment: "users", label: "Usuarios" },
 ];
 
 export function BusinessTabs({ businessId }: { businessId: string }) {

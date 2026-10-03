@@ -56,6 +56,17 @@ export class UnauthorizedError extends AppError {
   readonly code = "UNAUTHORIZED";
 }
 
+/** Sesión válida, pero sin permiso para esta superficie (p. ej. un cliente en `/admin/*`). */
+export class ForbiddenError extends AppError {
+  readonly statusCode = 403;
+  readonly code = "FORBIDDEN";
+}
+
+export class ConflictError extends AppError {
+  readonly statusCode = 409;
+  readonly code = "CONFLICT";
+}
+
 /**
  * Meta rechazó una llamada a la Graph API durante el Embedded Signup
  * (docs/PANEL-OPERADOR.md §7.4). 502 y no 400: el que falló fue un tercero, no
