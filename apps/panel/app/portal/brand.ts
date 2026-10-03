@@ -19,6 +19,8 @@ export function brandStyle(colorPrimary: string | null): CSSProperties | undefin
   return {
     "--color-primary": colorPrimary,
     "--color-ring": colorPrimary,
+    // Fondo tenue del acento (ítem activo del menú, íconos de KPI) en ambos modos.
+    "--color-primary-soft": `color-mix(in srgb, ${colorPrimary} 14%, var(--color-background))`,
     "--color-primary-fg": luminance > 0.45 ? "hsl(240 10% 12%)" : "hsl(0 0% 100%)",
   } as CSSProperties;
 }

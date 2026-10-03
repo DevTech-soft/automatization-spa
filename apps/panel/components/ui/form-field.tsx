@@ -54,14 +54,14 @@ export function FormAlert({
 }) {
   if (state.error) {
     return (
-      <p className="rounded-[var(--radius)] border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+      <p className="rounded-lg bg-[var(--color-danger-soft)] px-3 py-2 text-sm text-[var(--color-danger)]">
         {state.error}
       </p>
     );
   }
   if (state.ok) {
     return (
-      <p className="rounded-[var(--radius)] border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+      <p className="rounded-lg bg-[var(--color-success-soft)] px-3 py-2 text-sm text-[var(--color-success)]">
         {state.message ?? "Cambios guardados."}
       </p>
     );

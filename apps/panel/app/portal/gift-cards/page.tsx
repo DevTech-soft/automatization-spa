@@ -3,6 +3,7 @@ import { GiftCardsTable } from "@/components/activity-tables";
 import { adminGet } from "@/lib/backend";
 import { ListToolbar, listQuery } from "../list-toolbar";
 import { requireOwner } from "../owner-only";
+import { PageHeader } from "@/components/page-header";
 
 export default async function PortalGiftCardsPage({
   searchParams,
@@ -16,7 +17,7 @@ export default async function PortalGiftCardsPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-semibold">Gift cards</h1>
+      <PageHeader title="Gift cards" description="Las vendidas por la web y su estado de canje." />
       <ListToolbar action="/portal/gift-cards" q={q} placeholder="Código o nombre" />
       <GiftCardsTable data={data} basePath="/portal/gift-cards" params={linkParams} />
     </div>

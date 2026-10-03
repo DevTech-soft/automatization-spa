@@ -69,7 +69,7 @@ export function WompiForm({
   return (
     <div className="flex flex-col gap-4">
       {credentials.usingGlobalFallback ? (
-        <p className="rounded-[var(--radius)] border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <p className="rounded-[var(--radius)] border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-3 py-2 text-sm text-[var(--color-warning)]">
           Este negocio cobra con las llaves globales del operador: el dinero de sus reservas cae en
           la cuenta de Wompi del operador, no en la suya.
         </p>

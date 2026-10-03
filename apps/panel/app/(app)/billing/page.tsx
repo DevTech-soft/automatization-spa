@@ -7,6 +7,7 @@ import { Pagination } from "@/components/pagination";
 import { adminGet } from "@/lib/backend";
 import { formatDate, formatMoney } from "@/lib/format";
 import { RunCycleButton } from "./run-cycle-button";
+import { PageHeader } from "@/components/page-header";
 
 /**
  * Cartera del operador: qué emitió, qué le deben y qué ya cobró
@@ -31,16 +32,12 @@ export default async function BillingPage({ searchParams }: { searchParams: Sear
   ]);
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-8">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Cartera</h1>
-          <p className="text-sm text-[var(--color-fg-muted)]">
-            Cuentas de cobro emitidas a tus clientes y pagos recibidos.
-          </p>
-        </div>
-        <RunCycleButton />
-      </div>
+    <div className="mx-auto flex max-w-7xl flex-col gap-6">
+      <PageHeader
+        title="Cartera"
+        description="Cuentas de cobro emitidas a tus clientes y pagos recibidos."
+        actions={<RunCycleButton />}
+      />
 
       <section className="flex flex-col gap-3">
         <form className="flex flex-wrap gap-2" action="/billing">

@@ -24,7 +24,7 @@ export function BusinessTabs({ businessId }: { businessId: string }) {
   const current = pathname.startsWith(base) ? pathname.slice(base.length).replace(/^\//, "") : "";
 
   return (
-    <nav className="flex flex-wrap gap-1 border-b border-[var(--color-border)]">
+    <nav className="-mx-1 flex gap-1 overflow-x-auto rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-background)] p-1 shadow-[var(--shadow-card)]">
       {TABS.map((tab) => {
         const active = current === tab.segment;
         return (
@@ -33,10 +33,10 @@ export function BusinessTabs({ businessId }: { businessId: string }) {
             href={tab.segment ? `${base}/${tab.segment}` : base}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "-mb-px border-b-2 px-3 py-2 text-sm transition-colors",
+              "shrink-0 rounded-lg px-3 py-2 text-sm transition-colors",
               active
-                ? "border-[var(--color-primary)] font-medium text-[var(--color-fg)]"
-                : "border-transparent text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]",
+                ? "bg-[var(--color-primary-soft)] font-medium text-[var(--color-primary)]"
+                : "text-[var(--color-fg-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-fg)]",
             )}
           >
             {tab.label}

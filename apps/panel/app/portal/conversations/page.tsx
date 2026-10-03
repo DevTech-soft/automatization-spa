@@ -2,6 +2,7 @@ import type { ChatDetail, ChatThread, PaginatedResponse } from "@spa/shared";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { ChatView } from "@/components/chat-view";
 import { adminGet } from "@/lib/backend";
+import { PageHeader } from "@/components/page-header";
 
 /**
  * Conversaciones de WhatsApp del negocio (F7): lo que escribieron las clientas
@@ -28,12 +29,7 @@ export default async function PortalConversationsPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-xl font-semibold">Conversaciones</h1>
-        <p className="text-sm text-[var(--color-fg-muted)]">
-          Los mensajes de WhatsApp del negocio, en vivo. Solo lectura.
-        </p>
-      </div>
+      <PageHeader title="Conversaciones" description="Los mensajes de WhatsApp del negocio, en vivo. Solo lectura." />
       <ChatView
         threads={threads}
         chat={chat}

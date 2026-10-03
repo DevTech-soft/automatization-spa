@@ -3,11 +3,11 @@ import type { BusinessStatus, OperatorInvoiceStatus } from "@spa/shared";
 import { INVOICE_STATUS_LABEL } from "@spa/shared";
 
 const STATUS_STYLES: Record<BusinessStatus, string> = {
-  TRIAL: "bg-blue-50 text-blue-700 border-blue-200",
-  ACTIVE: "bg-green-50 text-green-700 border-green-200",
-  PAST_DUE: "bg-amber-50 text-amber-800 border-amber-200",
-  SUSPENDED: "bg-red-50 text-red-700 border-red-200",
-  CANCELLED: "bg-zinc-100 text-zinc-600 border-zinc-200",
+  TRIAL: "bg-[var(--color-primary-soft)] text-[var(--color-primary)]",
+  ACTIVE: "bg-[var(--color-success-soft)] text-[var(--color-success)]",
+  PAST_DUE: "bg-[var(--color-warning-soft)] text-[var(--color-warning)]",
+  SUSPENDED: "bg-[var(--color-danger-soft)] text-[var(--color-danger)]",
+  CANCELLED: "bg-[var(--color-grid)] text-[var(--color-fg-muted)]",
 };
 
 const STATUS_LABEL: Record<BusinessStatus, string> = {
@@ -22,7 +22,7 @@ export function StatusBadge({ status }: { status: BusinessStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
+        "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium",
         STATUS_STYLES[status],
       )}
     >
@@ -32,18 +32,18 @@ export function StatusBadge({ status }: { status: BusinessStatus }) {
 }
 
 const INVOICE_STYLES: Record<OperatorInvoiceStatus, string> = {
-  DRAFT: "bg-zinc-100 text-zinc-600 border-zinc-200",
-  SENT: "bg-blue-50 text-blue-700 border-blue-200",
-  PAID: "bg-green-50 text-green-700 border-green-200",
-  OVERDUE: "bg-red-50 text-red-700 border-red-200",
-  VOID: "bg-zinc-100 text-zinc-500 border-zinc-200 line-through",
+  DRAFT: "bg-[var(--color-grid)] text-[var(--color-fg-muted)]",
+  SENT: "bg-[var(--color-primary-soft)] text-[var(--color-primary)]",
+  PAID: "bg-[var(--color-success-soft)] text-[var(--color-success)]",
+  OVERDUE: "bg-[var(--color-danger-soft)] text-[var(--color-danger)]",
+  VOID: "bg-[var(--color-grid)] text-[var(--color-fg-muted)] line-through",
 };
 
 export function InvoiceStatusBadge({ status }: { status: OperatorInvoiceStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
+        "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium",
         INVOICE_STYLES[status],
       )}
     >
@@ -59,11 +59,11 @@ export function InvoiceStatusBadge({ status }: { status: OperatorInvoiceStatus }
  * por familia semántica.
  */
 const TONE_STYLES = {
-  neutral: "bg-zinc-100 text-zinc-600 border-zinc-200",
-  info: "bg-blue-50 text-blue-700 border-blue-200",
-  success: "bg-green-50 text-green-700 border-green-200",
-  warning: "bg-amber-50 text-amber-800 border-amber-200",
-  danger: "bg-red-50 text-red-700 border-red-200",
+  neutral: "bg-[var(--color-grid)] text-[var(--color-fg-muted)]",
+  info: "bg-[var(--color-primary-soft)] text-[var(--color-primary)]",
+  success: "bg-[var(--color-success-soft)] text-[var(--color-success)]",
+  warning: "bg-[var(--color-warning-soft)] text-[var(--color-warning)]",
+  danger: "bg-[var(--color-danger-soft)] text-[var(--color-danger)]",
 } as const;
 
 export type BadgeTone = keyof typeof TONE_STYLES;
@@ -117,7 +117,7 @@ export function StateBadge({ value }: { value: string }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
+        "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium",
         TONE_STYLES[STATE_TONES[value] ?? "neutral"],
       )}
     >

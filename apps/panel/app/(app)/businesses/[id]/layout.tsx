@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
 import type { BusinessDetail } from "@spa/shared";
 import { StatusBadge } from "@/components/ui/badge";
 import { adminGet, ApiError } from "@/lib/backend";
+import { PageHeader } from "@/components/page-header";
 import { BusinessTabs } from "./business-tabs";
 
 /**
@@ -29,20 +28,19 @@ export default async function BusinessLayout({
   }
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-5">
-      <Link
-        href="/businesses"
-        className="inline-flex items-center gap-1 text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
-      >
-        <ChevronLeft className="size-4" />
-        Negocios
-      </Link>
-      <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-semibold">{business.name}</h1>
-        <StatusBadge status={business.status} />
-      </div>
+    <div className="mx-auto flex max-w-7xl flex-col gap-5">
+      <PageHeader
+        breadcrumbs={[{ href: "/businesses", label: "Negocios" }]}
+        title={
+          <span className="flex flex-wrap items-center gap-3">
+            {business.name}
+            <StatusBadge status={business.status} />
+          </span>
+        }
+        description={business.slug}
+      />
       <BusinessTabs businessId={id} />
-      {children}
+      <div>{children}</div>
     </div>
   );
 }

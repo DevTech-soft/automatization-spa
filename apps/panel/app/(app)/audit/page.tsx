@@ -5,6 +5,7 @@ import { Table, TD, TH, THead, TR, EmptyRow } from "@/components/ui/table";
 import { Pagination } from "@/components/pagination";
 import { adminGet } from "@/lib/backend";
 import { formatDateTime } from "@/lib/format";
+import { PageHeader } from "@/components/page-header";
 
 /**
  * Bitácora de acciones sensibles (docs/PANEL-OPERADOR.md §9): quién suspendió a
@@ -44,13 +45,11 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
   const logs = await adminGet<PaginatedResponse<AuditLogRow>>(`/admin/audit-logs?${query}`);
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold">Bitácora</h1>
-        <p className="text-sm text-[var(--color-fg-muted)]">
-          Todo cambio sensible queda registrado con actor, momento y valores. No se puede editar.
-        </p>
-      </div>
+    <div className="mx-auto flex max-w-7xl flex-col gap-5">
+      <PageHeader
+        title="Bitácora"
+        description="Todo cambio sensible queda registrado con actor, momento y valores. No se puede editar."
+      />
 
       <form className="flex flex-wrap gap-2" action="/audit">
         <select

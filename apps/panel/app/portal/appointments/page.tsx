@@ -5,6 +5,7 @@ import { adminGet, requirePortalUser } from "@/lib/backend";
 import { todayIn } from "@/lib/format";
 import { appointmentActionPortal } from "../actions";
 import { ListToolbar, listQuery } from "../list-toolbar";
+import { PageHeader } from "@/components/page-header";
 
 const STATUSES = ["PENDING", "CONFIRMED", "COMPLETED", "CANCELLED", "NO_SHOW", "EXPIRED"];
 
@@ -22,12 +23,7 @@ export default async function PortalAppointmentsPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-xl font-semibold">Citas</h1>
-        <p className="text-sm text-[var(--color-fg-muted)]">
-          Todas las reservas, del bot de WhatsApp, la página web y el agente.
-        </p>
-      </div>
+      <PageHeader title="Citas" description="Todas las reservas, del bot de WhatsApp, la página web y el agente." />
       <ListToolbar
         action="/portal/appointments"
         q={q}

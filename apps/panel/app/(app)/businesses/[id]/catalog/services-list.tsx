@@ -78,7 +78,7 @@ export function ServicesList({
                 <p className="flex flex-wrap items-center gap-2 font-medium">
                   {service.name}
                   {!service.active ? (
-                    <span className="rounded-full border border-zinc-200 bg-zinc-100 px-2 py-0.5 text-xs font-normal text-zinc-600">
+                    <span className="rounded-full border border-transparent bg-[var(--color-grid)] px-2 py-0.5 text-xs font-normal text-[var(--color-fg-muted)]">
                       Pausado
                     </span>
                   ) : null}

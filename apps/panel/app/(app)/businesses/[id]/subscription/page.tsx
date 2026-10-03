@@ -63,7 +63,7 @@ export default async function SubscriptionPage({ params }: { params: Promise<{ i
           />
         </section>
       ) : (
-        <p className="rounded-[var(--radius)] border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <p className="rounded-[var(--radius)] border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-3 py-2 text-sm text-[var(--color-warning)]">
           Este negocio todavía no tiene plan. Sin plan no se le puede emitir una cuenta de cobro ni
           entra en el ciclo de facturación.
         </p>

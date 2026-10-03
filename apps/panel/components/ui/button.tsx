@@ -3,14 +3,16 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 export const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius)] text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        primary: "bg-[var(--color-primary)] text-[var(--color-primary-fg)] hover:opacity-90",
+        primary:
+          "bg-[var(--color-primary)] text-[var(--color-primary-fg)] shadow-sm hover:brightness-95",
         outline:
-          "border border-[var(--color-border)] bg-transparent hover:bg-[var(--color-surface)]",
+          "border border-[var(--color-input)] bg-[var(--color-background)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]",
         ghost: "hover:bg-[var(--color-surface)]",
+        soft: "bg-[var(--color-primary-soft)] text-[var(--color-primary)] hover:brightness-95",
         danger: "bg-[var(--color-danger)] text-[var(--color-danger-fg)] hover:opacity-90",
       },
       size: {

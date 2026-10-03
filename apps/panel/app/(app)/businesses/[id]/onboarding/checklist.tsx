@@ -37,7 +37,7 @@ const STEP_NOTE: Partial<Record<OnboardingStepKey, string>> = {
 };
 
 function StepIcon({ step }: { step: OnboardingStep }) {
-  if (step.done) return <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-green-600" />;
+  if (step.done) return <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-[var(--color-success)]" />;
   if (!step.required) return <CircleDashed className="mt-0.5 size-5 shrink-0 text-[var(--color-fg-muted)]" />;
   return <Circle className="mt-0.5 size-5 shrink-0 text-[var(--color-fg-muted)]" />;
 }

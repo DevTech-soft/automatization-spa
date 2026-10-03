@@ -1,51 +1,106 @@
 @import "tailwindcss";
 
 /*
- * Panel de operador — tema neutro (zinc) con acento índigo. Tailwind v4:
- * los tokens viven en @theme y se consumen como `bg-background`, `text-fg`, etc.
+ * Tema del panel, tomando como referencia visual Able Pro: fondo gris muy claro,
+ * tarjetas blancas con sombra suave, acento azul y menú lateral. Tailwind v4:
+ * los tokens viven en @theme; el resto del código los consume como
+ * `var(--color-…)`.
+ *
+ * Semántica (no cambiar sin revisar los componentes):
+ * - `--color-background`: superficie de tarjetas, tablas, header y sidebar.
+ * - `--color-surface`: fondo de la página y hover de filas.
+ * - `--color-primary-soft`: fondo tenue del acento (ítem activo, íconos de KPI).
+ *
+ * Modo oscuro: sigue al sistema salvo que el usuario elija uno en el header
+ * (`data-theme` en <html>, ver components/theme-toggle.tsx). Son pasos propios
+ * para el fondo oscuro, no una inversión automática.
  */
 @theme {
-  --color-background: hsl(0 0% 100%);
-  --color-surface: hsl(240 5% 98%);
-  --color-fg: hsl(240 10% 12%);
-  --color-fg-muted: hsl(240 4% 46%);
-  --color-border: hsl(240 6% 90%);
-  --color-input: hsl(240 6% 90%);
-  --color-ring: hsl(243 75% 59%);
-  --color-primary: hsl(243 75% 59%);
-  --color-primary-fg: hsl(0 0% 100%);
-  --color-danger: hsl(0 72% 51%);
-  --color-danger-fg: hsl(0 0% 100%);
-  --radius: 0.625rem;
+  --color-background: #ffffff;
+  --color-surface: #f4f6fa;
+  --color-fg: #1d2630;
+  --color-fg-muted: #5b6b79;
+  --color-border: #e6ebf1;
+  --color-input: #dbe0e5;
+  --color-ring: #4680ff;
+  --color-primary: #4680ff;
+  --color-primary-fg: #ffffff;
+  --color-primary-soft: #edf3ff;
+  --color-success: #2ca87f;
+  --color-success-soft: #e8f6f1;
+  --color-warning: #e58a00;
+  --color-warning-soft: #fdf3e3;
+  --color-danger: #dc2626;
+  --color-danger-fg: #ffffff;
+  --color-danger-soft: #fdecec;
+  --color-grid: #eef1f5;
+  --radius: 0.75rem;
+  --shadow-card: 0 1px 2px rgb(27 46 94 / 0.04), 0 4px 16px rgb(27 46 94 / 0.05);
+  --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  @theme {
-    --color-background: hsl(240 10% 6%);
-    --color-surface: hsl(240 6% 10%);
-    --color-fg: hsl(0 0% 96%);
-    --color-fg-muted: hsl(240 5% 65%);
-    --color-border: hsl(240 4% 18%);
-    --color-input: hsl(240 4% 18%);
-    --color-ring: hsl(243 75% 68%);
-    --color-primary: hsl(243 75% 66%);
-    --color-primary-fg: hsl(240 10% 6%);
+@layer base {
+  :root[data-theme="dark"] {
+    --color-background: #1b232d;
+    --color-surface: #131920;
+    --color-fg: #e6ebf1;
+    --color-fg-muted: #94a3b3;
+    --color-border: #2a3540;
+    --color-input: #34414e;
+    --color-ring: #6b9bff;
+    --color-primary: #5b8cff;
+    --color-primary-fg: #0d1420;
+    --color-primary-soft: #1f2e4d;
+    --color-success: #3cc196;
+    --color-success-soft: #173a30;
+    --color-warning: #f2a33a;
+    --color-warning-soft: #3d2f17;
+    --color-danger: #f26b6b;
+    --color-danger-fg: #1b0b0b;
+    --color-danger-soft: #3f1d1f;
+    --color-grid: #25303b;
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3);
+    color-scheme: dark;
   }
-}
 
-* {
-  border-color: var(--color-border);
-}
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --color-background: #1b232d;
+      --color-surface: #131920;
+      --color-fg: #e6ebf1;
+      --color-fg-muted: #94a3b3;
+      --color-border: #2a3540;
+      --color-input: #34414e;
+      --color-ring: #6b9bff;
+      --color-primary: #5b8cff;
+      --color-primary-fg: #0d1420;
+      --color-primary-soft: #1f2e4d;
+      --color-success: #3cc196;
+      --color-success-soft: #173a30;
+      --color-warning: #f2a33a;
+      --color-warning-soft: #3d2f17;
+      --color-danger: #f26b6b;
+      --color-danger-fg: #1b0b0b;
+      --color-danger-soft: #3f1d1f;
+      --color-grid: #25303b;
+      --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3);
+      color-scheme: dark;
+    }
+  }
 
-html,
-body {
-  height: 100%;
-}
+  * {
+    border-color: var(--color-border);
+  }
 
-body {
-  background-color: var(--color-background);
-  color: var(--color-fg);
-  font-family:
-    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
 }

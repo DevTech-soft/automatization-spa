@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import type { OperatorInvoiceDetail } from "@spa/shared";
 import { InvoiceStatusBadge } from "@/components/ui/badge";
 import { Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { adminGet, ApiError } from "@/lib/backend";
 import { formatDate, formatMoney } from "@/lib/format";
 import { InvoiceActions } from "./invoice-actions";
+import { Breadcrumbs } from "@/components/page-header";
 
 /** Detalle de una cuenta de cobro: sus líneas, su estado y sus acciones (§6.5). */
 export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
@@ -22,18 +23,13 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
-      <Link
-        href="/billing"
-        className="inline-flex items-center gap-1 text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
-      >
-        <ChevronLeft className="size-4" />
-        Cartera
-      </Link>
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="font-mono text-2xl font-semibold">{invoice.number}</h1>
-          <InvoiceStatusBadge status={invoice.status} />
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <Breadcrumbs items={[{ href: "/billing", label: "Cartera" }]} />
+          <div className="flex items-center gap-3">
+            <h1 className="font-mono text-2xl font-semibold tracking-tight">{invoice.number}</h1>
+            <InvoiceStatusBadge status={invoice.status} />
+          </div>
         </div>
         {invoice.pdfUrl ? (
           <a

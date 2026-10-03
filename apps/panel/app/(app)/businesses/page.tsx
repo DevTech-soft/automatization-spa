@@ -5,6 +5,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/badge";
 import { adminGet } from "@/lib/backend";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/page-header";
 
 const CHARGE_LABEL = { TOTAL: "Total", DEPOSIT: "Abono" } as const;
 
@@ -21,16 +22,18 @@ export default async function BusinessesPage({ searchParams }: { searchParams: S
   const data = await adminGet<PaginatedResponse<BusinessListItem>>(`/admin/businesses?${query}`);
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Negocios</h1>
-          <p className="text-sm text-[var(--color-fg-muted)]">{data.total} en total</p>
-        </div>
-        <Link href="/businesses/new" className={cn(buttonVariants({ size: "md" }))}>
-          <Plus className="size-4" />
-          Nuevo negocio
-        </Link>
+    <div className="mx-auto flex max-w-7xl flex-col gap-5">
+      <div>
+        <PageHeader
+          title="Negocios"
+          description={`${data.total} en total`}
+          actions={
+            <Link href="/businesses/new" className={cn(buttonVariants({ size: "md" }))}>
+              <Plus className="size-4" />
+              Nuevo negocio
+            </Link>
+          }
+        />
       </div>
 
       <form className="flex gap-2" action="/businesses">

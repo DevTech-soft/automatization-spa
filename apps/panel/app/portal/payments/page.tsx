@@ -4,6 +4,7 @@ import { stateLabel } from "@/components/ui/badge";
 import { adminGet } from "@/lib/backend";
 import { ListToolbar, listQuery } from "../list-toolbar";
 import { requireOwner } from "../owner-only";
+import { PageHeader } from "@/components/page-header";
 
 const STATUSES = ["PENDING", "PAID", "DEPOSIT_PAID", "FAILED", "EXPIRED", "REFUNDED"];
 
@@ -19,12 +20,10 @@ export default async function PortalPaymentsPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-xl font-semibold">Pagos en línea</h1>
-        <p className="text-sm text-[var(--color-fg-muted)]">
-          Pagos de reservas y gift cards por Wompi. La plata llega directo a la cuenta del negocio.
-        </p>
-      </div>
+      <PageHeader
+        title="Pagos en línea"
+        description="Pagos de reservas y gift cards por Wompi. La plata llega directo a la cuenta del negocio."
+      />
       <ListToolbar
         action="/portal/payments"
         q={q}

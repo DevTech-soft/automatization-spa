@@ -2,6 +2,7 @@ import type { BusinessUsage } from "@spa/shared";
 import { parseUsageDays, UsageView } from "@/components/usage-view";
 import { adminGet } from "@/lib/backend";
 import { requireOwner } from "../owner-only";
+import { PageHeader } from "@/components/page-header";
 
 export default async function PortalMetricsPage({ searchParams }: { searchParams: Promise<{ days?: string }> }) {
   await requireOwner();
@@ -10,7 +11,7 @@ export default async function PortalMetricsPage({ searchParams }: { searchParams
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold">Métricas</h1>
+      <PageHeader title="Métricas" description="Cómo le va al negocio: citas, ventas y canales." />
       <UsageView usage={usage} days={days} basePath="/portal/metrics" />
     </div>
   );

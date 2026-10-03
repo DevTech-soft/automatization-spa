@@ -1,13 +1,23 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getOperator, getPortalUser } from "@/lib/backend";
-import { SignOutButton } from "@/components/sign-out-button";
+import { AppShell, type NavGroup } from "@/components/app-shell";
 
-const NAV = [
-  { href: "/dashboard", label: "Inicio" },
-  { href: "/businesses", label: "Negocios" },
-  { href: "/billing", label: "Cartera" },
-  { href: "/audit", label: "Bitácora" },
+const NAV: NavGroup[] = [
+  {
+    label: "General",
+    items: [{ href: "/dashboard", label: "Inicio", icon: "dashboard" }],
+  },
+  {
+    label: "Clientes",
+    items: [
+      { href: "/businesses", label: "Negocios", icon: "businesses" },
+      { href: "/billing", label: "Cartera", icon: "billing" },
+    ],
+  },
+  {
+    label: "Control",
+    items: [{ href: "/audit", label: "Bitácora", icon: "audit" }],
+  },
 ];
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -18,30 +28,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="flex min-h-full flex-col">
-      <header className="flex h-14 items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-background)] px-6">
-        <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="text-sm font-semibold">
-            Panel de operador
-          </Link>
-          <nav className="flex items-center gap-4 text-sm">
-            {NAV.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="text-[var(--color-fg-muted)] transition-colors hover:text-[var(--color-fg)]"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-[var(--color-fg-muted)]">{operator.email}</span>
-          <SignOutButton />
-        </div>
-      </header>
-      <main className="flex-1 bg-[var(--color-surface)] p-6">{children}</main>
-    </div>
+    <AppShell
+      brand={{ name: "Panel de operador", subtitle: "Gestión multi-cliente", href: "/dashboard" }}
+      nav={NAV}
+      user={{ name: operator.email.split("@")[0] ?? operator.email, email: operator.email, roleLabel: "Operador" }}
+    >
+      {children}
+    </AppShell>
   );
 }

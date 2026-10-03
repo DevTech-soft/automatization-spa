@@ -137,7 +137,7 @@ function UserRow({ businessId, user }: { businessId: string; user: BusinessUserD
             <span className="rounded-full border border-[var(--color-border)] px-2 py-0.5 text-xs font-normal text-[var(--color-fg-muted)]">
               {PORTAL_ROLE_LABELS[user.role]}
             </span>
-            {user.twoFactorEnabled ? <ShieldCheck className="size-4 text-green-600" aria-label="2FA activo" /> : null}
+            {user.twoFactorEnabled ? <ShieldCheck className="size-4 text-[var(--color-success)]" aria-label="2FA activo" /> : null}
           </p>
           <p className="text-sm text-[var(--color-fg-muted)]">{user.email}</p>
           <p className="text-xs text-[var(--color-fg-muted)]">
@@ -194,12 +194,12 @@ function CredentialsNotice({ email, password, reset = false }: { email: string; 
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-[var(--radius)] border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+    <div className="flex flex-col gap-2 rounded-[var(--radius)] border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] p-3 text-sm text-[var(--color-warning)]">
       <p className="font-medium">
         {reset ? "Contraseña restablecida y sesiones abiertas cerradas." : "Usuario creado."} Esta contraseña no se
         vuelve a mostrar: cópiala y envíasela al cliente.
       </p>
-      <pre className="overflow-x-auto whitespace-pre-wrap rounded bg-white/70 p-2 font-mono text-xs">{message}</pre>
+      <pre className="overflow-x-auto whitespace-pre-wrap rounded bg-[var(--color-background)]/70 p-2 font-mono text-xs">{message}</pre>
       <div>
         <Button size="sm" variant="outline" type="button" onClick={copy}>
           {copied ? <Check className="size-4" /> : <Copy className="size-4" />}

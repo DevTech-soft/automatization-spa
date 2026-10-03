@@ -60,7 +60,7 @@ export function WhatsAppSection({
           ))}
         </ul>
       ) : (
-        <p className="rounded-[var(--radius)] border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <p className="rounded-[var(--radius)] border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-3 py-2 text-sm text-[var(--color-warning)]">
           Sin número conectado: los mensajes de este negocio salen con las credenciales globales del
           operador, y el webhook lo resuelve por el número de la ficha en vez de por su
           <code className="mx-1 font-mono text-xs">phone_number_id</code>.
@@ -124,7 +124,7 @@ function AccountCard({ businessId, account }: { businessId: string; account: Wha
       {verifyState.error ? (
         <p className="text-sm text-[var(--color-danger)]">{verifyState.error}</p>
       ) : verifyState.ok ? (
-        <p className="text-sm text-green-700">{verifyState.message}</p>
+        <p className="text-sm text-[var(--color-success)]">{verifyState.message}</p>
       ) : null}
       {disconnectState.error ? (
         <p className="text-sm text-[var(--color-danger)]">{disconnectState.error}</p>

@@ -653,6 +653,32 @@ extrajo de `business-form.tsx` y lo comparten los tres formularios. Backend:
 desde el panel (el runtime del bot lo sigue leyendo por su cuenta en
 `AgentForwarder`).
 
+### 8.3.1 Diseño visual del panel
+
+Referencia visual: la plantilla **Able Pro** (solo como inspiración; no se usa su
+código, que es de pago y está en Bootstrap). Se implementó con los componentes
+propios del panel (Tailwind v4):
+
+- **Tokens** en `apps/panel/app/globals.css`: fondo `--color-surface`, tarjetas
+  `--color-background` con `--shadow-card`, acento `--color-primary` (#4680ff) y
+  sus tonos `*-soft`, estados `success`/`warning`/`danger`. Fuente Public Sans
+  (`next/font`).
+- **Modo oscuro**: sigue al sistema; el botón del header lo fija en `data-theme`
+  (localStorage `panel-theme`, aplicado antes de pintar por un script en
+  `app/layout.tsx`). Los colores son pasos propios, no una inversión.
+- **Shell** `components/app-shell.tsx`: menú lateral agrupado (colapsable a
+  íconos, cajón en móvil), header con modo oscuro y menú de usuario. Lo usan el
+  operador (`app/(app)/layout.tsx`) y el portal (`app/portal/layout.tsx`, con el
+  color primario del negocio vía `brand.ts`).
+- **Piezas**: `PageHeader`/`Breadcrumbs`, `Stat` (ícono + variación con flecha),
+  `Card`, tablas con encabezado tenue, badges "soft" por tokens.
+- **Gráficas** `components/charts/`: `ColumnChart` (una serie, eje con números
+  redondos, tooltip por columna, vista de tabla) y `BarList` (magnitud por
+  categoría). Siguen la guía de dataviz: una sola tinta, sin leyenda para una
+  serie, texto nunca en el color de la serie.
+- Regla: nada de colores de Tailwind fijos (`bg-red-50`…) en páginas; siempre
+  tokens, para que funcione el modo oscuro y la marca del portal.
+
 ### 8.4 Qué se construye vs qué solo se configura
 
 | Parte | Enfoque |

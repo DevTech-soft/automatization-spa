@@ -5,6 +5,7 @@ import { EmptyRow, Table, TD, TH, THead, TR } from "@/components/ui/table";
 import { adminGet, requirePortalUser } from "@/lib/backend";
 import { formatDate, formatMoney, formatNumber } from "@/lib/format";
 import { ListToolbar, listQuery } from "../list-toolbar";
+import { PageHeader } from "@/components/page-header";
 
 /**
  * Clientas del spa (CRM): quiénes reservan, cuántas veces y cuándo vinieron por
@@ -23,12 +24,7 @@ export default async function PortalCustomersPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-xl font-semibold">Clientas</h1>
-        <p className="text-sm text-[var(--color-fg-muted)]">
-          {formatNumber(data.total)} persona(s) han reservado con ustedes.
-        </p>
-      </div>
+      <PageHeader title="Clientas" description={`${formatNumber(data.total)} persona(s) han reservado con ustedes.`} />
       <ListToolbar action="/portal/customers" q={q} placeholder="Nombre, teléfono o correo" />
       <Table>
         <THead>

@@ -122,8 +122,8 @@ function CopyableLink({ url }: { url: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   return (
-    <div className="flex flex-col gap-2 rounded-[var(--radius)] border border-green-200 bg-green-50 p-3">
-      <p className="text-xs text-green-800">
+    <div className="flex flex-col gap-2 rounded-[var(--radius)] border border-[var(--color-success-soft)] bg-[var(--color-success-soft)] p-3">
+      <p className="text-xs text-[var(--color-success)]">
         Mándaselo al cliente por WhatsApp. Vence según la configuración del despliegue y sirve una
         sola vez; generar otro cancela este.
       </p>
@@ -133,7 +133,7 @@ function CopyableLink({ url }: { url: string }) {
           readOnly
           value={url}
           onFocus={(event) => event.currentTarget.select()}
-          className="w-full rounded-[var(--radius)] border border-green-200 bg-white px-2 py-1 font-mono text-xs"
+          className="w-full rounded-[var(--radius)] border border-[var(--color-success-soft)] bg-[var(--color-background)] px-2 py-1 font-mono text-xs"
         />
         <Button
           type="button"
