@@ -37,6 +37,7 @@ import {
   listBusinessUsers,
   removeBusinessUser,
   resetBusinessUserPassword,
+  resetBusinessUserTwoFactor,
   updateBusinessUser,
 } from "../services/admin-users.service.js";
 import { adminBillingRoutes } from "./admin-billing.route.js";
@@ -191,6 +192,11 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     admin.post("/admin/businesses/:id/users/:userId/reset-password", async (request) => {
       const { id, userId } = userParamsSchema.parse(request.params);
       return { data: await resetBusinessUserPassword(id, userId, request.operator!.userId) };
+    });
+
+    admin.post("/admin/businesses/:id/users/:userId/reset-2fa", async (request) => {
+      const { id, userId } = userParamsSchema.parse(request.params);
+      return { data: await resetBusinessUserTwoFactor(id, userId, request.operator!.userId) };
     });
 
     admin.delete("/admin/businesses/:id/users/:userId", async (request, reply) => {

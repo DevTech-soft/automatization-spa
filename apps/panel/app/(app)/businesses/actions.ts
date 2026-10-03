@@ -701,6 +701,23 @@ export async function resetBusinessUserPasswordAction(
   return { ok: true, email: result.user.email, temporaryPassword: result.temporaryPassword };
 }
 
+export async function resetBusinessUserTwoFactorAction(
+  id: string,
+  userId: string,
+  _prev: FormState,
+  _formData: FormData,
+): Promise<FormState> {
+  try {
+    await adminMutate<BusinessUserDto>("POST", `/admin/businesses/${id}/users/${userId}/reset-2fa`, {});
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, error: e.message };
+    return { ok: false, error: "No se pudo quitar la verificación en dos pasos." };
+  }
+
+  revalidateBusiness(id);
+  return { ok: true, message: "Verificación en dos pasos quitada y sesiones cerradas." };
+}
+
 export async function updateBusinessUserRoleAction(
   id: string,
   userId: string,

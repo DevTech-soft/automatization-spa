@@ -102,6 +102,24 @@ export const portalUserRepository = {
     return prisma.member.update({ where: { id: memberId }, data: { role }, include: MEMBER_WITH_USER_INCLUDE });
   },
 
+  /**
+   * Apaga el 2FA de un usuario del portal que perdió el teléfono y los códigos
+   * de respaldo. Borra el secreto TOTP (al reactivarlo se genera otro), los
+   * dispositivos de confianza (si no, al reactivarlo un navegador viejo se
+   * saltaría el código por 30 días) y todas sus sesiones.
+   *
+   * Las filas `trust-device-*` de `verification` las crea el plugin `twoFactor`
+   * con `value = userId`.
+   */
+  async disableTwoFactor(userId: string): Promise<void> {
+    await prisma.$transaction([
+      prisma.twoFactor.deleteMany({ where: { userId } }),
+      prisma.verification.deleteMany({ where: { value: userId, identifier: { startsWith: "trust-device-" } } }),
+      prisma.session.deleteMany({ where: { userId } }),
+      prisma.user.updateMany({ where: { id: userId, role: "client" }, data: { twoFactorEnabled: false } }),
+    ]);
+  },
+
   async deleteUser(userId: string): Promise<void> {
     await prisma.user.deleteMany({ where: { id: userId, role: "client" } });
   },

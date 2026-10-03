@@ -17,6 +17,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ScrollText,
+  ShieldCheck,
   Sun,
   Users,
   Wallet,
@@ -71,12 +72,15 @@ export function AppShell({
   brand,
   nav,
   user,
+  accountHref,
   banner,
   children,
 }: {
   brand: { name: string; subtitle: string; href: string; logoUrl?: string | null };
   nav: NavGroup[];
   user: { name: string; email: string; roleLabel: string };
+  /** Página de seguridad de la cuenta propia (contraseña y 2FA). */
+  accountHref?: string;
   /** Aviso a lo ancho bajo el header (negocio suspendido, mora…). */
   banner?: React.ReactNode;
   children: React.ReactNode;
@@ -216,7 +220,7 @@ export function AppShell({
           </button>
           <div className="ml-auto flex items-center gap-1">
             <ThemeToggle />
-            <UserMenu user={user} />
+            <UserMenu user={user} accountHref={accountHref} />
           </div>
         </header>
 
@@ -228,7 +232,13 @@ export function AppShell({
   );
 }
 
-function UserMenu({ user }: { user: { name: string; email: string; roleLabel: string } }) {
+function UserMenu({
+  user,
+  accountHref,
+}: {
+  user: { name: string; email: string; roleLabel: string };
+  accountHref?: string | undefined;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -280,6 +290,17 @@ function UserMenu({ user }: { user: { name: string; email: string; roleLabel: st
             <p className="truncate text-sm font-medium">{user.name}</p>
             <p className="truncate text-xs text-[var(--color-fg-muted)]">{user.email}</p>
           </div>
+          {accountHref ? (
+            <Link
+              href={accountHref}
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-sm hover:bg-[var(--color-surface)]"
+            >
+              <ShieldCheck className="size-4 text-[var(--color-fg-muted)]" />
+              Seguridad de la cuenta
+            </Link>
+          ) : null}
           <button
             type="button"
             role="menuitem"

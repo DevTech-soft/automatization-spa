@@ -144,6 +144,30 @@ export async function resetBusinessUserPassword(
   return { user: toDto(member), temporaryPassword };
 }
 
+/**
+ * Recuperación de acceso: quita la verificación en dos pasos de un usuario que
+ * perdió el teléfono y los códigos de respaldo. No hay otra salida sin correo;
+ * el usuario la vuelve a activar desde su página de seguridad.
+ */
+export async function resetBusinessUserTwoFactor(
+  businessId: string,
+  userId: string,
+  actor: string,
+): Promise<BusinessUserDto> {
+  const member = await requireMember(businessId, userId);
+  await portalUserRepository.disableTwoFactor(userId);
+
+  await auditLogRepository.record({
+    actor,
+    action: "business.user.2fa_reset",
+    businessId,
+    before: { twoFactorEnabled: Boolean(member.user.twoFactorEnabled) },
+    metadata: { userId, email: member.user.email },
+  });
+
+  return toDto({ ...member, user: { ...member.user, twoFactorEnabled: false, sessions: [] } });
+}
+
 export async function removeBusinessUser(businessId: string, userId: string, actor: string): Promise<void> {
   const member = await requireMember(businessId, userId);
   const { userDeleted } = await portalUserRepository.removeMember(member.id, userId);

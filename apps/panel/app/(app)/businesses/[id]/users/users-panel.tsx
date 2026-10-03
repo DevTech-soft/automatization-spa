@@ -14,6 +14,7 @@ import {
   createBusinessUserAction,
   removeBusinessUserAction,
   resetBusinessUserPasswordAction,
+  resetBusinessUserTwoFactorAction,
   updateBusinessUserRoleAction,
   type FormState,
   type UserCredentialsState,
@@ -130,9 +131,14 @@ function UserRow({ businessId, user }: { businessId: string; user: BusinessUserD
     removeBusinessUserAction.bind(null, businessId, user.userId),
     { ok: false },
   );
+  const [twoFactorState, twoFactorAction] = useActionState<FormState, FormData>(
+    resetBusinessUserTwoFactorAction.bind(null, businessId, user.userId),
+    { ok: false },
+  );
   const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const [confirmingTwoFactor, setConfirmingTwoFactor] = useState(false);
   const otherRole = user.role === "owner" ? "member" : "owner";
-  const error = resetState.error ?? roleState.error ?? removeState.error;
+  const error = resetState.error ?? roleState.error ?? removeState.error ?? twoFactorState.error;
 
   return (
     <li className="flex flex-col gap-3 px-6 py-4">
@@ -172,6 +178,25 @@ function UserRow({ businessId, user }: { businessId: string; user: BusinessUserD
           <form action={resetAction}>
             <SubmitButton variant="ghost" size="sm" label="Nueva contraseña" pendingLabel="…" />
           </form>
+          {user.twoFactorEnabled ? (
+            confirmingTwoFactor ? (
+              <form action={twoFactorAction} className="flex items-center gap-1">
+                <SubmitButton variant="danger" size="sm" label="Quitar 2FA" pendingLabel="…" />
+                <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmingTwoFactor(false)}>
+                  Cancelar
+                </Button>
+              </form>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                title="Para quien perdió el teléfono y los códigos de respaldo"
+                onClick={() => setConfirmingTwoFactor(true)}
+              >
+                Quitar 2FA
+              </Button>
+            )
+          ) : null}
           {confirmingRemove ? (
             <form action={removeAction} className="flex items-center gap-1">
               <SubmitButton variant="danger" size="sm" label="Quitar" pendingLabel="…" />
@@ -189,6 +214,13 @@ function UserRow({ businessId, user }: { businessId: string; user: BusinessUserD
       {resetState.ok && resetState.temporaryPassword ? (
         <CredentialsNotice email={user.email} password={resetState.temporaryPassword} reset />
       ) : null}
+      {confirmingTwoFactor && user.twoFactorEnabled ? (
+        <p className="text-xs text-[var(--color-fg-muted)]">
+          Úsalo solo si confirmaste por otro medio que es la persona: perdió el teléfono y los códigos de
+          respaldo. Se cierran sus sesiones y podrá entrar solo con la contraseña hasta que lo reactive.
+        </p>
+      ) : null}
+      {twoFactorState.ok && !user.twoFactorEnabled ? <FormAlert state={twoFactorState} /> : null}
       {error ? <FormAlert state={{ ok: false, error }} /> : null}
     </li>
   );

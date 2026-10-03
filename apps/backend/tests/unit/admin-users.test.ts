@@ -16,6 +16,7 @@ vi.mock("../../src/repositories/portalUser.repository.js", () => ({
     removeMember: vi.fn(),
     listByBusiness: vi.fn(),
     updateRole: vi.fn(),
+    disableTwoFactor: vi.fn().mockResolvedValue(undefined),
   },
 }));
 vi.mock("../../src/auth/users.js", async (importOriginal) => ({
@@ -30,7 +31,7 @@ const { portalUserRepository } = await import("../../src/repositories/portalUser
 const { createCredentialUser, resetCredentialPassword, generateTemporaryPassword } = await import(
   "../../src/auth/users.js"
 );
-const { createBusinessUser, removeBusinessUser, resetBusinessUserPassword } = await import(
+const { createBusinessUser, removeBusinessUser, resetBusinessUserPassword, resetBusinessUserTwoFactor } = await import(
   "../../src/services/admin-users.service.js"
 );
 const { ConflictError, NotFoundError } = await import("../../src/errors/index.js");
@@ -124,6 +125,27 @@ describe("admin-users.service", () => {
     const result = await resetBusinessUserPassword(BUSINESS_ID, "user-1", "op-1");
 
     expect(resetCredentialPassword).toHaveBeenCalledWith("user-1", result.temporaryPassword);
+  });
+
+  it("quitar el 2FA exige que el usuario sea de ESE negocio", async () => {
+    vi.mocked(portalUserRepository.findInBusiness).mockResolvedValue(null);
+
+    await expect(resetBusinessUserTwoFactor(BUSINESS_ID, "user-1", "op-1")).rejects.toBeInstanceOf(NotFoundError);
+    expect(portalUserRepository.disableTwoFactor).not.toHaveBeenCalled();
+  });
+
+  it("quitar el 2FA lo apaga, audita y devuelve el usuario sin 2FA", async () => {
+    vi.mocked(portalUserRepository.findInBusiness).mockResolvedValue(
+      memberRow({ user: { ...memberRow().user, twoFactorEnabled: true } }) as never,
+    );
+
+    const dto = await resetBusinessUserTwoFactor(BUSINESS_ID, "user-1", "op-1");
+
+    expect(portalUserRepository.disableTwoFactor).toHaveBeenCalledWith("user-1");
+    expect(dto.twoFactorEnabled).toBe(false);
+    expect(auditLogRepository.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "business.user.2fa_reset", before: { twoFactorEnabled: true } }),
+    );
   });
 
   it("quitar un usuario audita si se borró la cuenta", async () => {

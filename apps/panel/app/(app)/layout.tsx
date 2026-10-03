@@ -32,6 +32,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       brand={{ name: "Panel de operador", subtitle: "Gestión multi-cliente", href: "/dashboard" }}
       nav={NAV}
       user={{ name: operator.email.split("@")[0] ?? operator.email, email: operator.email, roleLabel: "Operador" }}
+      accountHref="/account"
     >
       {children}
     </AppShell>

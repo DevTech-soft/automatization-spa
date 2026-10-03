@@ -66,6 +66,7 @@ export default async function PortalLayout({ children }: { children: React.React
         brand={{ name: business.name, subtitle: "Portal del negocio", href: "/portal", logoUrl: business.logoUrl }}
         nav={nav}
         user={{ name: viewer.name, email: viewer.email, roleLabel: owner ? "Dueño(a)" : "Equipo" }}
+        accountHref="/portal/account"
         banner={banner}
       >
         <div>{children}</div>
