@@ -51,6 +51,10 @@ export async function webRoutes(app: FastifyInstance): Promise<void> {
    */
   app.get("/conectar/:token", (_request, reply) => {
     reply.header("content-security-policy", SIGNUP_CSP);
+    // El `same-origin` de helmet corta el `window.opener` del popup de Meta: el
+    // SDK nunca recibe la respuesta (FB.login vuelve con status "unknown" y sin
+    // code) y tampoco llega el postMessage WA_EMBEDDED_SIGNUP.
+    reply.header("cross-origin-opener-policy", "same-origin-allow-popups");
     return reply.sendFile("conectar/index.html");
   });
 

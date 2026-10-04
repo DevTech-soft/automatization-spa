@@ -432,6 +432,8 @@ describe("auto-conexión de WhatsApp", () => {
     const csp = response.headers["content-security-policy"] as string;
     expect(csp).toContain("https://connect.facebook.net");
     expect(csp).toContain("frame-src https://*.facebook.com");
+    // Con `same-origin` el popup de Meta pierde el opener y FB.login vuelve sin code.
+    expect(response.headers["cross-origin-opener-policy"]).toBe("same-origin-allow-popups");
     await app.close();
   });
 
