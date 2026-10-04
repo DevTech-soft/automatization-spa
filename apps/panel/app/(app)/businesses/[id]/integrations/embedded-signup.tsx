@@ -48,7 +48,23 @@ interface SessionInfo {
 }
 
 const SDK_URL = "https://connect.facebook.net/es_LA/sdk.js";
-const FB_ORIGINS = ["https://www.facebook.com", "https://web.facebook.com"];
+
+/**
+ * El popup puede contestar desde www., web., business. o m.facebook.com según
+ * la cuenta y el país: se valida protocolo + dominio en vez de una lista fija
+ * (misma regla que `web/js/conectar.js`).
+ */
+function isFacebookOrigin(origin: string): boolean {
+  try {
+    const url = new URL(origin);
+    return (
+      url.protocol === "https:" &&
+      (url.hostname === "facebook.com" || url.hostname.endsWith(".facebook.com"))
+    );
+  } catch {
+    return false;
+  }
+}
 
 export function EmbeddedSignupPanel({
   businessId,
@@ -244,7 +260,7 @@ function FacebookButton({
       return;
     }
     if (!info.waba_id || !info.phone_number_id) {
-      setState({ ok: false, error: "Facebook no devolvió el número seleccionado." });
+      setState({ ok: false, error: "Meta no devolvió el número seleccionado." });
       return;
     }
 
@@ -268,7 +284,7 @@ function FacebookButton({
     function onMessage(event: MessageEvent) {
       // Cualquier página puede mandar un `postMessage`, y esto termina creando
       // una cuenta: solo se acepta desde el origen de Facebook.
-      if (!FB_ORIGINS.includes(event.origin)) {
+      if (!isFacebookOrigin(event.origin)) {
         return;
       }
       let payload: {
@@ -289,10 +305,13 @@ function FacebookButton({
         void trySubmit();
         return;
       }
-      if (payload.event === "CANCEL") {
-        setState({ ok: false, error: "Se cerró la ventana de Facebook antes de terminar." });
+      // En la v3 los errores de Meta llegan como CANCEL con `error_message`.
+      if (payload.data?.error_message) {
+        setState({ ok: false, error: `Meta cortó el proceso: ${payload.data.error_message}` });
+      } else if (payload.event === "CANCEL") {
+        setState({ ok: false, error: "Se cerró la ventana de Meta antes de terminar." });
       } else if (payload.event === "ERROR") {
-        setState({ ok: false, error: payload.data?.error_message ?? "Facebook cortó el proceso." });
+        setState({ ok: false, error: "Meta cortó el proceso." });
       }
     }
 
@@ -300,11 +319,21 @@ function FacebookButton({
     return () => window.removeEventListener("message", onMessage);
   }, [trySubmit]);
 
-  async function launch() {
+  // El SDK se precarga al montar y no en el clic: `FB.login` tiene que correr
+  // dentro del gesto del usuario o el navegador (sobre todo en móvil) bloquea
+  // el popup.
+  const [sdkReady, setSdkReady] = useState(false);
+  useEffect(() => {
+    loadFacebookSdk(config).then(
+      () => setSdkReady(true),
+      () => setState({ ok: false, error: "No se pudo cargar el conector de Meta." }),
+    );
+  }, [config]);
+
+  function launch() {
     setState({ ok: false });
-    const FB = await loadFacebookSdk(config).catch(() => null);
+    const FB = window.FB;
     if (!FB) {
-      setState({ ok: false, error: "No se pudo cargar el conector de Facebook." });
       return;
     }
 
@@ -338,8 +367,8 @@ function FacebookButton({
         <strong>él</strong>: la cuenta de WhatsApp Business queda a su nombre.
       </p>
       <div>
-        <Button type="button" onClick={() => void launch()} disabled={busy}>
-          {busy ? "Conectando…" : "Continuar con Facebook"}
+        <Button type="button" onClick={launch} disabled={busy || !sdkReady}>
+          {busy ? "Conectando…" : "Conectar WhatsApp"}
         </Button>
       </div>
       <FormAlert state={state} />

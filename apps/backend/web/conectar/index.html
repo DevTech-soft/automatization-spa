@@ -35,70 +35,72 @@
         <!-- El caso normal: el enlace sirve y falta que el dueño autorice. -->
         <section class="panel" id="readyPanel" hidden>
           <p class="panel__eyebrow" id="readyBusiness"></p>
-          <h1 class="panel__title">Conecta tu WhatsApp</h1>
+          <h1 class="panel__title">Conecta tu WhatsApp Business</h1>
           <p class="panel__hint">
-            Vas a entrar con tu cuenta de Facebook y autorizar el número de WhatsApp con el que tu
-            negocio le responde a sus clientas. La cuenta de WhatsApp Business queda a tu nombre:
-            nosotros solo quedamos autorizados para enviar y recibir los mensajes del sistema de
-            reservas.
+            Conecta el número que usa tu negocio para atender a sus clientas y responderles
+            automáticamente desde el sistema de reservas.
           </p>
           <p class="panel__hint">
-            ¿Por qué Facebook? Meta (la dueña de WhatsApp) exige que toda cuenta de WhatsApp
-            Business pertenezca a un portafolio comercial de Meta, y la única forma de crearlo o
-            elegirlo es entrando con un perfil de Facebook. No publicamos nada en tu Facebook ni
-            vemos tus datos personales.
+            Durante el proceso, Meta (la empresa dueña de WhatsApp) te va a pedir que inicies sesión
+            y autorices la conexión de tu cuenta de WhatsApp Business. Es su paso oficial de
+            seguridad y no lo podemos saltar.
           </p>
 
           <div class="receipt">
             <div class="receipt__row">
-              <span class="receipt__label">1</span>
-              <span>Inicias sesión con tu Facebook.</span>
+              <span class="receipt__label">✓</span>
+              <span>Tu cuenta de WhatsApp Business sigue siendo tuya.</span>
             </div>
             <div class="receipt__row">
-              <span class="receipt__label">2</span>
-              <span>Eliges (o creas) tu cuenta de WhatsApp Business y tu número.</span>
+              <span class="receipt__label">✓</span>
+              <span>Tu número sigue asociado a tu negocio.</span>
             </div>
             <div class="receipt__row">
-              <span class="receipt__label">3</span>
-              <span>Confirmas el número con el código que te llega.</span>
+              <span class="receipt__label">✓</span>
+              <span>
+                Solo recibimos los permisos para enviar y recibir los mensajes de las reservas. No
+                publicamos nada ni vemos tus datos personales.
+              </span>
             </div>
           </div>
 
           <div id="readyError"></div>
           <div class="actions">
             <button type="button" class="btn btn-primary btn-block" id="connectButton">
-              Continuar con Facebook
+              Conectar WhatsApp
             </button>
           </div>
           <p class="panel__hint" style="margin-top: 0.9rem;">
             Ten a la mano el teléfono del número que vas a conectar: Meta te va a mandar un código
-            de verificación.
+            de verificación. Si Meta te pide elegir o crear un portafolio comercial, usa el de tu
+            negocio.
           </p>
         </section>
 
         <!-- El popup ya devolvió el código; el backend está hablando con Meta. -->
         <section class="panel" id="workingPanel" hidden>
           <p class="panel__eyebrow">Conectando</p>
-          <h1 class="panel__title">Terminando de configurar…</h1>
+          <h1 class="panel__title">Conectando WhatsApp…</h1>
           <p class="panel__hint">
-            Estamos registrando tu número. No cierres esta página; toma unos segundos.
+            Estamos registrando tu número. No cierres esta ventana; toma unos segundos.
           </p>
         </section>
 
         <!-- Listo. -->
         <section class="panel" id="donePanel" hidden>
           <p class="panel__eyebrow">Listo</p>
-          <h1 class="panel__title">Tu WhatsApp quedó conectado</h1>
+          <h1 class="panel__title">¡WhatsApp conectado!</h1>
+          <p class="panel__hint" id="donePhone" hidden></p>
           <div class="receipt" id="doneSteps"></div>
           <p class="panel__hint">
-            Ya puedes cerrar esta página. Si algo no funciona, escríbele a quien te envió el enlace.
+            Tu WhatsApp Business ya está listo para el sistema de reservas. Puedes cerrar esta página. Si algo no funciona, escríbele a quien te envió el enlace.
           </p>
         </section>
 
         <!-- El flujo se cayó, pero el enlace sigue sirviendo. -->
         <section class="panel" id="failedPanel" hidden>
           <p class="panel__eyebrow">No se pudo conectar</p>
-          <h1 class="panel__title">Algo falló en el último paso</h1>
+          <h1 class="panel__title">No pudimos completar la conexión</h1>
           <div id="failedError"></div>
           <p class="panel__hint">
             El enlace sigue siendo válido: puedes intentarlo otra vez. Si vuelve a fallar,

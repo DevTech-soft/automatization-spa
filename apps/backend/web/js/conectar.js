@@ -125,7 +125,12 @@ function loadFacebookSdk(config) {
     script.async = true;
     script.defer = true;
     script.crossOrigin = "anonymous";
-    script.onerror = () => reject(new Error("No se pudo cargar el conector de Facebook."));
+    script.onerror = () =>
+      reject(
+        new Error(
+          "No se pudo cargar el conector de Meta. Revisa tu conexión o desactiva el bloqueador de anuncios y recarga la página.",
+        ),
+      );
     document.head.appendChild(script);
   });
 }
@@ -163,17 +168,22 @@ window.addEventListener("message", (event) => {
   const data = payload.data || {};
   if (data.error_message) {
     flowMessageShown = true;
-    showError(readyError, `Facebook cortó el proceso: ${data.error_message}`);
+    showError(
+      readyError,
+      `Meta no dejó completar la conexión ("${data.error_message}"). ` +
+        "Si tu usuario no tiene permisos de administración en el portafolio comercial de tu " +
+        "negocio, pídele a quien los tenga que abra este enlace.",
+    );
   } else if (payload.event === "CANCEL") {
     flowMessageShown = true;
     const step = data.current_step ? ` (ibas en el paso "${data.current_step}")` : "";
     showError(
       readyError,
-      `Cerraste la ventana de Facebook antes de terminar${step}. Puedes intentarlo de nuevo.`,
+      `Cerraste la ventana de Meta antes de terminar${step}, así que no se conectó nada. Puedes intentarlo de nuevo.`,
     );
   } else if (payload.event === "ERROR") {
     flowMessageShown = true;
-    showError(readyError, "Facebook cortó el proceso. Inténtalo de nuevo.");
+    showError(readyError, "Meta no pudo completar la conexión. Inténtalo de nuevo.");
   }
 });
 
@@ -201,7 +211,7 @@ function launchSignup(config) {
         const status = response && response.status ? ` (estado: ${response.status})` : "";
         showError(
           readyError,
-          `Facebook no completó la autorización${status}, así que no se conectó nada. ` +
+          `La autorización de Meta se canceló o no se pudo completar${status}, así que no se conectó nada. ` +
             "Puedes intentarlo de nuevo; si se repite, avísale a quien te envió el enlace.",
         );
       }
@@ -224,7 +234,7 @@ async function trySubmit() {
   if (!sessionInfo.waba_id || !sessionInfo.phone_number_id) {
     showError(
       readyError,
-      "Facebook no devolvió el número seleccionado. Inténtalo de nuevo y asegúrate de elegir un número.",
+      "Meta no devolvió el número seleccionado. Inténtalo de nuevo y asegúrate de elegir un número.",
     );
     return;
   }
@@ -241,6 +251,10 @@ async function trySubmit() {
         businessPortfolioId: sessionInfo.business_id ? String(sessionInfo.business_id) : "",
       },
     });
+    const phone = result.account && result.account.displayPhoneNumber;
+    const donePhone = document.getElementById("donePhone");
+    donePhone.textContent = phone ? `Número: ${phone}` : "";
+    donePhone.hidden = !phone;
     renderSteps(result.steps || []);
     show("done");
   } catch (error) {
