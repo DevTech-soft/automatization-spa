@@ -199,6 +199,7 @@ function launchSignup(config) {
       if (response && response.authResponse && response.authResponse.code) {
         authCode = response.authResponse.code;
         trySubmit();
+        warnIfSessionInfoMissing();
         return;
       }
       // Sin code. Se loguea la respuesta completa (sin code no hay nada
@@ -223,6 +224,28 @@ function launchSignup(config) {
       extras: { setup: {}, featureType: "", sessionInfoVersion: "3" },
     },
   );
+}
+
+/**
+ * Con el `code` en mano, el FINISH del popup llega enseguida (suele llegar
+ * antes). Si no llega, Meta autorizo pero no corrio el flujo de WhatsApp: pasa
+ * cuando el `config_id` es de inicio de sesion "General" y no de registro de
+ * WhatsApp. Sin este aviso la pagina se queda esperando en silencio.
+ */
+const SESSION_INFO_GRACE_MS = 5000;
+
+function warnIfSessionInfoMissing() {
+  setTimeout(() => {
+    if (sessionInfo || sending || !authCode) {
+      return;
+    }
+    authCode = null;
+    showError(
+      readyError,
+      "Meta autorizó el acceso pero no devolvió la cuenta de WhatsApp ni el número, así que no se conectó nada. " +
+        "Avísale a quien te envió el enlace: hay que revisar la configuración del registro de WhatsApp en Meta.",
+    );
+  }, SESSION_INFO_GRACE_MS);
 }
 
 // — Envio al backend —

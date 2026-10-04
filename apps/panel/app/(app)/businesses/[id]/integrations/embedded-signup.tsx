@@ -48,6 +48,8 @@ interface SessionInfo {
 }
 
 const SDK_URL = "https://connect.facebook.net/es_LA/sdk.js";
+/** Cuánto se espera el FINISH del popup después de tener el code. */
+const SESSION_INFO_GRACE_MS = 5000;
 
 /**
  * El popup puede contestar desde www., web., business. o m.facebook.com según
@@ -350,6 +352,21 @@ function FacebookButton({
         }
         authCode.current = code;
         void trySubmit();
+        // El FINISH suele llegar antes que el code. Si no llega, Meta autorizó
+        // pero no corrió el flujo de WhatsApp (p. ej. un `config_id` de inicio
+        // de sesión "General"): sin este aviso el botón queda en silencio.
+        setTimeout(() => {
+          if (sessionInfo.current || sending.current || !authCode.current) {
+            return;
+          }
+          authCode.current = null;
+          setState({
+            ok: false,
+            error:
+              "Meta autorizó el acceso pero no devolvió la cuenta de WhatsApp ni el número. " +
+              "Revisa que META_EMBEDDED_SIGNUP_CONFIG_ID sea una configuración de registro insertado de WhatsApp.",
+          });
+        }, SESSION_INFO_GRACE_MS);
       },
       {
         config_id: config.configId,
