@@ -187,7 +187,7 @@ El panel muestra un **checklist con estado** por negocio; el negocio queda en
 |---|---|---|
 | 1. Datos básicos (nombre, slug, timezone, moneda) + contacto del dueño | operador | panel |
 | 2. Marca: logo, colores, persona del agente (`settings.agent`) | operador | panel |
-| 3. Servicios + horarios de atención | operador | panel |
+| 3. Servicios + horarios de atención | operador o dueño(a) del spa | panel (pestaña Catálogo) o portal (Servicios y horarios) |
 | 4. **WhatsApp**: el cliente hace Embedded Signup (login FB → elige/crea WABA y número → autoriza). El backend intercambia el código por token, registra el número y suscribe la app a la WABA (✅ §7.4) | cliente + backend (automático) | enlace de auto-conexión, o botón del panel → Meta |
 | 5. Aprobar nombre visible de WhatsApp y foto de perfil | operador (envía a revisión de Meta) | panel → API de Meta |
 | 6. **Wompi**: el operador crea la cuenta en Wompi, pega las 4 llaves, el sistema configura el webhook de Wompi apuntando al backend | operador | panel + dashboard de Wompi |
@@ -739,14 +739,15 @@ borra). Todo audita (`business.user.*`). Los negocios sin organización espejo
 **API del portal** (`routes/portal.route.ts`): `GET /portal/me`,
 `/portal/appointments`, `/portal/customers`, `/portal/customers/:id`,
 `/portal/conversations`, `/portal/chats`, `/portal/chats/:phone` y, solo dueño, `/portal/usage`, `/portal/transactions`,
-`/portal/gift-cards`. Reusa los servicios de `admin-activity`/`admin-metrics`;
+`/portal/gift-cards`, `/portal/services` (CRUD) y `/portal/hours` (`GET`/`PUT`) —estos dos
+reusan `admin-catalog.service.ts` con el correo del usuario como actor del audit log—. Reusa los servicios de `admin-activity`/`admin-metrics`;
 lo nuevo es el CRM de clientas (`portal.service.ts`: citas, citas efectivas,
 total gastado y última visita por clienta, e historial).
 
 **Panel**: `/` reparte por rol (operador → `/dashboard`, cliente → `/portal`).
 `app/portal/*`: Hoy (agenda del día, pendientes de pago, saldo a cobrar en el
 local, próximos 7 días), Citas, Clientas (+ ficha), Conversaciones y, para el
-dueño, Métricas, Pagos y Gift cards. El portal toma el color primario y el logo
+dueño, Servicios y horarios (mismos componentes que la pestaña Catálogo), Métricas, Pagos y Gift cards. El portal toma el color primario y el logo
 de la pestaña Marca. Las tablas de actividad y la vista de consumo se
 extrajeron a `components/` y las comparten el operador y el portal.
 

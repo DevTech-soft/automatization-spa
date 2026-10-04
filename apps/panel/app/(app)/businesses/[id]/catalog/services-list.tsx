@@ -27,7 +27,7 @@ export function ServicesList({
   services,
   currency,
 }: {
-  businessId: string;
+  businessId: string | null;
   services: ServiceDto[];
   currency: string;
 }) {
@@ -126,7 +126,7 @@ function ServiceForm({
   service,
   onDone,
 }: {
-  businessId: string;
+  businessId: string | null;
   service: ServiceDto | null;
   onDone: () => void;
 }) {
@@ -207,7 +207,7 @@ function ServiceForm({
   );
 }
 
-function ToggleButton({ businessId, service }: { businessId: string; service: ServiceDto }) {
+function ToggleButton({ businessId, service }: { businessId: string | null; service: ServiceDto }) {
   const [state, formAction] = useActionState<FormState, FormData>(
     setServiceActiveAction.bind(null, businessId, service.id, !service.active),
     { ok: false },
@@ -226,7 +226,7 @@ function ToggleButton({ businessId, service }: { businessId: string; service: Se
   );
 }
 
-function DeleteButton({ businessId, serviceId }: { businessId: string; serviceId: string }) {
+function DeleteButton({ businessId, serviceId }: { businessId: string | null; serviceId: string }) {
   const [state, formAction] = useActionState<FormState, FormData>(
     deleteServiceAction.bind(null, businessId, serviceId),
     { ok: false },

@@ -19,7 +19,7 @@ export default async function PortalLayout({ children }: { children: React.React
   const { business } = viewer;
   const owner = viewer.role === "owner";
 
-  // El equipo no ve las secciones de plata; el backend igual las rechaza con 403.
+  // El equipo no ve las secciones de plata ni el catálogo; el backend igual las rechaza con 403.
   const nav: NavGroup[] = [
     {
       label: "Operación",
@@ -35,6 +35,7 @@ export default async function PortalLayout({ children }: { children: React.React
           {
             label: "Negocio",
             items: [
+              { href: "/portal/catalog", label: "Servicios y horarios", icon: "catalog" as const },
               { href: "/portal/metrics", label: "Métricas", icon: "metrics" as const },
               { href: "/portal/payments", label: "Pagos", icon: "payments" as const },
               { href: "/portal/gift-cards", label: "Gift cards", icon: "gift" as const },

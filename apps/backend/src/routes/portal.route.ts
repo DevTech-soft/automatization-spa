@@ -5,6 +5,9 @@ import {
   chatDetailQuerySchema,
   chatPhoneParamSchema,
   paginationQuerySchema,
+  updateBusinessHoursSchema,
+  updateServiceSchema,
+  upsertServiceSchema,
   usageQuerySchema,
 } from "@spa/shared";
 import { z } from "zod";
@@ -18,11 +21,20 @@ import {
 import { getBusinessUsage } from "../services/admin-metrics.service.js";
 import { getChat, listChats } from "../services/chat.service.js";
 import { applyAppointmentAction } from "../services/appointment-actions.service.js";
+import {
+  createCatalogService,
+  deleteCatalogService,
+  getBusinessHours,
+  listCatalogServices,
+  updateBusinessHours,
+  updateCatalogService,
+} from "../services/admin-catalog.service.js";
 import { getCustomer, getPortalMe, listCustomers } from "../services/portal.service.js";
 
 const customerParamSchema = z.object({ customerId: z.string().uuid() });
 const chatParamSchema = z.object({ phone: chatPhoneParamSchema });
 const appointmentParamSchema = z.object({ appointmentId: z.string().uuid() });
+const serviceParamSchema = z.object({ serviceId: z.string().uuid() });
 
 /**
  * API del portal de cliente / CRM (docs/PANEL-OPERADOR.md F7, §8.5). Mismo
@@ -33,7 +45,8 @@ const appointmentParamSchema = z.object({ appointmentId: z.string().uuid() });
  * cruzar tenants.
  *
  * Equipo (`member`) ve la operación del día: citas, clientas, conversaciones.
- * Lo que es plata —pagos, gift cards, métricas de ingresos— es solo del dueño(a).
+ * Lo que es plata —pagos, gift cards, métricas de ingresos— y el catálogo
+ * (servicios y horarios) es solo del dueño(a).
  */
 export async function portalRoutes(app: FastifyInstance): Promise<void> {
   app.register(async (portal) => {
@@ -105,6 +118,49 @@ export async function portalRoutes(app: FastifyInstance): Promise<void> {
       const query = paginationQuerySchema.parse(request.query);
       const filters = activityQuerySchema.parse(request.query);
       return { data: await listGiftCards(request.portal!.businessId, query, filters) };
+    });
+
+    /**
+     * Catálogo (servicios y horarios): el dueño(a) lo mantiene sin pasar por el
+     * operador. Mismo servicio que `/admin/businesses/:id/services|hours` —que
+     * valida que el servicio sea del negocio de la sesión— y mismo audit log,
+     * con el correo del usuario como actor.
+     */
+    portal.get("/portal/services", { preHandler: requirePortalOwner }, async (request) => {
+      return { data: await listCatalogServices(request.portal!.businessId) };
+    });
+
+    portal.post("/portal/services", { preHandler: requirePortalOwner }, async (request, reply) => {
+      const body = upsertServiceSchema.parse(request.body);
+      const portalUser = request.portal!;
+      const service = await createCatalogService(portalUser.businessId, body, portalUser.email);
+      reply.status(201);
+      return { data: service };
+    });
+
+    portal.patch("/portal/services/:serviceId", { preHandler: requirePortalOwner }, async (request) => {
+      const { serviceId } = serviceParamSchema.parse(request.params);
+      const body = updateServiceSchema.parse(request.body);
+      const portalUser = request.portal!;
+      return { data: await updateCatalogService(portalUser.businessId, serviceId, body, portalUser.email) };
+    });
+
+    /** 409 si el servicio tiene citas: se pausa en vez de borrarse. */
+    portal.delete("/portal/services/:serviceId", { preHandler: requirePortalOwner }, async (request, reply) => {
+      const { serviceId } = serviceParamSchema.parse(request.params);
+      const portalUser = request.portal!;
+      await deleteCatalogService(portalUser.businessId, serviceId, portalUser.email);
+      reply.status(204);
+    });
+
+    portal.get("/portal/hours", { preHandler: requirePortalOwner }, async (request) => {
+      return { data: await getBusinessHours(request.portal!.businessId) };
+    });
+
+    portal.put("/portal/hours", { preHandler: requirePortalOwner }, async (request) => {
+      const body = updateBusinessHoursSchema.parse(request.body);
+      const portalUser = request.portal!;
+      return { data: await updateBusinessHours(portalUser.businessId, body, portalUser.email) };
     });
   });
 }

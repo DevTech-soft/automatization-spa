@@ -20,7 +20,7 @@ export function HoursEditor({
   hours,
   timezone,
 }: {
-  businessId: string;
+  businessId: string | null;
   hours: BusinessHourDto[];
   timezone: string;
 }) {

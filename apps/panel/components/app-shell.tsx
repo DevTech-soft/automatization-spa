@@ -18,6 +18,7 @@ import {
   PanelLeftOpen,
   ScrollText,
   ShieldCheck,
+  Sparkles,
   Sun,
   Users,
   Wallet,
@@ -49,6 +50,7 @@ const ICONS = {
   metrics: BarChart3,
   payments: CreditCard,
   gift: Gift,
+  catalog: Sparkles,
 } as const;
 
 export type NavIcon = keyof typeof ICONS;

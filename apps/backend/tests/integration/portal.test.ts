@@ -1,7 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getSessionMock, findMembershipsMock, activity, metrics, portalService, usersService, chats, appointmentActions } = vi.hoisted(() => ({
+const { getSessionMock, findMembershipsMock, activity, metrics, portalService, usersService, chats, appointmentActions, catalog } = vi.hoisted(() => ({
   getSessionMock: vi.fn(),
+  catalog: {
+    listCatalogServices: vi.fn(),
+    createCatalogService: vi.fn(),
+    updateCatalogService: vi.fn(),
+    deleteCatalogService: vi.fn(),
+    getBusinessHours: vi.fn(),
+    updateBusinessHours: vi.fn(),
+  },
   chats: { listChats: vi.fn(), getChat: vi.fn(), assertBusinessExists: vi.fn() },
   appointmentActions: { applyAppointmentAction: vi.fn() },
   findMembershipsMock: vi.fn(),
@@ -42,6 +50,7 @@ vi.mock("../../src/services/portal.service.js", async (importOriginal) => ({
 vi.mock("../../src/services/admin-users.service.js", () => usersService);
 vi.mock("../../src/services/chat.service.js", () => chats);
 vi.mock("../../src/services/appointment-actions.service.js", () => appointmentActions);
+vi.mock("../../src/services/admin-catalog.service.js", () => catalog);
 
 const { buildApp } = await import("../../src/app.js");
 
@@ -275,7 +284,7 @@ describe("acciones sobre citas", () => {
     expect(appointmentActions.applyAppointmentAction).toHaveBeenCalledWith(
       BUSINESS_ID,
       APPOINTMENT_ID,
-      { action: "cancel", reason: "Llamó a cancelar" },
+      { action: "cancel", reason: "Llamó a cancelar", notifyCustomer: true },
       "spa@example.com",
     );
   });
@@ -317,6 +326,78 @@ describe("acciones sobre citas", () => {
       { action: "complete", balancePaid: true },
       "op-1",
     );
+  });
+});
+
+describe("catálogo desde el portal (servicios y horarios)", () => {
+  let app: Awaited<ReturnType<typeof buildApp>>;
+  const SERVICE_ID = "44444444-4444-4444-8444-444444444444";
+  const NEW_SERVICE = { name: "Masaje relajante", price: 80000, durationMinutes: 60, capacity: 1, active: true };
+
+  beforeEach(async () => {
+    app = await buildApp();
+    getSessionMock.mockResolvedValue(CLIENT_SESSION);
+  });
+  afterEach(async () => {
+    await app.close();
+    vi.clearAllMocks();
+  });
+
+  it("el equipo no edita el catálogo (solo dueño)", async () => {
+    findMembershipsMock.mockResolvedValue([membership("member")]);
+
+    const list = await app.inject({ method: "GET", url: "/portal/services" });
+    const create = await app.inject({ method: "POST", url: "/portal/services", payload: NEW_SERVICE });
+    const hours = await app.inject({ method: "PUT", url: "/portal/hours", payload: { days: [] } });
+
+    expect(list.statusCode).toBe(403);
+    expect(create.statusCode).toBe(403);
+    expect(hours.statusCode).toBe(403);
+    expect(catalog.createCatalogService).not.toHaveBeenCalled();
+  });
+
+  it("el dueño crea un servicio en su negocio; el actor es su correo", async () => {
+    findMembershipsMock.mockResolvedValue([membership("owner")]);
+    catalog.createCatalogService.mockResolvedValue({ id: SERVICE_ID, ...NEW_SERVICE });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/portal/services",
+      payload: { ...NEW_SERVICE, businessId: OTHER_BUSINESS_ID },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(catalog.createCatalogService).toHaveBeenCalledWith(
+      BUSINESS_ID,
+      expect.objectContaining({ name: "Masaje relajante" }),
+      "spa@example.com",
+    );
+  });
+
+  it("PATCH y DELETE usan el negocio de la sesión", async () => {
+    findMembershipsMock.mockResolvedValue([membership("owner")]);
+    catalog.updateCatalogService.mockResolvedValue({ id: SERVICE_ID });
+
+    const patch = await app.inject({ method: "PATCH", url: `/portal/services/${SERVICE_ID}`, payload: { active: false } });
+    const del = await app.inject({ method: "DELETE", url: `/portal/services/${SERVICE_ID}` });
+
+    expect(patch.statusCode).toBe(200);
+    expect(catalog.updateCatalogService).toHaveBeenCalledWith(BUSINESS_ID, SERVICE_ID, { active: false }, "spa@example.com");
+    expect(del.statusCode).toBe(204);
+    expect(catalog.deleteCatalogService).toHaveBeenCalledWith(BUSINESS_ID, SERVICE_ID, "spa@example.com");
+  });
+
+  it("PUT /portal/hours valida y guarda la semana del negocio de la sesión", async () => {
+    findMembershipsMock.mockResolvedValue([membership("owner")]);
+    catalog.updateBusinessHours.mockResolvedValue([]);
+    const days = [{ dayOfWeek: 1, openTime: "09:00", closeTime: "18:00", active: true }];
+
+    const invalid = await app.inject({ method: "PUT", url: "/portal/hours", payload: { days: [] } });
+    const ok = await app.inject({ method: "PUT", url: "/portal/hours", payload: { days } });
+
+    expect(invalid.statusCode).toBe(400);
+    expect(ok.statusCode).toBe(200);
+    expect(catalog.updateBusinessHours).toHaveBeenCalledWith(BUSINESS_ID, { days }, "spa@example.com");
   });
 });
 

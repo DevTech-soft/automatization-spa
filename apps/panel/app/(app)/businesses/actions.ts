@@ -575,8 +575,24 @@ export async function appointmentActionAdmin(
 
 // — Catálogo: servicios y horarios (§6.1 pasos 3–4) —
 
+/**
+ * El catálogo lo editan el operador (pestaña Catálogo, `id` = negocio) y el
+ * dueño(a) desde el portal (`id` = `null`: el backend fija el negocio desde la
+ * sesión). Mismos componentes y mismas acciones; cambia la API y qué se revalida.
+ */
+type CatalogScope = string | null;
+
+function catalogApi(id: CatalogScope): string {
+  return id ? `/admin/businesses/${id}` : "/portal";
+}
+
+function revalidateCatalog(id: CatalogScope): void {
+  if (id) revalidateBusiness(id);
+  else revalidatePath("/portal/catalog");
+}
+
 export async function saveServiceAction(
-  id: string,
+  id: CatalogScope,
   serviceId: string | null,
   _prev: FormState,
   formData: FormData,
@@ -591,22 +607,22 @@ export async function saveServiceAction(
 
   try {
     if (serviceId) {
-      await adminMutate<ServiceDto>("PATCH", `/admin/businesses/${id}/services/${serviceId}`, parsed.data);
+      await adminMutate<ServiceDto>("PATCH", `${catalogApi(id)}/services/${serviceId}`, parsed.data);
     } else {
-      await adminMutate<ServiceDto>("POST", `/admin/businesses/${id}/services`, parsed.data);
+      await adminMutate<ServiceDto>("POST", `${catalogApi(id)}/services`, parsed.data);
     }
   } catch (e) {
     if (e instanceof ApiError) return { ok: false, error: e.message, fieldErrors: e.fieldErrors };
     return { ok: false, error: "No se pudo guardar el servicio." };
   }
 
-  revalidateBusiness(id);
+  revalidateCatalog(id);
   return { ok: true };
 }
 
 /** Pausar / reactivar sin abrir el formulario. */
 export async function setServiceActiveAction(
-  id: string,
+  id: CatalogScope,
   serviceId: string,
   active: boolean,
   _prev: FormState,
@@ -614,30 +630,30 @@ export async function setServiceActiveAction(
 ): Promise<FormState> {
   const body = updateServiceSchema.parse({ active });
   try {
-    await adminMutate<ServiceDto>("PATCH", `/admin/businesses/${id}/services/${serviceId}`, body);
+    await adminMutate<ServiceDto>("PATCH", `${catalogApi(id)}/services/${serviceId}`, body);
   } catch (e) {
     if (e instanceof ApiError) return { ok: false, error: e.message };
     return { ok: false, error: "No se pudo actualizar el servicio." };
   }
 
-  revalidateBusiness(id);
+  revalidateCatalog(id);
   return { ok: true };
 }
 
 export async function deleteServiceAction(
-  id: string,
+  id: CatalogScope,
   serviceId: string,
   _prev: FormState,
   _formData: FormData,
 ): Promise<FormState> {
   try {
-    await adminDelete(`/admin/businesses/${id}/services/${serviceId}`);
+    await adminDelete(`${catalogApi(id)}/services/${serviceId}`);
   } catch (e) {
     if (e instanceof ApiError) return { ok: false, error: e.message };
     return { ok: false, error: "No se pudo eliminar el servicio." };
   }
 
-  revalidateBusiness(id);
+  revalidateCatalog(id);
   return { ok: true };
 }
 
@@ -648,7 +664,7 @@ export async function deleteServiceAction(
  * parte del path y todos los días se llaman igual.
  */
 export async function saveBusinessHoursAction(
-  id: string,
+  id: CatalogScope,
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
@@ -671,13 +687,13 @@ export async function saveBusinessHoursAction(
   }
 
   try {
-    await adminMutate<BusinessHourDto[]>("PUT", `/admin/businesses/${id}/hours`, parsed.data);
+    await adminMutate<BusinessHourDto[]>("PUT", `${catalogApi(id)}/hours`, parsed.data);
   } catch (e) {
     if (e instanceof ApiError) return { ok: false, error: e.message };
     return { ok: false, error: "No se pudieron guardar los horarios." };
   }
 
-  revalidateBusiness(id);
+  revalidateCatalog(id);
   return { ok: true, message: "Horarios guardados." };
 }
 
