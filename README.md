@@ -5,7 +5,8 @@ webhook verificado, Gift Cards digitales y sincronización a Google Sheets como 
 administrativa. Ver `docs/ARCHITECTURE.md` para las decisiones de diseño.
 
 Estado actual: **MVP completo y en producción**, desplegado en Railway con
-autodeploy desde GitHub: https://spa-mvp-production.up.railway.app
+autodeploy desde GitHub: https://app.devtechsol.dpdns.org (dominio propio;
+el de Railway, https://spa-mvp-production.up.railway.app, sigue activo)
 (`/health` responde `ok`). Los webhooks de WhatsApp y Wompi están
 registrados y probados con un pago y un mensaje reales — ver
 `docs/TESTING.md` y `docs/DEPLOYMENT.md` para el detalle completo.

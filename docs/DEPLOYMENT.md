@@ -16,7 +16,9 @@ Ya desplegado y verificado en vivo:
 
 - Proyecto Railway `spa-mvp` (workspace `DevTech-soft`), servicio único
   (Dockerfile), apuntando al Supabase real del proyecto.
-- Dominio: `https://spa-mvp-production.up.railway.app` — `/health` responde
+- Dominio: `https://app.devtechsol.dpdns.org` (CNAME en DigitalPlat DNS; el de
+  Railway, `https://spa-mvp-production.up.railway.app`, sigue activo y es el que
+  usan los webhooks de WhatsApp y Wompi) — `/health` responde
   `200 {"status":"ok","db":"ok"}`, `/reservar` y los assets sirven `200`,
   `/api/business/demo-spa` devuelve el negocio real desde Supabase.
 - Variables de entorno cargadas desde el `.env` local (todas las de
