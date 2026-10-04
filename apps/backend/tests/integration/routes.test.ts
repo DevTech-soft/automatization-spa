@@ -431,7 +431,7 @@ describe("auto-conexión de WhatsApp", () => {
     expect(response.statusCode).toBe(200);
     const csp = response.headers["content-security-policy"] as string;
     expect(csp).toContain("https://connect.facebook.net");
-    expect(csp).toContain("frame-src https://www.facebook.com");
+    expect(csp).toContain("frame-src https://*.facebook.com");
     await app.close();
   });
 

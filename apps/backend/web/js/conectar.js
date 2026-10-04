@@ -17,7 +17,23 @@
 import { apiRequest } from "./api.js";
 
 const SDK_URL = "https://connect.facebook.net/es_LA/sdk.js";
-const FB_ORIGINS = ["https://www.facebook.com", "https://web.facebook.com"];
+
+/**
+ * El popup puede contestar desde www., web., business. o m.facebook.com segun
+ * la cuenta y el pais. Se valida protocolo + dominio exacto en vez de una lista
+ * fija para no descartar en silencio el FINISH de un subdominio no previsto.
+ */
+function isFacebookOrigin(origin) {
+  try {
+    const url = new URL(origin);
+    return (
+      url.protocol === "https:" &&
+      (url.hostname === "facebook.com" || url.hostname.endsWith(".facebook.com"))
+    );
+  } catch {
+    return false;
+  }
+}
 
 const panels = {
   loading: document.getElementById("loadingPanel"),
@@ -41,6 +57,8 @@ const token = decodeURIComponent(window.location.pathname.split("/").filter(Bool
 let sessionInfo = null;
 let authCode = null;
 let sending = false;
+/** Se puso un mensaje mas especifico (CANCEL/ERROR) que el generico de FB.login. */
+let flowMessageShown = false;
 
 function show(name) {
   Object.entries(panels).forEach(([key, panel]) => {
@@ -118,7 +136,7 @@ function loadFacebookSdk(config) {
  * mensaje, y esto termina creando una cuenta.
  */
 window.addEventListener("message", (event) => {
-  if (!FB_ORIGINS.includes(event.origin)) {
+  if (!isFacebookOrigin(event.origin)) {
     return;
   }
   let payload;
@@ -130,6 +148,9 @@ window.addEventListener("message", (event) => {
   if (!payload || payload.type !== "WA_EMBEDDED_SIGNUP") {
     return;
   }
+  // Se deja en consola para poder diagnosticar con el cliente en llamada: no
+  // trae tokens, solo el paso en el que iba y los ids.
+  console.info("[conectar] WA_EMBEDDED_SIGNUP", payload.event, payload.data);
 
   if (payload.event === "FINISH" || payload.event === "FINISH_ONLY_WABA") {
     sessionInfo = payload.data || {};
@@ -137,18 +158,22 @@ window.addEventListener("message", (event) => {
     return;
   }
   // CANCEL y ERROR: el usuario cerro el popup o Meta corto el flujo. Se muestra
-  // en la misma pantalla para que pueda reintentar sin recargar.
-  if (payload.event === "CANCEL") {
+  // en la misma pantalla para que pueda reintentar sin recargar. En la v3 los
+  // errores de Meta llegan como CANCEL con `error_message`, no como ERROR.
+  const data = payload.data || {};
+  if (data.error_message) {
+    flowMessageShown = true;
+    showError(readyError, `Facebook cortó el proceso: ${data.error_message}`);
+  } else if (payload.event === "CANCEL") {
+    flowMessageShown = true;
+    const step = data.current_step ? ` (ibas en el paso "${data.current_step}")` : "";
     showError(
       readyError,
-      "Cerraste la ventana de Facebook antes de terminar. Puedes intentarlo de nuevo.",
+      `Cerraste la ventana de Facebook antes de terminar${step}. Puedes intentarlo de nuevo.`,
     );
   } else if (payload.event === "ERROR") {
-    showError(
-      readyError,
-      (payload.data && payload.data.error_message) ||
-        "Facebook cortó el proceso. Inténtalo de nuevo.",
-    );
+    flowMessageShown = true;
+    showError(readyError, "Facebook cortó el proceso. Inténtalo de nuevo.");
   }
 });
 
@@ -158,6 +183,7 @@ window.addEventListener("message", (event) => {
  * un token de usuario en el browser.
  */
 function launchSignup(config) {
+  flowMessageShown = false;
   window.FB.login(
     (response) => {
       if (response && response.authResponse && response.authResponse.code) {
@@ -165,12 +191,18 @@ function launchSignup(config) {
         trySubmit();
         return;
       }
-      // Sin code: no se autorizo. Si ademas hubo un CANCEL el mensaje ya esta
-      // puesto; este es el respaldo cuando el popup se cierra en seco.
-      if (!sessionInfo) {
+      // Sin code. Se loguea la respuesta completa (sin code no hay nada
+      // sensible) porque `status` distingue "el usuario cancelo" de "Meta no
+      // dejo usar la app" (app en modo desarrollo, dominio no permitido...).
+      console.warn("[conectar] FB.login sin code", response);
+      // Si hubo un CANCEL/ERROR del popup su mensaje es mas preciso; este es el
+      // respaldo cuando el popup se cierra en seco.
+      if (!sessionInfo && !flowMessageShown) {
+        const status = response && response.status ? ` (estado: ${response.status})` : "";
         showError(
           readyError,
-          "No autorizaste el acceso, así que no se conectó nada. Puedes intentarlo de nuevo.",
+          `Facebook no completó la autorización${status}, así que no se conectó nada. ` +
+            "Puedes intentarlo de nuevo; si se repite, avísale a quien te envió el enlace.",
         );
       }
     },
@@ -253,17 +285,26 @@ async function start() {
   document.getElementById("readyBusiness").textContent = invite.businessName;
   show("ready");
 
-  connectButton.addEventListener("click", async () => {
-    showError(readyError, "");
-    connectButton.disabled = true;
-    try {
-      await loadFacebookSdk(invite.config);
-      launchSignup(invite.config);
-    } catch (error) {
-      showError(readyError, error.message);
-    } finally {
+  // El SDK se precarga ya, no en el click: `FB.login` tiene que correr dentro
+  // del gesto del usuario o el navegador puede bloquear el popup o perder su
+  // respuesta. El boton queda deshabilitado hasta que el SDK este listo.
+  connectButton.disabled = true;
+  const sdkReady = loadFacebookSdk(invite.config).then(
+    () => {
       connectButton.disabled = false;
+    },
+    (error) => {
+      showError(readyError, error.message);
+    },
+  );
+
+  connectButton.addEventListener("click", () => {
+    showError(readyError, "");
+    if (!window.FB) {
+      sdkReady.then(() => window.FB && launchSignup(invite.config));
+      return;
     }
+    launchSignup(invite.config);
   });
 
   retryButton.addEventListener("click", () => {

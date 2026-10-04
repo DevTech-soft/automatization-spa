@@ -22,8 +22,10 @@ const SIGNUP_CSP = [
   // comunicación con www.facebook.com; las llamadas van a graph.facebook.com.
   "script-src 'self' https://connect.facebook.net",
   "script-src-attr 'none'",
-  "connect-src 'self' https://graph.facebook.com https://www.facebook.com",
-  "frame-src https://www.facebook.com https://web.facebook.com https://staticxx.facebook.com",
+  // Comodín de *.facebook.com: según la cuenta/país el SDK habla con www., web.,
+  // business. o m.facebook.com, y un bloqueo acá rompe FB.login en silencio.
+  "connect-src 'self' https://*.facebook.com",
+  "frame-src https://*.facebook.com",
   "style-src 'self' https: 'unsafe-inline'",
   "upgrade-insecure-requests",
 ].join("; ");
