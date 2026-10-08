@@ -21,11 +21,12 @@
       "id": "2801de9d-bbd5-4b6b-884c-743df8275903",
       "name": "Modelo",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.2,
+      "typeVersion": 1.3,
       "position": [960, 560],
       "parameters": {
         "model": { "__rl": true, "value": "gpt-5-mini", "mode": "list", "cachedResultName": "gpt-5-mini" },
-        "options": {}
+        "responsesApiEnabled": false,
+        "options": { "reasoningEffort": "low" }
       }
     },
     {
