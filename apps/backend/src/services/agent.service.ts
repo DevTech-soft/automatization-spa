@@ -5,6 +5,8 @@ import { appointmentRepository } from "../repositories/appointment.repository.js
 import { getAvailability } from "./availability.service.js";
 import { createAppointment } from "./appointment.service.js";
 import { createPayment } from "./payment.service.js";
+import { notifyAppointmentConfirmed } from "./notification.service.js";
+import { readAgentPaymentOptions } from "./business-settings.js";
 import { AvailabilityError, NotFoundError, ValidationError } from "../errors/index.js";
 import { assertBusinessOperational } from "./business-guard.js";
 import { businessToday, dateOnlyFromUTCDate, dateOnlyToUTCDate, formatTime12h } from "../utils/datetime.js";
@@ -85,6 +87,15 @@ export async function getAgentAvailability(
   return { fecha: date, hayCupo: horasLibres.length > 0, horasLibres };
 }
 
+/**
+ * Cómo eligió pagar quien reserva (el agente se lo pregunta tras el resumen):
+ * - "total": link por el 100%.
+ * - "abono": link por el % de abono del negocio; el resto se paga en el local.
+ * - "local": paga todo en el local; la cita queda confirmada sin link.
+ * Sin valor se usa el `chargeMode` del negocio, como antes de existir la opción.
+ */
+export type AgentPaymentMode = "total" | "abono" | "local";
+
 export interface CreateAgentAppointmentInput {
   businessId: string;
   serviceId: string;
@@ -93,17 +104,21 @@ export interface CreateAgentAppointmentInput {
   customerName: string;
   customerPhone: string;
   notes?: string | undefined;
+  paymentMode?: AgentPaymentMode | undefined;
+}
+
+interface CreatedAppointmentBase {
+  creada: true;
+  codigo: string;
+  servicio: string;
+  fecha: string;
+  inicio: string;
+  fin: string;
+  precio: number;
 }
 
 export type CreateAgentAppointmentResult =
-  | {
-      creada: true;
-      codigo: string;
-      servicio: string;
-      fecha: string;
-      inicio: string;
-      fin: string;
-      precio: number;
+  | (CreatedAppointmentBase & {
       /** "total" = el link cobra el 100%; "abono" = cobra una parte, el resto es presencial. */
       modoCobro: "total" | "abono";
       /** Monto que cobra el link de pago (el total, o el abono). */
@@ -112,24 +127,40 @@ export type CreateAgentAppointmentResult =
       saldoPendiente: number | null;
       linkPago: string;
       minutosParaPagar: number;
-    }
+    })
+  | (CreatedAppointmentBase & {
+      /** Paga todo en el local: la cita ya quedó confirmada, no hay link. */
+      modoCobro: "en_local";
+      saldoPendiente: number;
+    })
   | { creada: false; motivo: string };
 
 /**
- * Crea la reserva y su link de pago en una sola herramienta. Son dos pasos
- * (`createAppointment` + `createPayment`) que el agente no debería poder dejar
- * a medias: una cita creada sin link de pago expira sola en
- * PENDING_EXPIRATION_MINUTES y la clienta nunca se entera.
+ * Crea la reserva y, salvo que pague en el local, su link de pago en una sola
+ * herramienta. Son dos pasos (`createAppointment` + `createPayment`) que el
+ * agente no debería poder dejar a medias: una cita creada sin link de pago
+ * expira sola en PENDING_EXPIRATION_MINUTES y la clienta nunca se entera.
  *
- * Los rechazos esperables (slot ocupado, fecha pasada, fuera de horario) se
- * devuelven como `creada: false` con un motivo en español en vez de un error
- * HTTP, para que el agente lo lea y ofrezca otra hora en la misma respuesta en
- * lugar de disculparse por una falla técnica.
+ * Los rechazos esperables (slot ocupado, fecha pasada, fuera de horario, una
+ * forma de pago que el negocio no ofrece) se devuelven como `creada: false`
+ * con un motivo en español en vez de un error HTTP, para que el agente lo lea
+ * y ofrezca otra opción en la misma respuesta en lugar de disculparse por una
+ * falla técnica.
  */
 export async function createAgentAppointment(
   input: CreateAgentAppointmentInput,
 ): Promise<CreateAgentAppointmentResult> {
-  await requireBusiness(input.businessId);
+  const business = await requireBusiness(input.businessId);
+  const options = readAgentPaymentOptions(business);
+
+  // Se valida antes de crear la cita: un rechazo aquí no debe dejar una cita
+  // pendiente ocupando el cupo.
+  if (input.paymentMode === "local" && !options.payAtVenue) {
+    return { creada: false, motivo: "Este negocio no recibe el pago en el local: el pago es por link." };
+  }
+  if (input.paymentMode === "abono" && options.depositPercentage == null) {
+    return { creada: false, motivo: "Este negocio no cobra abono: el link es por el valor total." };
+  }
 
   try {
     const appointment = await createAppointment({
@@ -141,11 +172,10 @@ export async function createAgentAppointment(
       customerPhone: input.customerPhone,
       notes: input.notes,
       source: "WHATSAPP",
+      payAtVenue: input.paymentMode === "local",
     });
 
-    const payment = await createPayment({ entityType: "APPOINTMENT", entityId: appointment.id });
-
-    return {
+    const base: CreatedAppointmentBase = {
       creada: true,
       codigo: appointment.appointmentCode,
       servicio: appointment.service.name,
@@ -153,6 +183,25 @@ export async function createAgentAppointment(
       inicio: formatTime12h(appointment.startTime),
       fin: formatTime12h(appointment.endTime),
       precio: Number(appointment.price),
+    };
+
+    if (input.paymentMode === "local") {
+      // Ya confirmada: al negocio le llega el aviso de nueva reserva. A quien
+      // reservó no, porque el agente se lo está confirmando en esta respuesta.
+      void notifyAppointmentConfirmed(appointment.id, { notifyCustomer: false }).catch((error) => {
+        logger.error({ error, appointmentId: appointment.id }, "agent_pay_at_venue_notification_failed");
+      });
+      return { ...base, modoCobro: "en_local", saldoPendiente: Number(appointment.price) };
+    }
+
+    const payment = await createPayment({
+      entityType: "APPOINTMENT",
+      entityId: appointment.id,
+      chargeMode: input.paymentMode === "abono" ? "DEPOSIT" : input.paymentMode === "total" ? "TOTAL" : undefined,
+    });
+
+    return {
+      ...base,
       modoCobro: payment.chargeMode === "DEPOSIT" ? "abono" : "total",
       montoLink: payment.amount,
       saldoPendiente: payment.pendingBalance,

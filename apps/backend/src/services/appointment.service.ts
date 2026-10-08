@@ -42,6 +42,11 @@ export interface CreateAppointmentInput {
   customerEmail?: string | undefined;
   notes?: string | undefined;
   source: AppointmentSource;
+  /**
+   * Paga todo en el local: la cita nace CONFIRMED, sin link ni vencimiento, y
+   * el precio completo queda como saldo pendiente para cobrarlo al atenderla.
+   */
+  payAtVenue?: boolean | undefined;
 }
 
 export type AppointmentWithRelations = Appointment & { customer: Customer; service: Service };
@@ -106,7 +111,7 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
   const endTime = minutesToTime(endMinutes);
   const phone = normalizePhone(input.customerPhone);
   const lockKey = `${businessId}:${serviceId}:${date}`;
-  const expiresAt = DateTime.now().plus({ minutes: PENDING_EXPIRATION_MINUTES }).toJSDate();
+  const expiresAt = input.payAtVenue ? null : DateTime.now().plus({ minutes: PENDING_EXPIRATION_MINUTES }).toJSDate();
   const appointmentDate = dateOnlyToUTCDate(date);
 
   const appointment = await prisma.$transaction(async (tx) => {
@@ -144,8 +149,9 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
             startTime,
             endTime,
             price: service.price,
-            status: "PENDING",
+            status: input.payAtVenue ? "CONFIRMED" : "PENDING",
             paymentStatus: "PENDING",
+            pendingBalance: input.payAtVenue ? service.price : null,
             source,
             notes: input.notes,
             expiresAt,

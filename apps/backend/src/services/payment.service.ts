@@ -19,10 +19,17 @@ import { syncAppointmentToSheet } from "./google-sheets-sync.service.js";
 import { confirmGiftCardPayment, finalizeGiftCardAfterPayment } from "./gift-card.service.js";
 import { env } from "../config/env.js";
 import { logger } from "../utils/logger.js";
+import { effectiveDepositPercentage } from "./business-settings.js";
 
 export interface CreatePaymentForEntityInput {
   entityType: "APPOINTMENT" | "GIFT_CARD";
   entityId: string;
+  /**
+   * Solo reservas: fuerza el link por el total o por el abono en vez de usar
+   * el `chargeMode` del negocio (el agente deja elegir a la clienta). Pedir
+   * abono a un negocio sin abono válido es un ValidationError.
+   */
+  chargeMode?: "TOTAL" | "DEPOSIT" | undefined;
 }
 
 export interface CreatePaymentOutput {
@@ -41,7 +48,7 @@ export async function createPayment(input: CreatePaymentForEntityInput): Promise
   if (input.entityType === "GIFT_CARD") {
     return createPaymentForGiftCard(input.entityId);
   }
-  return createPaymentForAppointment(input.entityId);
+  return createPaymentForAppointment(input.entityId, input.chargeMode);
 }
 
 /**
@@ -81,11 +88,15 @@ interface ChargeSplit {
 function computeAppointmentCharge(
   price: Prisma.Decimal,
   business: Pick<Business, "chargeMode" | "depositPercentage">,
+  requested?: "TOTAL" | "DEPOSIT",
 ): ChargeSplit {
   const full = Number(price);
-  const pct = business.depositPercentage ?? 0;
+  const pct = effectiveDepositPercentage(business);
 
-  if (business.chargeMode === "DEPOSIT" && pct >= 1 && pct < 100) {
+  if (requested === "DEPOSIT" && pct == null) {
+    throw new ValidationError("Este negocio no cobra abono: el link es por el valor total.");
+  }
+  if (pct != null && requested !== "TOTAL") {
     const depositAmount = Math.round((full * pct) / 100);
     return { chargeMode: "DEPOSIT", amount: depositAmount, depositAmount, pendingBalance: full - depositAmount };
   }
@@ -93,7 +104,10 @@ function computeAppointmentCharge(
   return { chargeMode: "TOTAL", amount: full, depositAmount: null, pendingBalance: null };
 }
 
-async function createPaymentForAppointment(appointmentId: string): Promise<CreatePaymentOutput> {
+async function createPaymentForAppointment(
+  appointmentId: string,
+  requested?: "TOTAL" | "DEPOSIT",
+): Promise<CreatePaymentOutput> {
   const appointment = await appointmentRepository.findById(appointmentId);
   if (!appointment) {
     throw new NotFoundError("Reserva no encontrada.");
@@ -136,7 +150,7 @@ async function createPaymentForAppointment(appointmentId: string): Promise<Creat
     throw new NotFoundError("Negocio no encontrado.");
   }
 
-  const charge = computeAppointmentCharge(appointment.price, business);
+  const charge = computeAppointmentCharge(appointment.price, business, requested);
   const reference = generateCode("PAY");
   const result = await provider.createPayment({
     reference,

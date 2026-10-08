@@ -88,6 +88,16 @@ describe("applyAppointmentAction", () => {
     );
   });
 
+  it("pago en el local: 'saldo cobrado' deja el pago en PAID", async () => {
+    vi.mocked(appointmentRepository.findForAction).mockResolvedValue(
+      appointment({ paymentStatus: "PENDING", pendingBalance: "70000" }),
+    );
+
+    const result = await applyAppointmentAction(BID, AID, { action: "complete", balancePaid: true }, "rec@spa.co");
+
+    expect(result).toMatchObject({ status: "COMPLETED", paymentStatus: "PAID", pendingBalance: 0 });
+  });
+
   it("con abono y sin cobrar el saldo, el saldo queda pendiente", async () => {
     vi.mocked(appointmentRepository.findForAction).mockResolvedValue(
       appointment({ paymentStatus: "DEPOSIT_PAID", depositAmount: "30000", pendingBalance: "50000" }),

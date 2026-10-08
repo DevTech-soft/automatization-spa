@@ -25,6 +25,7 @@ function toBranding(row: AdminBusinessBrandingRow): BusinessBranding {
     colorSecondary: row.colorSecondary,
     agentEnabled: settings.agentEnabled === true,
     vertical: readVertical(settings.vertical),
+    allowPayAtVenue: settings.allowPayAtVenue === true,
     agent: readAgent(row.settings),
   };
 }
@@ -61,6 +62,9 @@ export async function updateBranding(
   }
   if (input.vertical !== undefined) {
     nextSettings.vertical = input.vertical;
+  }
+  if (input.allowPayAtVenue !== undefined) {
+    nextSettings.allowPayAtVenue = input.allowPayAtVenue;
   }
   if (input.agent) {
     const merged = mergeTextPatch(readAgent(before.settings) as Record<string, string | undefined>, input.agent);

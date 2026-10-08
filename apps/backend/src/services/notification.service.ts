@@ -4,10 +4,11 @@ import { giftCardRepository } from "../repositories/giftCard.repository.js";
 import { notificationLogRepository } from "../repositories/notificationLog.repository.js";
 import { resolveWhatsAppProviderForBusiness } from "./whatsapp-provider-resolver.js";
 import { forwardToAgent, isAgentEnabled, readAgentSettings, readBusinessVertical } from "../integrations/n8n/AgentForwarder.js";
-import { dateOnlyFromUTCDate } from "../utils/datetime.js";
+import { dateOnlyFromUTCDate, formatTime12h } from "../utils/datetime.js";
 import { digitsOnly } from "../utils/phone.js";
 import { isUniqueConstraintViolation } from "../utils/prisma-errors.js";
 import { logger } from "../utils/logger.js";
+import { readAgentPaymentOptions } from "./business-settings.js";
 
 function formatMoney(amount: number | string, currency: string): string {
   try {
@@ -53,7 +54,16 @@ async function claimNotification(
  * pago (payment.service.ts) — un fallo de envío nunca debe revertir la
  * confirmación del pago, solo se registra.
  */
-export async function notifyAppointmentConfirmed(appointmentId: string): Promise<void> {
+export async function notifyAppointmentConfirmed(
+  appointmentId: string,
+  options: {
+    /**
+     * `false` cuando quien reservó ya recibió la confirmación por otro lado
+     * (el agente se la acaba de escribir al cerrar una cita "paga en el local").
+     */
+    notifyCustomer?: boolean;
+  } = {},
+): Promise<void> {
   const appointment = await appointmentRepository.findByIdWithDetails(appointmentId);
   if (!appointment) {
     logger.error({ appointmentId }, "notify_appointment_confirmed_appointment_missing");
@@ -71,13 +81,19 @@ export async function notifyAppointmentConfirmed(appointmentId: string): Promise
       `\nSaldo a pagar en el local: ${formatMoney(appointment.pendingBalance!.toString(), business.currency)}`
     : "";
 
+  // Eligió pagar todo en el local: confirmada sin ningún pago online.
+  const payAtVenue = appointment.paymentStatus === "PENDING";
+
   try {
-    if (await claimNotification(business.id, "APPOINTMENT", appointment.id, "APPOINTMENT_CONFIRMATION")) {
+    if (
+      options.notifyCustomer !== false &&
+      (await claimNotification(business.id, "APPOINTMENT", appointment.id, "APPOINTMENT_CONFIRMATION"))
+    ) {
       const provider = await resolveWhatsAppProviderForBusiness(business.id, "NOTIFICATION");
       await provider.sendText(
         customer.phone,
         `¡Hola ${customer.name}! Tu reserva en ${business.name} quedó confirmada ✅\n\n` +
-          `${service.name}\n${dateLabel} · ${appointment.startTime} - ${appointment.endTime}\n${price}${depositLine}\n\n` +
+          `${service.name}\n${dateLabel} · ${formatTime12h(appointment.startTime)} - ${formatTime12h(appointment.endTime)}\n${price}${depositLine}\n\n` +
           `Código: ${appointment.appointmentCode}`,
       );
       logger.info({ appointmentId }, "whatsapp_appointment_confirmation_sent");
@@ -97,11 +113,13 @@ export async function notifyAppointmentConfirmed(appointmentId: string): Promise
         business.whatsappNumber,
         `Nueva reserva confirmada 📅\n\n` +
           `Cliente: ${customer.name} (${customer.phone})\n` +
-          `Servicio: ${service.name}\n${dateLabel} · ${appointment.startTime} - ${appointment.endTime}\n` +
+          `Servicio: ${service.name}\n${dateLabel} · ${formatTime12h(appointment.startTime)} - ${formatTime12h(appointment.endTime)}\n` +
           `Valor: ${price}\n` +
           (isDeposit
             ? `Estado de pago: ABONO PAGADO${depositLine}`
-            : `Estado de pago: PAID`),
+            : payAtVenue
+              ? `Estado de pago: PAGA EN EL LOCAL (${price} pendiente)`
+              : `Estado de pago: PAID`),
       );
       logger.info({ appointmentId }, "whatsapp_business_notification_sent");
     }
@@ -132,7 +150,7 @@ export async function notifyAppointmentReminder(appointmentId: string): Promise<
       await provider.sendText(
         customer.phone,
         `Hola ${customer.name} ❤️ Te recordamos que el ${dateLabel} tienes tu cita de ${service.name} ` +
-          `a las ${appointment.startTime} en ${business.name}.`,
+          `a las ${formatTime12h(appointment.startTime)} en ${business.name}.`,
       );
       logger.info({ appointmentId }, "whatsapp_appointment_reminder_sent");
     }
@@ -182,7 +200,7 @@ export async function notifyAppointmentCancelled(appointmentId: string): Promise
   if (isAgentEnabled(business.settings)) {
     const instruccion =
       `El negocio canceló la cita ${appointment.appointmentCode} de ${service.name} del ${dateLabel} ` +
-      `a las ${appointment.startTime}. Quien la reservó todavía no lo sabe. Escríbele un mensaje corto avisándole` +
+      `a las ${formatTime12h(appointment.startTime)}. Quien la reservó todavía no lo sabe. Escríbele un mensaje corto avisándole` +
       (paid ? " y dile que el equipo se pondrá en contacto por el pago que hizo (no prometas reembolso)." : ".") +
       " No menciones ni inventes el motivo. Ofrécele agendar otra fecha si quiere.";
 
@@ -199,6 +217,7 @@ export async function notifyAppointmentCancelled(appointmentId: string): Promise
       contactName: customer.name,
       text: `[Aviso del sistema] ${instruccion}`,
       agent: readAgentSettings(business.settings),
+      payments: readAgentPaymentOptions(business),
       event: {
         type: "appointment_cancelled",
         instruccion,
@@ -206,7 +225,7 @@ export async function notifyAppointmentCancelled(appointmentId: string): Promise
           codigo: appointment.appointmentCode,
           servicio: service.name,
           fecha: dateLabel,
-          inicio: appointment.startTime,
+          inicio: formatTime12h(appointment.startTime),
           estadoPago: appointment.paymentStatus,
         },
       },
@@ -224,7 +243,7 @@ export async function notifyAppointmentCancelled(appointmentId: string): Promise
     await provider.sendText(
       customer.phone,
       `Hola ${customer.name}, te escribimos de ${business.name}. ` +
-        `Tu cita de ${service.name} del ${dateLabel} a las ${appointment.startTime} fue cancelada.` +
+        `Tu cita de ${service.name} del ${dateLabel} a las ${formatTime12h(appointment.startTime)} fue cancelada.` +
         `${paymentLine}\n\nSi quieres agendar otra fecha, escríbenos por aquí.`,
     );
     logger.info({ appointmentId }, "whatsapp_appointment_cancellation_sent");

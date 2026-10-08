@@ -1,4 +1,5 @@
 import type { AgentSettings } from "@spa/shared";
+import type { Business } from "@spa/db";
 
 /**
  * Lectura tipada del JSON `Business.settings`. La columna es libre a propósito
@@ -13,6 +14,8 @@ export interface BusinessSettings {
   agentEnabled?: boolean;
   /** Qué workflow de n8n contesta (`@spa/shared` verticals). Ausente = belleza. */
   vertical?: string;
+  /** El agente puede ofrecer pagar en el local (ver agent.service). Ausente = no. */
+  allowPayAtVenue?: boolean;
   agent?: AgentSettings;
   /** Marcas del checklist que el panel no puede derivar de la data (§6.1). */
   onboarding?: {
@@ -50,4 +53,34 @@ export function mergeTextPatch<T extends Record<string, string | undefined>>(
     else next[key] = value;
   }
   return next as T;
+}
+
+/**
+ * % de abono que cobra el link de pago, o `null` si el negocio cobra el total.
+ * Modo DEPOSIT con un porcentaje válido (1–99); con 100 o sin porcentaje se
+ * comporta como TOTAL (§6.2). Única fuente de esta regla: la usan el split del
+ * link (payment.service) y las opciones que se le dan al agente.
+ */
+export function effectiveDepositPercentage(
+  business: Pick<Business, "chargeMode" | "depositPercentage">,
+): number | null {
+  const pct = business.depositPercentage ?? 0;
+  return business.chargeMode === "DEPOSIT" && pct >= 1 && pct < 100 ? pct : null;
+}
+
+/** Formas de pago que el agente puede ofrecer al cerrar una reserva. */
+export interface AgentPaymentOptions {
+  /** Puede ofrecer pagar todo en el local (`settings.allowPayAtVenue`). */
+  payAtVenue: boolean;
+  /** % del abono por link, o `null` si el negocio no cobra abono. */
+  depositPercentage: number | null;
+}
+
+export function readAgentPaymentOptions(
+  business: Pick<Business, "chargeMode" | "depositPercentage" | "settings">,
+): AgentPaymentOptions {
+  return {
+    payAtVenue: readBusinessSettings(business.settings).allowPayAtVenue === true,
+    depositPercentage: effectiveDepositPercentage(business),
+  };
 }

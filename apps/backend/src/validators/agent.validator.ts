@@ -34,6 +34,12 @@ export const createAgentAppointmentSchema = z.object({
   customerName: z.string().trim().min(2, "El nombre es muy corto.").max(120),
   customerPhone: z.string().trim().min(7, "customerPhone es requerido."),
   notes: z.string().trim().max(500).optional(),
+  // n8n manda "" cuando el modelo no llena el campo: eso es "sin preferencia"
+  // y se cobra según el negocio, como antes de existir la opción.
+  paymentMode: z.preprocess(
+    (value) => (typeof value === "string" ? value.trim().toLowerCase() || undefined : value),
+    z.enum(["total", "abono", "local"]).optional(),
+  ),
 });
 
 export const agentReplySchema = z.object({

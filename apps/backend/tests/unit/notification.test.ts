@@ -82,6 +82,34 @@ describe("notifyAppointmentConfirmed", () => {
     expect(sendText).toHaveBeenCalledWith("+573000000000", expect.stringContaining("Cliente de Prueba"));
   });
 
+  it("muestra las horas en formato 12 horas", async () => {
+    vi.mocked(appointmentRepository.findByIdWithDetails).mockResolvedValue(
+      fakeAppointment({ startTime: "16:00", endTime: "17:00" }) as never,
+    );
+    vi.mocked(notificationLogRepository.create).mockResolvedValue({} as never);
+    const sendText = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue({ sendText } as never);
+
+    await notifyAppointmentConfirmed(APPOINTMENT_ID);
+
+    expect(sendText).toHaveBeenCalledWith("+573001112233", expect.stringContaining("4:00 p. m. - 5:00 p. m."));
+    expect(sendText).toHaveBeenCalledWith("+573000000000", expect.stringContaining("4:00 p. m. - 5:00 p. m."));
+  });
+
+  it("pago en el local con notifyCustomer:false: solo avisa al negocio y dice que paga en el local", async () => {
+    vi.mocked(appointmentRepository.findByIdWithDetails).mockResolvedValue(
+      fakeAppointment({ paymentStatus: "PENDING" }) as never,
+    );
+    vi.mocked(notificationLogRepository.create).mockResolvedValue({} as never);
+    const sendText = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(resolveWhatsAppProviderForBusiness).mockResolvedValue({ sendText } as never);
+
+    await notifyAppointmentConfirmed(APPOINTMENT_ID, { notifyCustomer: false });
+
+    expect(sendText).toHaveBeenCalledTimes(1);
+    expect(sendText).toHaveBeenCalledWith("+573000000000", expect.stringContaining("PAGA EN EL LOCAL"));
+  });
+
   it("no envía al negocio si no tiene whatsappNumber configurado", async () => {
     vi.mocked(appointmentRepository.findByIdWithDetails).mockResolvedValue(
       fakeAppointment({ business: { id: "biz-1", name: "Demo Spa", currency: "COP", whatsappNumber: null } }) as never,

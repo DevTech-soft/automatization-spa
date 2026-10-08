@@ -77,7 +77,9 @@ export async function applyAppointmentAction(
   if (
     input.action === "complete" &&
     input.balancePaid &&
-    appointment.paymentStatus === "DEPOSIT_PAID" &&
+    // DEPOSIT_PAID: abonó online. PENDING en una cita confirmada: eligió pagar
+    // todo en el local (agent.service), su saldo es el precio completo.
+    (appointment.paymentStatus === "DEPOSIT_PAID" || appointment.paymentStatus === "PENDING") &&
     (pendingBalance ?? 0) > 0
   ) {
     // `depositAmount` se conserva: sigue diciendo cuánto se pagó online.

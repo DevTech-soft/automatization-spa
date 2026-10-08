@@ -166,6 +166,7 @@ export async function updateBrandingAction(id: string, _prev: FormState, formDat
     // Checkbox: presente = "on", ausente = sin key.
     agentEnabled: formData.get("agentEnabled") === "on",
     vertical: formData.get("vertical") ?? undefined,
+    allowPayAtVenue: formData.get("allowPayAtVenue") === "on",
     agent,
   });
   if (!parsed.success) {

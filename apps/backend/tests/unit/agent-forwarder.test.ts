@@ -29,6 +29,7 @@ const basePayload = {
   phone: "573001112233",
   text: "hola",
   agent: {},
+  payments: { payAtVenue: false, depositPercentage: null },
 };
 
 describe("verticales del agente", () => {

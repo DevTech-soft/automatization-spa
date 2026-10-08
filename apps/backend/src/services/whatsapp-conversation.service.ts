@@ -12,11 +12,12 @@ import { resolveWhatsAppProviderForBusiness } from "./whatsapp-provider-resolver
 import { recordIncomingMessage } from "./whatsapp-message-log.js";
 import type { InteractiveListRow, WhatsAppProvider } from "../integrations/whatsapp/index.js";
 import { forwardToAgent, isAgentEnabled, readAgentSettings, readBusinessVertical } from "../integrations/n8n/AgentForwarder.js";
+import { readAgentPaymentOptions } from "./business-settings.js";
 import { getAvailability } from "./availability.service.js";
 import { createAppointment } from "./appointment.service.js";
 import { createPayment } from "./payment.service.js";
 import { AvailabilityError, NotFoundError, ValidationError } from "../errors/index.js";
-import { businessToday, calendarDayOfWeek, dateOnlyFromUTCDate, dateOnlyToUTCDate } from "../utils/datetime.js";
+import { businessToday, calendarDayOfWeek, dateOnlyFromUTCDate, dateOnlyToUTCDate, formatTime12h } from "../utils/datetime.js";
 import { normalizePhone } from "../utils/phone.js";
 import { logger } from "../utils/logger.js";
 
@@ -114,6 +115,7 @@ export async function handleIncomingWhatsAppMessage(rawPayload: unknown): Promis
       contactName: message.contactName,
       text: message.text,
       agent: readAgentSettings(business.settings),
+      payments: readAgentPaymentOptions(business),
     });
 
     if (forwarded) {
@@ -302,7 +304,8 @@ async function sendTimeList(
 
   const rows: InteractiveListRow[] = availableSlots.slice(0, MAX_LIST_ROWS).map((slot) => ({
     id: slot.startTime,
-    title: slot.startTime,
+    // El id sigue en HH:mm (es lo que vuelve como replyId); el texto, en 12 h.
+    title: formatTime12h(slot.startTime),
   }));
 
   await provider.sendInteractiveMessage(phone, {

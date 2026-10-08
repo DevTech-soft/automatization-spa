@@ -399,7 +399,7 @@ describe("handleIncomingWhatsAppMessage", () => {
         expect.objectContaining({ state: "SELECTING_TIME" }),
       );
       const call = provider.sendInteractiveMessage.mock.calls.at(-1)!;
-      expect(call[1].sections[0].rows).toEqual([{ id: "10:00", title: "10:00" }]);
+      expect(call[1].sections[0].rows).toEqual([{ id: "10:00", title: "10:00 a. m." }]);
     });
 
     it("si no hay disponibilidad ese día, vuelve a pedir fecha (no se queda en SELECTING_TIME)", async () => {

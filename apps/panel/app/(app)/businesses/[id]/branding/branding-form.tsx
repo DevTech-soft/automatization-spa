@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Bot, ImageOff } from "lucide-react";
+import { Bot, ImageOff, Store } from "lucide-react";
 import {
   businessVerticals,
   verticalLabels,
@@ -158,6 +158,25 @@ export function BrandingForm({ branding }: { branding: BusinessBranding }) {
               </span>
               <span className="text-xs text-[var(--color-fg-muted)]">
                 Apagado, el negocio responde con el bot de menús.
+              </span>
+            </span>
+          </label>
+
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+            <input
+              type="checkbox"
+              name="allowPayAtVenue"
+              defaultChecked={branding.allowPayAtVenue}
+              className="mt-0.5 size-4"
+            />
+            <span className="flex flex-col gap-0.5">
+              <span className="flex items-center gap-2 text-sm font-medium">
+                <Store className="size-4 text-[var(--color-primary)]" />
+                Permitir pagar en el local
+              </span>
+              <span className="text-xs text-[var(--color-fg-muted)]">
+                El agente ofrece pagar todo el día de la cita, además del link de pago. La cita queda
+                confirmada sin pago y el saldo se marca como cobrado al atenderla.
               </span>
             </span>
           </label>

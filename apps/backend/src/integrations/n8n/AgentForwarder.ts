@@ -1,6 +1,7 @@
 import { readVertical, type BusinessVertical } from "@spa/shared";
 import { env } from "../../config/env.js";
 import { logger } from "../../utils/logger.js";
+import type { AgentPaymentOptions } from "../../services/business-settings.js";
 
 /**
  * Reenvío del canal de WhatsApp al agente conversacional de n8n
@@ -65,6 +66,8 @@ export interface AgentForwardPayload {
    */
   text: string;
   agent: AgentSettings;
+  /** Qué formas de pago puede ofrecer el agente al cerrar una reserva. */
+  payments: AgentPaymentOptions;
   event?: AgentEvent | undefined;
 }
 

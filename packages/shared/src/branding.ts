@@ -7,7 +7,8 @@ import { businessVerticalSchema, type BusinessVertical } from "./verticals.js";
  * Dos orígenes distintos, una sola superficie en el panel:
  * - Columnas de `Business`: `logoUrl`, `colorPrimary`, `colorSecondary`.
  * - JSON `Business.settings`: `agentEnabled`, `vertical` (qué workflow de n8n
- *   contesta, ver `verticals.ts`) y `agent` (la persona con la que ese agente
+ *   contesta, ver `verticals.ts`), `allowPayAtVenue` (si el agente puede
+ *   ofrecer pagar en el local) y `agent` (la persona con la que ese agente
  *   contesta — ver `AgentForwarder.AgentSettings`).
  */
 
@@ -32,6 +33,8 @@ export interface BusinessBranding {
   colorSecondary: string | null;
   agentEnabled: boolean;
   vertical: BusinessVertical;
+  /** El agente puede ofrecer pagar todo en el local (cita confirmada sin link). */
+  allowPayAtVenue: boolean;
   agent: AgentSettings;
 }
 
@@ -66,6 +69,7 @@ export const updateBrandingSchema = z
     colorSecondary: hexColor,
     agentEnabled: z.boolean(),
     vertical: businessVerticalSchema,
+    allowPayAtVenue: z.boolean(),
     agent: agentSettingsSchema,
   })
   .partial();
