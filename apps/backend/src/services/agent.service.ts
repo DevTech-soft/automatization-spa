@@ -7,7 +7,7 @@ import { createAppointment } from "./appointment.service.js";
 import { createPayment } from "./payment.service.js";
 import { AvailabilityError, NotFoundError, ValidationError } from "../errors/index.js";
 import { assertBusinessOperational } from "./business-guard.js";
-import { businessToday, dateOnlyFromUTCDate, dateOnlyToUTCDate } from "../utils/datetime.js";
+import { businessToday, dateOnlyFromUTCDate, dateOnlyToUTCDate, formatTime12h } from "../utils/datetime.js";
 import { normalizePhone } from "../utils/phone.js";
 import { logger } from "../utils/logger.js";
 import { PENDING_EXPIRATION_MINUTES } from "../config/constants.js";
@@ -21,6 +21,10 @@ import { PENDING_EXPIRATION_MINUTES } from "../config/constants.js";
  * concurrencia y el hold de pago sigan viviendo en un solo lugar. Lo que sí
  * hace es aplanar las respuestas — un modelo de lenguaje trabaja mucho mejor
  * con `{ hora: "10:00" }` que con un slot anidado de tres niveles.
+ *
+ * Las horas salen en formato 12 horas ("2:30 p. m.") porque el agente las copia
+ * tal cual en el mensaje a la clienta; `crear_reserva` las acepta de vuelta en
+ * ese formato (agent.validator).
  */
 
 async function requireBusiness(businessId: string) {
@@ -74,7 +78,9 @@ export async function getAgentAvailability(
   date: string,
 ): Promise<AgentAvailabilityResult> {
   const result = await getAvailability({ businessId, serviceId, date });
-  const horasLibres = result.slots.filter((slot) => slot.available).map((slot) => slot.startTime);
+  const horasLibres = result.slots
+    .filter((slot) => slot.available)
+    .map((slot) => formatTime12h(slot.startTime));
 
   return { fecha: date, hayCupo: horasLibres.length > 0, horasLibres };
 }
@@ -144,8 +150,8 @@ export async function createAgentAppointment(
       codigo: appointment.appointmentCode,
       servicio: appointment.service.name,
       fecha: dateOnlyFromUTCDate(appointment.appointmentDate),
-      inicio: appointment.startTime,
-      fin: appointment.endTime,
+      inicio: formatTime12h(appointment.startTime),
+      fin: formatTime12h(appointment.endTime),
       precio: Number(appointment.price),
       modoCobro: payment.chargeMode === "DEPOSIT" ? "abono" : "total",
       montoLink: payment.amount,
@@ -189,8 +195,8 @@ export async function listAgentAppointments(
     codigo: appointment.appointmentCode,
     servicio: appointment.service.name,
     fecha: dateOnlyFromUTCDate(appointment.appointmentDate),
-    inicio: appointment.startTime,
-    fin: appointment.endTime,
+    inicio: formatTime12h(appointment.startTime),
+    fin: formatTime12h(appointment.endTime),
     estado: appointment.status,
     estadoPago: appointment.paymentStatus,
     precio: Number(appointment.price),

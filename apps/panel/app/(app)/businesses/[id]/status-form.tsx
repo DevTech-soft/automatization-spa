@@ -37,9 +37,14 @@ export function StatusForm({ business }: { business: BusinessDetail }) {
     (status) => !(business.status === "TRIAL" && status === "ACTIVE"),
   );
 
-  const [selected, setSelected] = useState<BusinessStatus | undefined>(options[0]);
+  // El <select> no es controlado: React 19 resetea el formulario al terminar la
+  // action y un `value=` controlado se quedaba mostrando la primera opción
+  // aunque el estado dijera otra. `picked` solo alimenta el aviso de abajo y se
+  // descarta si deja de ser una transición válida (tras cambiar el estado).
+  const [picked, setPicked] = useState<BusinessStatus | undefined>(undefined);
+  const selected = picked && options.includes(picked) ? picked : options[0];
 
-  if (options.length === 0 || !selected) {
+  if (!selected) {
     return null;
   }
 
@@ -53,13 +58,14 @@ export function StatusForm({ business }: { business: BusinessDetail }) {
         </>
       }
     >
-      <form action={formAction} className="flex flex-col gap-4">
+      <form action={formAction} onReset={() => setPicked(undefined)} className="flex flex-col gap-4">
         <Field name="status" label="Nuevo estado" errors={state.fieldErrors}>
           <Select
+            key={business.status}
             id="status"
             name="status"
-            value={selected}
-            onChange={(e) => setSelected(e.target.value as BusinessStatus)}
+            defaultValue={options[0]}
+            onChange={(e) => setPicked(e.target.value as BusinessStatus)}
           >
             {options.map((status) => (
               <option key={status} value={status}>

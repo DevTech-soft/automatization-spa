@@ -23,17 +23,20 @@
     {
       "id": "2801de9d-bbd5-4b6b-884c-743df8275903",
       "name": "Modelo",
-      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
-      "typeVersion": 1,
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
       "position": [
         960,
         560
       ],
       "parameters": {
-        "model": "llama-3.3-70b-versatile",
-        "options": {
-          "temperature": 0.4
-        }
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "options": {}
       }
     },
     {
@@ -385,7 +388,7 @@
         0
       ],
       "parameters": {
-        "content": "## Antes de activar (vertical: mascotas)\n\nEste workflow atiende a los negocios con vertical 'mascotas'. En el backend agrega su URL a N8N_AGENT_WEBHOOKS: {\"mascotas\":\"http://n8n.railway.internal:5678/webhook/agente-mascotas\"}\n\nEste workflow no habla con Meta. El backend del spa recibe el webhook de WhatsApp, resuelve el negocio y reenvia aqui; la respuesta vuelve por POST /internal/agent/reply.\n\nVariables de entorno del servicio n8n:\n- SPA_API_URL = http://spa-mvp.railway.internal:3000\n- SPA_AGENT_TOKEN = el mismo valor de N8N_AGENT_TOKEN en el backend\n\nCredenciales a crear en n8n (no viajan en el JSON):\n- Header Auth para el Webhook: Name = x-agent-token, Value = N8N_AGENT_TOKEN\n- Postgres para la Memoria: host n8n-db.railway.internal, port 5432, db/user n8n, SSL disable\n- Groq para el Modelo\n\nEn el backend: N8N_AGENT_WEBHOOK_URL apuntando a la URL de produccion del nodo Webhook, y settings.agentEnabled = true en el negocio.\n\nHerramientas: nodo 'HTTP Request Tool' (n8n-nodes-base.httpRequestTool), NO el 'HTTP Request' de langchain: el agente v3 necesita nodos con metodo execute.\n\nVer docs/AGENTE-N8N.md en el repo del spa.",
+        "content": "## Antes de activar (vertical: mascotas)\n\nEste workflow atiende a los negocios con vertical 'mascotas'. En el backend agrega su URL a N8N_AGENT_WEBHOOKS: {\"mascotas\":\"http://n8n.railway.internal:5678/webhook/agente-mascotas\"}\n\nEste workflow no habla con Meta. El backend del spa recibe el webhook de WhatsApp, resuelve el negocio y reenvia aqui; la respuesta vuelve por POST /internal/agent/reply.\n\nVariables de entorno del servicio n8n:\n- SPA_API_URL = http://spa-mvp.railway.internal:3000\n- SPA_AGENT_TOKEN = el mismo valor de N8N_AGENT_TOKEN en el backend\n\nCredenciales a crear en n8n (no viajan en el JSON):\n- Header Auth para el Webhook: Name = x-agent-token, Value = N8N_AGENT_TOKEN\n- Postgres para la Memoria: host n8n-db.railway.internal, port 5432, db/user n8n, SSL disable\n- OpenAI para el Modelo (gpt-5-mini)\n\nEn el backend: N8N_AGENT_WEBHOOK_URL apuntando a la URL de produccion del nodo Webhook, y settings.agentEnabled = true en el negocio.\n\nHerramientas: nodo 'HTTP Request Tool' (n8n-nodes-base.httpRequestTool), NO el 'HTTP Request' de langchain: el agente v3 necesita nodos con metodo execute.\n\nVer docs/AGENTE-N8N.md en el repo del spa.",
         "color": 4
       }
     }

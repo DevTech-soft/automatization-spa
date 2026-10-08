@@ -101,3 +101,35 @@ export function minutesToTime(totalMinutes: number): string {
   const minutes = (totalMinutes % 60).toString().padStart(2, "0");
   return `${hours}:${minutes}`;
 }
+
+/**
+ * "HH:mm" → hora de pared en formato 12 horas, como se dice en Colombia:
+ * "14:30" → "2:30 p. m.", "00:15" → "12:15 a. m.". Es solo presentación (lo
+ * que el agente le escribe a la clienta); la data sigue guardándose en "HH:mm".
+ */
+export function formatTime12h(time: string): string {
+  const [hours = 0, minutes = 0] = time.split(":").map(Number);
+  const suffix = hours < 12 ? "a. m." : "p. m.";
+  const hour12 = hours % 12 === 0 ? 12 : hours % 12;
+  return `${hour12}:${minutes.toString().padStart(2, "0")} ${suffix}`;
+}
+
+/**
+ * Inversa tolerante de `formatTime12h`: acepta "HH:mm" y también la hora en
+ * 12 horas tal como la escribe un modelo de lenguaje ("2:30 p. m.", "2:30pm",
+ * "2:30 PM", "02:30 p.m."). Devuelve "HH:mm" o `null` si no es una hora válida.
+ */
+export function parseTimeInput(input: string): string | null {
+  const value = input.trim().toLowerCase();
+
+  const h24 = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(value);
+  if (h24) {
+    return `${h24[1]!.padStart(2, "0")}:${h24[2]}`;
+  }
+
+  const h12 = /^(0?[1-9]|1[0-2]):([0-5]\d)\s*([ap])\.?\s*m\.?$/.exec(value);
+  if (!h12) return null;
+  const hour12 = Number(h12[1]);
+  const hours = (hour12 % 12) + (h12[3] === "p" ? 12 : 0);
+  return `${hours.toString().padStart(2, "0")}:${h12[2]}`;
+}
