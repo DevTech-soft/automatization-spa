@@ -20,22 +20,13 @@ import { AvailabilityError, NotFoundError, ValidationError } from "../errors/ind
 import { businessToday, calendarDayOfWeek, dateOnlyFromUTCDate, dateOnlyToUTCDate, formatTime12h } from "../utils/datetime.js";
 import { normalizePhone } from "../utils/phone.js";
 import { logger } from "../utils/logger.js";
+import { formatMoney } from "../utils/money.js";
 
 const DATE_OPTIONS_AHEAD_DAYS = 14;
 const MAX_LIST_ROWS = 10;
 
 function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
-}
-
-function formatMoney(amount: number | string, currency: string): string {
-  try {
-    return new Intl.NumberFormat("es-CO", { style: "currency", currency, maximumFractionDigits: 0 }).format(
-      Number(amount),
-    );
-  } catch {
-    return `${amount} ${currency}`;
-  }
 }
 
 function formatDateLabel(dateStr: string): string {

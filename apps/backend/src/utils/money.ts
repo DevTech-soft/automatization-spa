@@ -23,3 +23,14 @@ export function toMoneyOrNull(value: Prisma.Decimal | number | null | undefined)
   }
   return typeof value === "number" ? value : Number(value);
 }
+
+/** Monto para mostrar en un mensaje: "$65.000" (es-CO, sin decimales). */
+export function formatMoney(amount: number | string, currency: string): string {
+  try {
+    return new Intl.NumberFormat("es-CO", { style: "currency", currency, maximumFractionDigits: 0 }).format(
+      Number(amount),
+    );
+  } catch {
+    return `${amount} ${currency}`;
+  }
+}

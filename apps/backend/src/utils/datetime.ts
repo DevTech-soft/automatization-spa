@@ -102,6 +102,11 @@ export function minutesToTime(totalMinutes: number): string {
   return `${hours}:${minutes}`;
 }
 
+/** "2026-10-10" → "sábado 10 de octubre", para mensajes a la clienta. */
+export function formatDateLong(date: string): string {
+  return parseCalendarDate(date).setLocale("es").toFormat("cccc d 'de' LLLL");
+}
+
 /**
  * "HH:mm" → hora de pared en formato 12 horas, como se dice en Colombia:
  * "14:30" → "2:30 p. m.", "00:15" → "12:15 a. m.". Es solo presentación (lo

@@ -32,7 +32,14 @@ const input = {
 };
 
 function business(overrides: Record<string, unknown> = {}) {
-  return { id: input.businessId, chargeMode: "TOTAL", depositPercentage: null, settings: {}, ...overrides } as never;
+  return {
+    id: input.businessId,
+    currency: "COP",
+    chargeMode: "TOTAL",
+    depositPercentage: null,
+    settings: {},
+    ...overrides,
+  } as never;
 }
 
 const appointment = {
@@ -68,6 +75,12 @@ describe("createAgentAppointment · forma de pago", () => {
     expect(createAppointment).toHaveBeenCalledWith(expect.objectContaining({ payAtVenue: true }));
     expect(createPayment).not.toHaveBeenCalled();
     expect(notifyAppointmentConfirmed).toHaveBeenCalledWith("apt-1", { notifyCustomer: false });
+    const mensaje = (result as { mensajeParaCliente: string }).mensajeParaCliente;
+    expect(mensaje).toContain("quedó confirmada");
+    expect(mensaje).toContain("- Fecha: viernes 9 de octubre");
+    expect(mensaje).toContain("- Hora: 4:00 p. m.");
+    expect(mensaje).toContain("*APT-TEST1234*");
+    expect(mensaje).toMatch(/Pagas \$\s?70\.000 en el local/);
   });
 
   it("local en un negocio que no lo permite: rechaza sin crear la cita", async () => {
@@ -102,6 +115,10 @@ describe("createAgentAppointment · forma de pago", () => {
 
     expect(createPayment).toHaveBeenCalledWith({ entityType: "APPOINTMENT", entityId: "apt-1", chargeMode: "DEPOSIT" });
     expect(result).toMatchObject({ creada: true, modoCobro: "abono", montoLink: 21000, saldoPendiente: 49000 });
+    const mensaje = (result as { mensajeParaCliente: string }).mensajeParaCliente;
+    expect(mensaje).toMatch(/paga el abono de \$\s?21\.000 aquí:\nhttps:\/\/pay\/x/);
+    expect(mensaje).toMatch(/El saldo de \$\s?49\.000 lo pagas en el local/);
+    expect(mensaje).toContain("apartado por 15 minutos");
   });
 
   it("total en un negocio con abono: fuerza el link por el total", async () => {
@@ -120,6 +137,9 @@ describe("createAgentAppointment · forma de pago", () => {
     expect(createAppointment).toHaveBeenCalledWith(expect.objectContaining({ payAtVenue: false }));
     expect(createPayment).toHaveBeenCalledWith({ entityType: "APPOINTMENT", entityId: "apt-1", chargeMode: undefined });
     expect(result).toMatchObject({ creada: true, modoCobro: "total", linkPago: "https://pay/x", minutosParaPagar: 15 });
+    const mensaje = (result as { mensajeParaCliente: string }).mensajeParaCliente;
+    expect(mensaje).toMatch(/Para confirmarla, paga \$\s?70\.000 aquí:\nhttps:\/\/pay\/x/);
+    expect(mensaje).not.toContain("saldo");
   });
 
   it("un cupo ocupado sigue siendo creada:false", async () => {

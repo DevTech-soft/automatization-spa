@@ -9,10 +9,11 @@ import { notifyAppointmentConfirmed } from "./notification.service.js";
 import { readAgentPaymentOptions } from "./business-settings.js";
 import { AvailabilityError, NotFoundError, ValidationError } from "../errors/index.js";
 import { assertBusinessOperational } from "./business-guard.js";
-import { businessToday, dateOnlyFromUTCDate, dateOnlyToUTCDate, formatTime12h } from "../utils/datetime.js";
+import { businessToday, dateOnlyFromUTCDate, dateOnlyToUTCDate, formatTime12h, formatDateLong } from "../utils/datetime.js";
 import { normalizePhone } from "../utils/phone.js";
 import { logger } from "../utils/logger.js";
 import { PENDING_EXPIRATION_MINUTES } from "../config/constants.js";
+import { formatMoney } from "../utils/money.js";
 
 /**
  * Capa que expone la lógica de reservas como herramientas del agente
@@ -115,6 +116,22 @@ interface CreatedAppointmentBase {
   inicio: string;
   fin: string;
   precio: number;
+  /**
+   * Confirmación lista para enviar tal cual. La arma el backend porque es el
+   * mensaje que no puede salir mal (código, link, cuánto falta por pagar) y el
+   * modelo, al redactarlo él, llegó a mandar su razonamiento o una frase sin
+   * sentido justo en este paso.
+   */
+  mensajeParaCliente: string;
+}
+
+function appointmentLines(base: Omit<CreatedAppointmentBase, "mensajeParaCliente">): string {
+  return (
+    `- Servicio: *${base.servicio}*\n` +
+    `- Fecha: ${formatDateLong(base.fecha)}\n` +
+    `- Hora: ${base.inicio}\n` +
+    `- Código: *${base.codigo}*`
+  );
 }
 
 export type CreateAgentAppointmentResult =
@@ -175,8 +192,8 @@ export async function createAgentAppointment(
       payAtVenue: input.paymentMode === "local",
     });
 
-    const base: CreatedAppointmentBase = {
-      creada: true,
+    const base = {
+      creada: true as const,
       codigo: appointment.appointmentCode,
       servicio: appointment.service.name,
       fecha: dateOnlyFromUTCDate(appointment.appointmentDate),
@@ -184,6 +201,7 @@ export async function createAgentAppointment(
       fin: formatTime12h(appointment.endTime),
       precio: Number(appointment.price),
     };
+    const currency = business.currency;
 
     if (input.paymentMode === "local") {
       // Ya confirmada: al negocio le llega el aviso de nueva reserva. A quien
@@ -191,7 +209,10 @@ export async function createAgentAppointment(
       void notifyAppointmentConfirmed(appointment.id, { notifyCustomer: false }).catch((error) => {
         logger.error({ error, appointmentId: appointment.id }, "agent_pay_at_venue_notification_failed");
       });
-      return { ...base, modoCobro: "en_local", saldoPendiente: Number(appointment.price) };
+      const mensajeParaCliente =
+        `Listo, tu cita quedó confirmada.\n\n${appointmentLines(base)}\n\n` +
+        `Pagas ${formatMoney(base.precio, currency)} en el local el día de la cita.`;
+      return { ...base, mensajeParaCliente, modoCobro: "en_local", saldoPendiente: base.precio };
     }
 
     const payment = await createPayment({
@@ -200,9 +221,19 @@ export async function createAgentAppointment(
       chargeMode: input.paymentMode === "abono" ? "DEPOSIT" : input.paymentMode === "total" ? "TOTAL" : undefined,
     });
 
+    const isDeposit = payment.chargeMode === "DEPOSIT";
+    const mensajeParaCliente =
+      `Listo, tu cita quedó apartada.\n\n${appointmentLines(base)}\n\n` +
+      (isDeposit
+        ? `Para confirmarla, paga el abono de ${formatMoney(payment.amount, currency)} aquí:\n${payment.paymentUrl}\n\n` +
+          `El saldo de ${formatMoney(payment.pendingBalance ?? 0, currency)} lo pagas en el local el día de la cita. `
+        : `Para confirmarla, paga ${formatMoney(payment.amount, currency)} aquí:\n${payment.paymentUrl}\n\n`) +
+      `El cupo queda apartado por ${PENDING_EXPIRATION_MINUTES} minutos.`;
+
     return {
       ...base,
-      modoCobro: payment.chargeMode === "DEPOSIT" ? "abono" : "total",
+      mensajeParaCliente,
+      modoCobro: isDeposit ? "abono" : "total",
       montoLink: payment.amount,
       saldoPendiente: payment.pendingBalance,
       linkPago: payment.paymentUrl,

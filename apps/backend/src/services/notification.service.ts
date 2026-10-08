@@ -9,16 +9,7 @@ import { digitsOnly } from "../utils/phone.js";
 import { isUniqueConstraintViolation } from "../utils/prisma-errors.js";
 import { logger } from "../utils/logger.js";
 import { readAgentPaymentOptions } from "./business-settings.js";
-
-function formatMoney(amount: number | string, currency: string): string {
-  try {
-    return new Intl.NumberFormat("es-CO", { style: "currency", currency, maximumFractionDigits: 0 }).format(
-      Number(amount),
-    );
-  } catch {
-    return `${amount} ${currency}`;
-  }
-}
+import { formatMoney } from "../utils/money.js";
 
 /**
  * Registra la notificación en `notification_log` ANTES de enviarla: si ya
