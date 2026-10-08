@@ -171,7 +171,7 @@ export function BrandingForm({ branding }: { branding: BusinessBranding }) {
             <Select
               id="vertical"
               name="vertical"
-              value={vertical}
+              defaultValue={branding.vertical}
               onChange={(e) => setVertical(e.target.value as BusinessVertical)}
             >
               {businessVerticals.map((v) => (
