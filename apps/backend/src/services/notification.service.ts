@@ -3,7 +3,7 @@ import { appointmentRepository } from "../repositories/appointment.repository.js
 import { giftCardRepository } from "../repositories/giftCard.repository.js";
 import { notificationLogRepository } from "../repositories/notificationLog.repository.js";
 import { resolveWhatsAppProviderForBusiness } from "./whatsapp-provider-resolver.js";
-import { forwardToAgent, isAgentEnabled, readAgentSettings } from "../integrations/n8n/AgentForwarder.js";
+import { forwardToAgent, isAgentEnabled, readAgentSettings, readBusinessVertical } from "../integrations/n8n/AgentForwarder.js";
 import { dateOnlyFromUTCDate } from "../utils/datetime.js";
 import { digitsOnly } from "../utils/phone.js";
 import { isUniqueConstraintViolation } from "../utils/prisma-errors.js";
@@ -182,13 +182,14 @@ export async function notifyAppointmentCancelled(appointmentId: string): Promise
   if (isAgentEnabled(business.settings)) {
     const instruccion =
       `El negocio canceló la cita ${appointment.appointmentCode} de ${service.name} del ${dateLabel} ` +
-      `a las ${appointment.startTime}. La clienta todavía no lo sabe. Escríbele un mensaje corto avisándole` +
-      (paid ? " y dile que el equipo se pondrá en contacto con ella por el pago que hizo (no prometas reembolso)." : ".") +
+      `a las ${appointment.startTime}. Quien la reservó todavía no lo sabe. Escríbele un mensaje corto avisándole` +
+      (paid ? " y dile que el equipo se pondrá en contacto por el pago que hizo (no prometas reembolso)." : ".") +
       " No menciones ni inventes el motivo. Ofrécele agendar otra fecha si quiere.";
 
     const forwarded = await forwardToAgent({
       businessId: business.id,
       businessName: business.name,
+      vertical: readBusinessVertical(business.settings),
       timezone: business.timezone,
       currency: business.currency,
       // Solo dígitos, como el `wa_id` de los mensajes entrantes: la memoria del

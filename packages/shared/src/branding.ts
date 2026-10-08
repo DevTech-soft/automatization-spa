@@ -1,12 +1,14 @@
 import { z } from "zod";
+import { businessVerticalSchema, type BusinessVertical } from "./verticals.js";
 
 /**
  * Marca por negocio (docs/PANEL-OPERADOR.md §4 y §6.1 paso 2).
  *
  * Dos orígenes distintos, una sola superficie en el panel:
  * - Columnas de `Business`: `logoUrl`, `colorPrimary`, `colorSecondary`.
- * - JSON `Business.settings`: `agentEnabled` y `agent` (la persona con la que
- *   el agente de n8n contesta — ver `AgentForwarder.AgentSettings`).
+ * - JSON `Business.settings`: `agentEnabled`, `vertical` (qué workflow de n8n
+ *   contesta, ver `verticals.ts`) y `agent` (la persona con la que ese agente
+ *   contesta — ver `AgentForwarder.AgentSettings`).
  */
 
 /** Persona/config del agente conversacional. Vive en `business.settings.agent`. */
@@ -29,6 +31,7 @@ export interface BusinessBranding {
   colorPrimary: string | null;
   colorSecondary: string | null;
   agentEnabled: boolean;
+  vertical: BusinessVertical;
   agent: AgentSettings;
 }
 
@@ -62,6 +65,7 @@ export const updateBrandingSchema = z
     colorPrimary: hexColor,
     colorSecondary: hexColor,
     agentEnabled: z.boolean(),
+    vertical: businessVerticalSchema,
     agent: agentSettingsSchema,
   })
   .partial();

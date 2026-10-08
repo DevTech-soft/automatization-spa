@@ -5,12 +5,14 @@ import type { AgentSettings } from "@spa/shared";
  * (docs/PANEL-OPERADOR.md §4), así que nadie debe asumir su forma: este módulo
  * es el único lugar donde se interpreta desde el panel.
  *
- * El runtime del bot lee `agentEnabled`/`agent` por su cuenta en
+ * El runtime del bot lee `agentEnabled`/`vertical`/`agent` por su cuenta en
  * `integrations/n8n/AgentForwarder.ts`; aquí solo se leen y escriben las mismas
  * claves sin tocar el resto del objeto.
  */
 export interface BusinessSettings {
   agentEnabled?: boolean;
+  /** Qué workflow de n8n contesta (`@spa/shared` verticals). Ausente = belleza. */
+  vertical?: string;
   agent?: AgentSettings;
   /** Marcas del checklist que el panel no puede derivar de la data (§6.1). */
   onboarding?: {

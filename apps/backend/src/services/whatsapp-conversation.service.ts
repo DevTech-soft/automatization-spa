@@ -11,7 +11,7 @@ import { getWhatsAppWebhookReader } from "../integrations/whatsapp/index.js";
 import { resolveWhatsAppProviderForBusiness } from "./whatsapp-provider-resolver.js";
 import { recordIncomingMessage } from "./whatsapp-message-log.js";
 import type { InteractiveListRow, WhatsAppProvider } from "../integrations/whatsapp/index.js";
-import { forwardToAgent, isAgentEnabled, readAgentSettings } from "../integrations/n8n/AgentForwarder.js";
+import { forwardToAgent, isAgentEnabled, readAgentSettings, readBusinessVertical } from "../integrations/n8n/AgentForwarder.js";
 import { getAvailability } from "./availability.service.js";
 import { createAppointment } from "./appointment.service.js";
 import { createPayment } from "./payment.service.js";
@@ -107,6 +107,7 @@ export async function handleIncomingWhatsAppMessage(rawPayload: unknown): Promis
     const forwarded = await forwardToAgent({
       businessId: business.id,
       businessName: business.name,
+      vertical: readBusinessVertical(business.settings),
       timezone: business.timezone,
       currency: business.currency,
       phone,

@@ -165,6 +165,7 @@ export async function updateBrandingAction(id: string, _prev: FormState, formDat
     colorSecondary: formData.get("colorSecondary") ?? "",
     // Checkbox: presente = "on", ausente = sin key.
     agentEnabled: formData.get("agentEnabled") === "on",
+    vertical: formData.get("vertical") ?? undefined,
     agent,
   });
   if (!parsed.success) {

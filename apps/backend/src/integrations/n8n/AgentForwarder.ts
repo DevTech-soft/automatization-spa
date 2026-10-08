@@ -1,3 +1,4 @@
+import { readVertical, type BusinessVertical } from "@spa/shared";
 import { env } from "../../config/env.js";
 import { logger } from "../../utils/logger.js";
 
@@ -10,6 +11,9 @@ import { logger } from "../../utils/logger.js";
  * parseado y con el tenant resuelto a un payload plano, para que el agente no
  * tenga que volver a interpretar el formato de Meta ni enrutar por
  * phone_number_id.
+ *
+ * Hay un workflow por vertical (belleza, salud, barbería…): el vertical del
+ * negocio elige a qué webhook va el mensaje (ver `resolveAgentWebhookUrl`).
  */
 
 /** Config del agente que vive en `business.settings.agent` (columna Json). */
@@ -48,6 +52,8 @@ export interface AgentEvent {
 export interface AgentForwardPayload {
   businessId: string;
   businessName: string;
+  /** Elige el workflow destino; viaja también para que el workflow lo sepa. */
+  vertical: BusinessVertical;
   timezone: string;
   currency: string;
   /** Número normalizado de quien escribe (wa_id de Meta). */
@@ -64,11 +70,26 @@ export interface AgentForwardPayload {
 
 interface BusinessSettingsShape {
   agentEnabled?: unknown;
+  vertical?: unknown;
   agent?: unknown;
 }
 
 function readSettings(settings: unknown): BusinessSettingsShape {
   return settings && typeof settings === "object" ? (settings as BusinessSettingsShape) : {};
+}
+
+export function readBusinessVertical(settings: unknown): BusinessVertical {
+  return readVertical(readSettings(settings).vertical);
+}
+
+/**
+ * Webhook del workflow de ese vertical. Un vertical sin entrada propia en
+ * N8N_AGENT_WEBHOOKS cae a N8N_AGENT_WEBHOOK_URL —el agente de belleza, el
+ * único que existía antes de los verticales—, así que configurar solo esa
+ * variable sigue funcionando como siempre.
+ */
+export function resolveAgentWebhookUrl(vertical: BusinessVertical): string | undefined {
+  return env.N8N_AGENT_WEBHOOKS[vertical] || env.N8N_AGENT_WEBHOOK_URL || undefined;
 }
 
 /**
@@ -77,7 +98,7 @@ function readSettings(settings: unknown): BusinessSettingsShape {
  * a la vez sin tocar a los demás.
  */
 export function isAgentEnabled(settings: unknown): boolean {
-  if (!env.N8N_AGENT_WEBHOOK_URL) {
+  if (!resolveAgentWebhookUrl(readBusinessVertical(settings))) {
     return false;
   }
   return readSettings(settings).agentEnabled === true;
@@ -95,7 +116,7 @@ export function readAgentSettings(settings: unknown): AgentSettings {
  * conversación, no la corta.
  */
 export async function forwardToAgent(payload: AgentForwardPayload): Promise<boolean> {
-  const url = env.N8N_AGENT_WEBHOOK_URL;
+  const url = resolveAgentWebhookUrl(payload.vertical);
   if (!url) {
     return false;
   }
@@ -113,7 +134,7 @@ export async function forwardToAgent(payload: AgentForwardPayload): Promise<bool
 
     if (!response.ok) {
       logger.error(
-        { status: response.status, businessId: payload.businessId },
+        { status: response.status, businessId: payload.businessId, vertical: payload.vertical },
         "agent_forward_rejected",
       );
       return false;
@@ -122,7 +143,7 @@ export async function forwardToAgent(payload: AgentForwardPayload): Promise<bool
     logger.info({ businessId: payload.businessId, phone: payload.phone }, "agent_forward_ok");
     return true;
   } catch (error) {
-    logger.error({ error, businessId: payload.businessId }, "agent_forward_failed");
+    logger.error({ error, businessId: payload.businessId, vertical: payload.vertical }, "agent_forward_failed");
     return false;
   }
 }

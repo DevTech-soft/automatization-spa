@@ -17,6 +17,7 @@ vi.mock("../../src/integrations/n8n/AgentForwarder.js", () => ({
   forwardToAgent: vi.fn(),
   isAgentEnabled: vi.fn().mockReturnValue(false),
   readAgentSettings: vi.fn().mockReturnValue({ nombreAgente: "Valentina" }),
+  readBusinessVertical: vi.fn().mockReturnValue("salud"),
 }));
 
 const { appointmentRepository } = await import("../../src/repositories/appointment.repository.js");
@@ -183,6 +184,8 @@ describe("notifyAppointmentCancelled", () => {
     const payload = vi.mocked(forwardToAgent).mock.calls[0]![0];
     expect(payload).toMatchObject({
       businessId: "biz-1",
+      // El vertical del negocio elige el workflow de n8n que redacta el aviso.
+      vertical: "salud",
       // Mismo formato que el `wa_id` entrante: misma memoria de conversación.
       phone: "573001112233",
       agent: { nombreAgente: "Valentina" },

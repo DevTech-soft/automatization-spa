@@ -1,4 +1,4 @@
-import type { AgentSettings, BusinessBranding, UpdateBrandingInput } from "@spa/shared";
+import { readVertical, type AgentSettings, type BusinessBranding, type UpdateBrandingInput } from "@spa/shared";
 import type { Prisma } from "@spa/db";
 import {
   adminBusinessRepository,
@@ -24,6 +24,7 @@ function toBranding(row: AdminBusinessBrandingRow): BusinessBranding {
     colorPrimary: row.colorPrimary,
     colorSecondary: row.colorSecondary,
     agentEnabled: settings.agentEnabled === true,
+    vertical: readVertical(settings.vertical),
     agent: readAgent(row.settings),
   };
 }
@@ -57,6 +58,9 @@ export async function updateBranding(
 
   if (input.agentEnabled !== undefined) {
     nextSettings.agentEnabled = input.agentEnabled;
+  }
+  if (input.vertical !== undefined) {
+    nextSettings.vertical = input.vertical;
   }
   if (input.agent) {
     const merged = mergeTextPatch(readAgent(before.settings) as Record<string, string | undefined>, input.agent);

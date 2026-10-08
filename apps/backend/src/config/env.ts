@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { z } from "zod";
+import { businessVerticalSchema } from "@spa/shared";
 
 /**
  * URL de entorno tolerante al copy/paste: recorta espacios y la barra final
@@ -134,6 +135,24 @@ const envSchema = z.object({
    * En Railway apunta a la red privada: http://n8n.railway.internal:5678/webhook/<id>
    */
   N8N_AGENT_WEBHOOK_URL: urlEnv().optional().or(z.literal("")),
+  /**
+   * Un workflow de n8n por vertical (docs/AGENTE-N8N.md § Verticales): JSON
+   * `{"salud":"http://n8n.railway.internal:5678/webhook/agente-salud", ...}`.
+   * Un vertical sin entrada usa N8N_AGENT_WEBHOOK_URL (el agente de belleza).
+   */
+  N8N_AGENT_WEBHOOKS: z.preprocess(
+    (value) => {
+      if (typeof value !== "string" || value.trim() === "") return {};
+      try {
+        return JSON.parse(value);
+      } catch {
+        return value; // deja que zod lo rechace con un mensaje legible
+      }
+    },
+    z.record(businessVerticalSchema, urlEnv(), {
+      invalid_type_error: 'N8N_AGENT_WEBHOOKS debe ser un objeto JSON, ej. {"salud":"http://..."}.',
+    }),
+  ),
   /**
    * Secreto compartido con n8n. Viaja en `X-Agent-Token` en el reenvío hacia
    * n8n, y de vuelta como `Authorization: Bearer` en /internal/agent/*. Si no

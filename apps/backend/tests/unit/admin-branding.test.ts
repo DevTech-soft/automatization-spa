@@ -82,6 +82,25 @@ describe("admin-branding.service", () => {
     );
   });
 
+  it("un negocio sin vertical guardado se reporta como belleza", async () => {
+    vi.mocked(adminBusinessRepository.findBranding).mockResolvedValue(row());
+    await expect(getBranding(ID)).resolves.toMatchObject({ vertical: "belleza" });
+  });
+
+  it("guarda el vertical en settings sin tocar el resto", async () => {
+    vi.mocked(adminBusinessRepository.findBranding).mockResolvedValue(
+      row({ settings: { agentEnabled: true, agent: { ciudad: "Cali" } } }),
+    );
+    vi.mocked(adminBusinessRepository.updateBranding).mockResolvedValue(
+      row({ settings: { agentEnabled: true, vertical: "salud", agent: { ciudad: "Cali" } } }),
+    );
+
+    await expect(updateBranding(ID, { vertical: "salud" }, "op-1")).resolves.toMatchObject({ vertical: "salud" });
+
+    const [, data] = vi.mocked(adminBusinessRepository.updateBranding).mock.calls[0]!;
+    expect(data.settings).toEqual({ agentEnabled: true, vertical: "salud", agent: { ciudad: "Cali" } });
+  });
+
   it("un agent que queda vacío se elimina de settings", async () => {
     vi.mocked(adminBusinessRepository.findBranding).mockResolvedValue(
       row({ settings: { agent: { ciudad: "Cali" } } }),

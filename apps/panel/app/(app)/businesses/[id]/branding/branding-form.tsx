@@ -2,17 +2,24 @@
 
 import { useActionState, useState } from "react";
 import { Bot, ImageOff } from "lucide-react";
-import type { AgentSettings, BusinessBranding } from "@spa/shared";
+import {
+  businessVerticals,
+  verticalLabels,
+  type AgentSettings,
+  type BusinessBranding,
+  type BusinessVertical,
+} from "@spa/shared";
 import { Card, SectionCard } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Field, FormAlert, SubmitButton } from "@/components/ui/form-field";
 import { updateBrandingAction, type FormState } from "../../actions";
 
 /** Etiqueta y tipo de control de cada campo de la persona del agente. */
 const AGENT_FIELDS: { key: keyof AgentSettings; label: string; long?: boolean; hint?: string }[] = [
-  { key: "nombreAgente", label: "Nombre del agente", hint: "Con quién cree hablar la clienta." },
-  { key: "tipoNegocio", label: "Tipo de negocio", hint: "Spa, salón de uñas, barbería…" },
+  { key: "nombreAgente", label: "Nombre del agente", hint: "Con quién cree hablar el cliente." },
+  { key: "tipoNegocio", label: "Tipo de negocio", hint: "Cómo se presenta: spa, consultorio odontológico, veterinaria…" },
   { key: "ciudad", label: "Ciudad" },
   { key: "nombreEncargada", label: "Encargada / contacto humano" },
   { key: "horarioTexto", label: "Horario (en palabras)", long: true },
@@ -93,6 +100,7 @@ export function BrandingForm({ branding }: { branding: BusinessBranding }) {
   const [logoUrl, setLogoUrl] = useState(branding.logoUrl ?? "");
   const [primary, setPrimary] = useState(branding.colorPrimary ?? "");
   const [secondary, setSecondary] = useState(branding.colorSecondary ?? "");
+  const [vertical, setVertical] = useState<BusinessVertical>(branding.vertical);
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
@@ -153,6 +161,26 @@ export function BrandingForm({ branding }: { branding: BusinessBranding }) {
               </span>
             </span>
           </label>
+
+          <Field
+            name="vertical"
+            label="Vertical del agente"
+            errors={errors}
+            hint={`${verticalLabels[vertical].hint} Cada vertical contesta con su propio workflow de n8n.`}
+          >
+            <Select
+              id="vertical"
+              name="vertical"
+              value={vertical}
+              onChange={(e) => setVertical(e.target.value as BusinessVertical)}
+            >
+              {businessVerticals.map((v) => (
+                <option key={v} value={v}>
+                  {verticalLabels[v].label}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
           <div className="grid gap-4 sm:grid-cols-2">
             {AGENT_FIELDS.map(({ key, label, long, hint }) => (
