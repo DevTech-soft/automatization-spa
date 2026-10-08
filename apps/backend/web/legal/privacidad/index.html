@@ -27,7 +27,7 @@
       <main>
         <h1 class="legal-title">Política de privacidad</h1>
         <p class="legal-meta">
-          Vigente desde el 1 de septiembre de 2026 · Aplica a la aplicación Automatizaciones y al sitio
+          Vigente desde el 8 de octubre de 2026 · Aplica a la aplicación Automatizaciones y al sitio
           devtechsol.dpdns.org
         </p>
 
@@ -176,10 +176,20 @@
             <li>Facturar el servicio y atender obligaciones contables y legales.</li>
           </ul>
 
+          <h3>Asistente conversacional con inteligencia artificial</h3>
           <p>
-            La automatización responde con base en reglas y plantillas de mensaje predefinidas. No se emplea inteligencia
-            artificial ni modelos de lenguaje para procesar las conversaciones, y el contenido de los mensajes no se usa
-            para entrenar modelos ni se cede a terceros con ese fin.
+            Cuando el negocio activa el asistente conversacional, el texto de los mensajes y los datos necesarios para
+            responder (servicios, horarios disponibles y datos de la reserva en curso) se procesan con un modelo de
+            lenguaje de OpenAI, que interpreta lo que escribe el usuario y redacta la respuesta. Las acciones —consultar
+            disponibilidad, crear una cita, generar el link de pago— las ejecuta siempre el sistema con sus propias
+            reglas: el modelo no fija precios ni accede a datos de otros negocios. Si el usuario lo pregunta, el
+            asistente indica que es un asistente virtual y puede pasar la conversación a una persona del equipo.
+          </p>
+          <p>
+            El contenido de las conversaciones no se usa para entrenar modelos propios ni se cede a terceros con ese fin.
+            Según las condiciones de OpenAI para su API, ese contenido tampoco se usa para entrenar sus modelos. Si el
+            negocio no activa el asistente, la automatización responde con reglas y menús predefinidos, sin inteligencia
+            artificial.
           </p>
         </section>
 
@@ -236,8 +246,19 @@
                 <td>Transporte de los mensajes de WhatsApp y gestión de la cuenta empresarial.</td>
               </tr>
               <tr>
+                <td>OpenAI, L.L.C.</td>
+                <td>
+                  Modelo de lenguaje que interpreta los mensajes y redacta las respuestas del asistente conversacional,
+                  cuando el negocio lo activa.
+                </td>
+              </tr>
+              <tr>
                 <td>Railway Corp.</td>
-                <td>Alojamiento de la aplicación y ejecución del servidor.</td>
+                <td>Alojamiento de la aplicación, del motor de automatización y ejecución del servidor.</td>
+              </tr>
+              <tr>
+                <td>Vercel Inc.</td>
+                <td>Alojamiento del panel de administración que usan los negocios.</td>
               </tr>
               <tr>
                 <td>Supabase, Inc.</td>
