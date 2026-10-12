@@ -18,10 +18,19 @@ Repo gestionado con **pnpm workspaces + Turborepo** (ver `docs/PANEL-OPERADOR.md
 ```
 apps/
   backend/   API Fastify (webhooks, agente, pagos, gift cards, jobs) — @spa/backend
-  panel/     (pendiente F3) panel de operador + portal de cliente en Next.js
+             Railway: proyecto trs-reservas, servicio spa-mvp
+  panel/     panel de operador multi-cliente (CRM) en Next.js — @spa/panel
+             Vercel: proyecto autimatizacion-panel
 packages/
   db/        schema Prisma, migraciones y tipos de datos compartidos — @spa/db
+  shared/    schemas zod y DTOs compartidos entre backend y panel — @spa/shared
+docs/
+  agentes/   workflows de n8n exportados, uno por vertical (belleza, salud,
+             barberia, mascotas, generico)
 ```
+
+Este repo contiene solo el producto de reservas. La página de la agencia
+(antes `apps/landing`) vive en su propio repo, `trsoftware-web`.
 
 El backend es el único con acceso a Postgres; importa el cliente y los tipos de
 Prisma desde `@spa/db` (que envuelve `@prisma/client`). El schema y las

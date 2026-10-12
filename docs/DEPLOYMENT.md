@@ -14,8 +14,11 @@ base de datos.
 
 Ya desplegado y verificado en vivo:
 
-- Proyecto Railway `spa-mvp` (workspace `DevTech-soft`), servicio único
-  (Dockerfile), apuntando al Supabase real del proyecto.
+- Proyecto Railway `trs-reservas` (antes `spa-mvp`; workspace `DevTech-soft`).
+  La API es el servicio `spa-mvp` (Dockerfile), apuntando al Supabase real del
+  proyecto; en el mismo proyecto corren `n8n` y su base `n8n-db`. Renombrar el
+  proyecto no cambia las direcciones internas (`*.railway.internal`), que
+  dependen del nombre de cada servicio.
 - Dominio: `https://app.devtechsol.dpdns.org` (CNAME en DigitalPlat DNS; el de
   Railway, `https://spa-mvp-production.up.railway.app`, sigue activo y es el que
   usan los webhooks de WhatsApp y Wompi) — `/health` responde
