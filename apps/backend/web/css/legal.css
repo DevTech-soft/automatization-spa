@@ -4,12 +4,12 @@
    No depende de ninguna librería ni de recursos externos. */
 
 .legal-root {
-  --ink: #1c1f26;
-  --ink-muted: #5a6270;
-  --rule: #e3e1dd;
+  --ink: #16233f;
+  --ink-muted: #5b6577;
+  --rule: #d7dce4;
   --surface: #ffffff;
-  --surface-sunk: #f6f5f3;
-  --accent: #2f5d50;
+  --surface-sunk: #eef1f5;
+  --accent: #16233f;
 
   --serif: "Iowan Old Style", "Charter", "Bitstream Charter", Georgia, "Times New Roman", serif;
   --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
